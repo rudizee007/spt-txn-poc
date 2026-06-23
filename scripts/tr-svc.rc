@@ -1,0 +1,25 @@
+#!/bin/ksh
+# /etc/rc.d/tr-svc — SPT-Txn Travel Rule service (ZK attestation + verification).
+#
+# Install:
+#   doas cp scripts/tr-svc.rc /etc/rc.d/tr-svc
+#   doas chmod 555 /etc/rc.d/tr-svc
+#   doas rcctl enable tr-svc
+#   doas rcctl start tr-svc
+#
+# Requires the ZK keys at /var/spt-txn/zk (run cmd/zk-setup once), readable by
+# the service user. Listens on 127.0.0.1:8085; relayd forwards /travel/verify and
+# /travel/health publicly. /travel/attest stays local (it is CPU-heavy proving —
+# the originator VASP's own operation — and is not exposed to the network).
+
+daemon="/usr/local/bin/tr-svc"
+daemon_user="_sptbv"
+daemon_flags=""
+daemon_timeout=30
+
+. /etc/rc.d/rc.subr
+
+rc_bg=YES
+rc_reload=NO
+
+rc_cmd "$1"

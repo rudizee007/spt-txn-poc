@@ -1,0 +1,28 @@
+#!/bin/ksh
+# /etc/rc.d/trruleb — SPT-Txn Travel Rule BENEFICIARY VASP service.
+#
+# Verifies inbound TRP transfers from originator VASPs. Verify-only: it loads
+# only the ZK verifying keys (never the proving keys) and the originator's
+# SD-JWT *public* key — it cannot forge attestations, only check them.
+#
+# Listens on 127.0.0.1:8085; relayd forwards the public Travel Rule endpoints
+# (/travel/verify, /travel/health, /trp/transfer) to this backend. Runs as
+# _sptbv, which can read the 0644 SD-JWT public key but not the 0600 signing key.
+#
+# Install:
+#   doas cp scripts/trruleb.rc /etc/rc.d/trruleb
+#   doas chmod 555 /etc/rc.d/trruleb
+#   doas rcctl enable trruleb
+#   doas rcctl start trruleb
+
+daemon="/usr/local/bin/tr-svc"
+daemon_user="_sptbv"
+daemon_flags="-role beneficiary -addr 127.0.0.1:8085"
+daemon_timeout=30
+
+. /etc/rc.d/rc.subr
+
+rc_bg=YES
+rc_reload=NO
+
+rc_cmd "$1"

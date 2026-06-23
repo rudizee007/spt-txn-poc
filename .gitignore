@@ -1,0 +1,31 @@
+# ── OS / editor ──────────────────────────────────────────────────────────
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# ── Secrets & keys — NEVER commit (these live on the host only) ───────────
+*.sec
+*.key
+*.pem
+*.p12
+id_rsa*
+id_ed25519*
+secring*
+sdjwt.*
+
+# ── ZK trusted-setup artifacts (regenerate with cmd/zk-setup; large) ──────
+*.pk
+*.vk
+*.ccs
+zk/
+
+# ── Crash dumps ──────────────────────────────────────────────────────────
+*.core
+
+# ── Go build output ──────────────────────────────────────────────────────
+/tr-svc
+/spt-poc
+/bin/
+*.test
+*.out

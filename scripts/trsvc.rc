@@ -1,0 +1,32 @@
+#!/bin/ksh
+# /etc/rc.d/trsvc — rc.d script for the SPT-Txn Trust Registry service.
+# Install: doas cp scripts/trsvc.rc /etc/rc.d/trsvc
+#          doas chmod 555 /etc/rc.d/trsvc
+#          doas rcctl enable trsvc
+#          doas rcctl start trsvc
+
+daemon="/usr/local/bin/trsvc"
+daemon_user="_spttr"
+daemon_flags=""
+daemon_timeout=30
+
+. /etc/rc.d/rc.subr
+
+rc_bg=YES
+rc_reload=NO
+
+rc_start() {
+    # Ensure socket directory and DB directory exist and are owned by _spttr
+    install -d -o _spttr -g _sptcommon -m 770 /var/spt-txn/sockets
+    install -d -o _spttr -g _sptcommon -m 770 /var/spt-txn/tr
+
+    rc_exec "${daemon} ${daemon_flags}"
+}
+
+rc_stop() {
+    pkill -TERM -u _spttr trsvc
+    # Remove stale socket
+    rm -f /var/spt-txn/sockets/tr.sock
+}
+
+rc_cmd "$1"

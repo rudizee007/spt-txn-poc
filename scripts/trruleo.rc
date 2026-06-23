@@ -1,0 +1,27 @@
+#!/bin/ksh
+# /etc/rc.d/trruleo — SPT-Txn Travel Rule ORIGINATOR VASP service.
+#
+# Builds the zero-knowledge attestation and originates TRP transfers to
+# beneficiary VASPs. Holds the SD-JWT signing key (private to _spttr, the owner
+# of /var/spt-txn/tr) and the full ZK proving keys.
+#
+# Listens on 127.0.0.1:8086 and is NOT exposed by relayd: attestation/origination
+# is the VASP's own operation, triggered internally, never by remote peers.
+#
+# Install:
+#   doas cp scripts/trruleo.rc /etc/rc.d/trruleo
+#   doas chmod 555 /etc/rc.d/trruleo
+#   doas rcctl enable trruleo
+#   doas rcctl start trruleo
+
+daemon="/usr/local/bin/tr-svc"
+daemon_user="_spttr"
+daemon_flags="-role originator -addr 127.0.0.1:8086"
+daemon_timeout=60
+
+. /etc/rc.d/rc.subr
+
+rc_bg=YES
+rc_reload=NO
+
+rc_cmd "$1"

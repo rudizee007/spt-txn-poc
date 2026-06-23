@@ -1,0 +1,23 @@
+#!/bin/ksh
+# /etc/rc.d/catsvc — CAT Issuer service for SPT-Txn POC
+
+daemon="/usr/local/bin/catsvc"
+daemon_user="_sptaw"
+daemon_flags=""
+daemon_timeout=30
+
+. /etc/rc.d/rc.subr
+
+rc_bg=YES
+rc_reload=NO
+
+rc_start() {
+    install -d -o _sptaw -g _sptcommon -m 770 /var/spt-txn/a
+    rc_exec "${daemon} ${daemon_flags}"
+}
+
+rc_stop() {
+    pkill -TERM -u _sptaw catsvc
+}
+
+rc_cmd "$1"

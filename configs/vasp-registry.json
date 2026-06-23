@@ -1,0 +1,11 @@
+{
+  "vasps": [
+    "vasp:violet-sky-sezc",
+    "vasp:beneficiary-bank",
+    "vasp:acme-exchange",
+    "vasp:globex-custody",
+    "vasp:initech-payments",
+    "vasp:wayne-digital-assets",
+    "vasp:stark-treasury"
+  ]
+}
