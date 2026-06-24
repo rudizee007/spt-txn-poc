@@ -1,0 +1,262 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "serialNumber": "urn:uuid:5b1e8a30-7c2f-4d61-9a3e-0c7c0a2f1a01",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-06-24T00:00:00Z",
+    "lifecycles": [{ "phase": "operations" }],
+    "component": {
+      "type": "application",
+      "bom-ref": "spt-txn-poc",
+      "name": "spt-txn-poc",
+      "version": "0.2.0",
+      "description": "SPT-Txn privacy-preserving authorization + FATF Travel Rule (Go, OpenBSD). Crypto-agile by design.",
+      "publisher": "Violet Sky Security SEZC"
+    },
+    "properties": [
+      { "name": "cbom:driver", "value": "US Executive Order 14409 (2026-06-22) — CBOM minimum elements; PQC deadlines 2030/2031" },
+      { "name": "cbom:migration-principle", "value": "Triage by data lifetime: migrate long-lived/retained first; defer ephemeral tokens and verified-once proofs." }
+    ]
+  },
+  "components": [
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "crypto/ed25519",
+      "name": "Ed25519",
+      "cryptoProperties": {
+        "assetType": "algorithm",
+        "algorithmProperties": {
+          "primitive": "signature",
+          "parameterSetIdentifier": "Ed25519",
+          "curve": "edwards25519",
+          "executionEnvironment": "software-plain-ram",
+          "implementationPlatform": "x86_64",
+          "cryptoFunctions": ["keygen", "sign", "verify"],
+          "classicalSecurityLevel": 128,
+          "nistQuantumSecurityLevel": 0
+        },
+        "oid": "1.3.101.112"
+      },
+      "properties": [
+        { "name": "spt:usedFor", "value": "CAT/SD-JWT signing; VASP-registry signed roots; audit log; SPT-Txn token; signify keys" },
+        { "name": "spt:status", "value": "deployed" },
+        { "name": "spt:pqPriority", "value": "high (long-lived) / low (ephemeral token)" },
+        { "name": "spt:migrationTarget", "value": "ML-DSA-65 (FIPS 204), hybrid" }
+      ]
+    },
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "crypto/x25519-ecies",
+      "name": "X25519 + ECIES",
+      "cryptoProperties": {
+        "assetType": "algorithm",
+        "algorithmProperties": {
+          "primitive": "kem",
+          "parameterSetIdentifier": "X25519/ECIES",
+          "curve": "curve25519",
+          "executionEnvironment": "software-plain-ram",
+          "implementationPlatform": "x86_64",
+          "cryptoFunctions": ["keygen", "encapsulate", "decapsulate"],
+          "classicalSecurityLevel": 128,
+          "nistQuantumSecurityLevel": 0
+        }
+      },
+      "properties": [
+        { "name": "spt:usedFor", "value": "escrow envelope (lawful deanonymization, 5-7 yr retention)" },
+        { "name": "spt:status", "value": "deployed" },
+        { "name": "spt:pqPriority", "value": "high (harvest-now-decrypt-later)" },
+        { "name": "spt:migrationTarget", "value": "ML-KEM-768 (FIPS 203), hybrid" }
+      ]
+    },
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "crypto/groth16-bn254",
+      "name": "Groth16 zk-SNARK over BN254",
+      "cryptoProperties": {
+        "assetType": "algorithm",
+        "algorithmProperties": {
+          "primitive": "other",
+          "parameterSetIdentifier": "Groth16",
+          "curve": "BN254",
+          "executionEnvironment": "software-plain-ram",
+          "implementationPlatform": "x86_64",
+          "cryptoFunctions": ["other"],
+          "classicalSecurityLevel": 100,
+          "nistQuantumSecurityLevel": 0
+        }
+      },
+      "properties": [
+        { "name": "spt:usedFor", "value": "Travel Rule ZK proofs: identity commitment, amount-over-threshold, VASP membership" },
+        { "name": "spt:status", "value": "deployed" },
+        { "name": "spt:pqPriority", "value": "low (proofs verified once, discarded)" },
+        { "name": "spt:migrationTarget", "value": "transparent/PQ proving (STARK or lattice, e.g. LaBRADOR/Greyhound) — roadmap" },
+        { "name": "spt:note", "value": "BLS12-381 (~128-bit) available as high-assurance config; BN254 default for speed + EVM precompiles" }
+      ]
+    },
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "crypto/poseidon2",
+      "name": "Poseidon2",
+      "cryptoProperties": {
+        "assetType": "algorithm",
+        "algorithmProperties": {
+          "primitive": "hash",
+          "parameterSetIdentifier": "Poseidon2/BN254-Fr",
+          "executionEnvironment": "software-plain-ram",
+          "implementationPlatform": "x86_64",
+          "cryptoFunctions": ["digest"],
+          "classicalSecurityLevel": 127,
+          "nistQuantumSecurityLevel": 2
+        }
+      },
+      "properties": [
+        { "name": "spt:usedFor", "value": "humanAnchor + amount commitments; VASP Merkle tree" },
+        { "name": "spt:status", "value": "deployed (migrated from MiMC 2026-06-24)" },
+        { "name": "spt:pqPriority", "value": "low (hash; Grover-only)" }
+      ]
+    },
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "crypto/sha-256",
+      "name": "SHA-256",
+      "cryptoProperties": {
+        "assetType": "algorithm",
+        "algorithmProperties": {
+          "primitive": "hash",
+          "parameterSetIdentifier": "SHA-256",
+          "cryptoFunctions": ["digest"],
+          "classicalSecurityLevel": 128,
+          "nistQuantumSecurityLevel": 2
+        },
+        "oid": "2.16.840.1.101.3.4.2.1"
+      },
+      "properties": [
+        { "name": "spt:usedFor", "value": "audit-log Merkle root; general hashing" },
+        { "name": "spt:status", "value": "deployed" },
+        { "name": "spt:pqPriority", "value": "low" }
+      ]
+    },
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "crypto/aes-256-gcm",
+      "name": "AES-256-GCM",
+      "cryptoProperties": {
+        "assetType": "algorithm",
+        "algorithmProperties": {
+          "primitive": "ae",
+          "parameterSetIdentifier": "AES-256",
+          "mode": "gcm",
+          "cryptoFunctions": ["encrypt", "decrypt", "tag"],
+          "classicalSecurityLevel": 256,
+          "nistQuantumSecurityLevel": 1
+        },
+        "oid": "2.16.840.1.101.3.4.1.46"
+      },
+      "properties": [
+        { "name": "spt:usedFor", "value": "TLS 1.3 transport (relayd); TRISA SecureEnvelope payload" },
+        { "name": "spt:status", "value": "deployed (TLS) / designed (TRISA)" },
+        { "name": "spt:pqPriority", "value": "none — PQ-OK at NIST level 1" }
+      ]
+    },
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "crypto/hmac-sha-256",
+      "name": "HMAC-SHA-256",
+      "cryptoProperties": {
+        "assetType": "algorithm",
+        "algorithmProperties": {
+          "primitive": "mac",
+          "parameterSetIdentifier": "HMAC-SHA-256",
+          "cryptoFunctions": ["tag"],
+          "classicalSecurityLevel": 128,
+          "nistQuantumSecurityLevel": 2
+        }
+      },
+      "properties": [
+        { "name": "spt:usedFor", "value": "TRISA SecureEnvelope integrity" },
+        { "name": "spt:status", "value": "designed" },
+        { "name": "spt:pqPriority", "value": "low" }
+      ]
+    },
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "crypto/tls-1.3",
+      "name": "TLS 1.3",
+      "cryptoProperties": {
+        "assetType": "protocol",
+        "protocolProperties": {
+          "type": "tls",
+          "version": "1.3",
+          "cipherSuites": [
+            { "name": "TLS_AES_256_GCM_SHA384" }
+          ]
+        }
+      },
+      "properties": [
+        { "name": "spt:usedFor", "value": "relayd edge termination (X25519 KEX + AES-256-GCM + SHA-384)" },
+        { "name": "spt:status", "value": "deployed" },
+        { "name": "spt:pqPriority", "value": "high (transport key exchange)" },
+        { "name": "spt:migrationTarget", "value": "hybrid X25519 + ML-KEM (IETF TLS PQC)" }
+      ]
+    },
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "crypto/rsa-leaf-cert",
+      "name": "RSA (Let's Encrypt X.509)",
+      "cryptoProperties": {
+        "assetType": "algorithm",
+        "algorithmProperties": {
+          "primitive": "signature",
+          "parameterSetIdentifier": "RSA",
+          "cryptoFunctions": ["sign", "verify"],
+          "classicalSecurityLevel": 128,
+          "nistQuantumSecurityLevel": 0
+        },
+        "oid": "1.2.840.113549.1.1.1"
+      },
+      "properties": [
+        { "name": "spt:usedFor", "value": "edge TLS server certificate (foss.violetskysecurity.com)" },
+        { "name": "spt:status", "value": "deployed" },
+        { "name": "spt:pqPriority", "value": "medium" },
+        { "name": "spt:migrationTarget", "value": "PQ certificate when CA + browser ecosystem supports" }
+      ]
+    },
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "crypto/ml-dsa-65",
+      "name": "ML-DSA-65 (Dilithium)",
+      "cryptoProperties": {
+        "assetType": "algorithm",
+        "algorithmProperties": {
+          "primitive": "signature",
+          "parameterSetIdentifier": "ML-DSA-65",
+          "cryptoFunctions": ["keygen", "sign", "verify"],
+          "nistQuantumSecurityLevel": 3
+        }
+      },
+      "properties": [
+        { "name": "spt:usedFor", "value": "PQ migration target for Ed25519 (hybrid) on long-lived signatures" },
+        { "name": "spt:status", "value": "planned" }
+      ]
+    },
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "crypto/ml-kem-768",
+      "name": "ML-KEM-768 (Kyber)",
+      "cryptoProperties": {
+        "assetType": "algorithm",
+        "algorithmProperties": {
+          "primitive": "kem",
+          "parameterSetIdentifier": "ML-KEM-768",
+          "cryptoFunctions": ["keygen", "encapsulate", "decapsulate"],
+          "nistQuantumSecurityLevel": 3
+        }
+      },
+      "properties": [
+        { "name": "spt:usedFor", "value": "PQ migration target for X25519/ECIES (hybrid) on escrow + TLS KEX" },
+        { "name": "spt:status", "value": "planned" }
+      ]
+    }
+  ]
+}

@@ -23,9 +23,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
+	"crypto/sha512"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -344,6 +347,18 @@ func loadSignifyKey(path string) (ed25519.PrivateKey, ed25519.PublicKey, error) 
 	}
 	if string(raw[0:2]) != "Ed" {
 		return nil, nil, fmt.Errorf("unexpected algorithm: %q", raw[0:2])
+	}
+	// H5: reject passphrase-encrypted keys. This service has no passphrase
+	// handling; signify marks an unencrypted key with kdfrounds == 0. Slicing an
+	// encrypted key would silently yield a wrong signing key.
+	if rounds := binary.BigEndian.Uint32(raw[4:8]); rounds != 0 {
+		return nil, nil, fmt.Errorf("signify key is passphrase-encrypted (kdfrounds=%d); only unencrypted keys are supported", rounds)
+	}
+	// H5: verify the embedded checksum — the first 8 bytes of SHA-512 over the
+	// 64-byte secret key — so a corrupted or wrong key is rejected, not used.
+	sum := sha512.Sum512(raw[40:104])
+	if !bytes.Equal(sum[:8], raw[24:32]) {
+		return nil, nil, fmt.Errorf("signify key checksum mismatch (corrupted or wrong key)")
 	}
 
 	privKey := ed25519.PrivateKey(raw[40:104])

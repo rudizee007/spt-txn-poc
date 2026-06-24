@@ -1,53 +1,88 @@
-# SPT-Txn Proof of Concept
+# SPT-Txn — Privacy-Preserving Compliance & Travel Rule Authorization (Reference POC)
 
-A reference implementation of `draft-coetzee-oauth-spt-txn-tokens-01` for
-`foss.violetskysecurity.com`, demonstrating cross-domain SPT-Txn token issuance
-and verification with a combined human-plus-agent holder flow.
+SPT-Txn verifies compliance **once** and proves it **everywhere**, in zero
+knowledge — so regulated institutions and VASPs can transact, tokenise, and settle
+on-chain without exposing PII. A user holds a **Compliance Attestation Token
+(CAT)** (a W3C Verifiable Credential bound to a zero-knowledge identity commitment,
+**zkDID/humanAnchor**); a platform checks a ZK proof of the CAT against a policy and
+issues a scope-bounded **Capability Token (CT)**; each action emits a
+transaction-bound **SPT-Txn token**. For inter-VASP transfers it carries a
+payload-level **FATF Travel Rule** ZK attestation. No PII on the wire; no native
+token; blockchain-agnostic (XRPL is the primary integration target).
 
-## Scope of this POC
+> **Status: working, security-audited reference implementation** — not a skeleton,
+> and not yet production. Deployed and running on a hardened OpenBSD host with a
+> live two-party Travel Rule demo. See the roadmap below for what production needs.
 
-- **Two trust domains** (Domain A: AuthOrg, Domain B: ExecOrg), both running on
-  the same OpenBSD host, separated by services / users / keys / audit logs.
-- **Combined holder flow**: a human user authenticates and obtains an SD-JWT
-  in their wallet, then delegates a Capability Acquisition Token to an AI
-  agent which executes the cross-domain transaction.
-- **Mock Trust Registry first** (SQLite-backed), with the same interface
-  used later by an EVM testnet Trust Registry implementation.
-- **Reference verifier** implementing the eight-step enforcement engine from
-  Section 3.3 of the draft.
-- **Audit log** with Merkle-root publication.
+## What's built and running
 
-## What this POC is NOT
+- **Real zero-knowledge** — Groth16/BN254 circuits (identity commitment,
+  amount-over-threshold, VASP membership), **not stubs**. Hash migrated MiMC →
+  **Poseidon2** (benchmarked: −44 % constraints, −41 % prove). `internal/zkproof`,
+  `internal/zkhash`, `cmd/zk-setup`, `cmd/zk-bench`.
+- **Live FATF Travel Rule** — IVMS101 + selective-disclosure SD-JWT + the three ZK
+  predicates, carried over the OpenVASP **Travel Rule Protocol (TRP)** between two
+  **separate VASP services** (originator proves, beneficiary verifies with the
+  verifying key only). Cleartext-only transfers refused. `internal/travelrule`,
+  `internal/trp`, `internal/ivms101`, `internal/vaspregistry`, `cmd/tr-svc`.
+- **The token chain** — CAT → CT → SPT-Txn with scope attenuation, bounded
+  delegation depth, immutable humanAnchor, 30 s transaction-bound tokens, DPoP
+  sender-constraint, and the eight-step offline enforcement engine.
+- **Security by design (OpenBSD)** — real `pledge(2)`/`unveil(2)` sandboxing,
+  privilege separation, relayd TLS, signify keys; a host-runnable audit at
+  **FAIL=0** (`scripts/security-audit.sh`). See `docs/SECURITY-REVIEW.md`.
+- **Audit log** with hash-chain + signed Merkle roots; **escrow** envelope for
+  lawful deanonymization.
+- **EO-14409 ready** — a CycloneDX **Cryptographic Bill of Materials**
+  (`docs/cbom.json`, `docs/CBOM.md`) and a lifetime-triaged hybrid post-quantum
+  migration plan.
 
-- Not a production-ready implementation.
-- Not a complete ZK circuit implementation. The Groth16 over BN254 circuits
-  from Section 5 are stubbed (commitment is correct shape, proof is a
-  fixed-size placeholder). Real ZK is a v2 task.
-- Not a complete threshold escrow implementation. The Section 9.6 escrow is
-  implemented with single-party ECIES for the POC; FROST-based threshold
-  decryption is a v2 task documented in
-  [`docs/ESCROW-FUTURE-WORK.md`](docs/ESCROW-FUTURE-WORK.md).
-- Not a chain integration. The Trust Registry interface is identical for both
-  mock and chain backends, so the swap is mechanical once the mock POC is
-  validated. Chain backend is a v2 task.
+## Documentation
 
-## Read in this order
+- [`docs/WORKING-PAPER-v2.md`](docs/WORKING-PAPER-v2.md) — the framework paper
+  (architecture, zkDID, zkDNS + alternatives, measured crypto, PQ, Travel Rule).
+- [`docs/GLOSSARY.md`](docs/GLOSSARY.md) — **authoritative** terminology + the
+  CAT/attribute model + standards mapping.
+- [`docs/CBOM.md`](docs/CBOM.md) / [`docs/cbom.json`](docs/cbom.json) — Cryptographic Bill of Materials.
+- [`docs/SECURITY-REVIEW.md`](docs/SECURITY-REVIEW.md) — full security review (FAIL=0; roadmap items noted).
+- [`docs/TRP-TRISA-INTEROP.md`](docs/TRP-TRISA-INTEROP.md) — Travel Rule transport + TRISA bridge design.
+- [`docs/V2-TOPICS-CHECKLIST.md`](docs/V2-TOPICS-CHECKLIST.md) / [`docs/V2-RESEARCH-NOTES.md`](docs/V2-RESEARCH-NOTES.md) — v2 coverage + research.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/OPENBSD-SETUP.md`](docs/OPENBSD-SETUP.md) — design + provisioning (some sections predate the current deployment).
 
-1. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — what gets built, how it
-   fits together, how Domain A and Domain B interact.
-2. [`docs/OPENBSD-SETUP.md`](docs/OPENBSD-SETUP.md) — concrete provisioning
-   steps for `foss.violetskysecurity.com`. Do this first if you're
-   provisioning today.
-3. [`docs/DEMO-FLOW.md`](docs/DEMO-FLOW.md) — the end-to-end demonstration
-   scenario the POC executes successfully.
-4. [`docs/TEST-PLAN.md`](docs/TEST-PLAN.md) — what gets tested, at what level,
-   with what tools.
-5. [`docs/BUILD-ORDER.md`](docs/BUILD-ORDER.md) — the order to build things in
-   so the POC works end-to-end at each milestone.
+## Repository layout
 
-## Status
+`cmd/` services + tools (tr-svc, catsvc, trsvc, zk-setup, zk-bench, regkey,
+mksubject) · `internal/` libraries (zkproof, zkhash, zkdid, travelrule, trp,
+ivms101, vaspregistry, sdjwt, dpop, escrow, verifier, trustregistry, tbac, …) ·
+`docs/` · `scripts/` (security-audit, rc services, register-issuers) · `configs/`
+· `web/` (the foss.violetskysecurity.com site source).
 
-This is the initial skeleton. The Trust Registry interface and mock
-implementation are in place; the rest is documented but not yet implemented.
+## Standards & links
 
-See [`docs/BUILD-ORDER.md`](docs/BUILD-ORDER.md) for milestone tracking.
+Terminology anchors to W3C Verifiable Credentials / DID Core, SD-JWT, OAuth
+Transaction Tokens (`draft-coetzee-oauth-spt-txn-tokens`), DPoP (RFC 9449), NIST SP
+800-207/162, FIPS 203/204, FATF Rec 16 / IVMS101. Live: <https://foss.violetskysecurity.com>.
+Preprints: Zenodo `10.5281/zenodo.19299787`, `10.5281/zenodo.18917439`.
+
+## Build & test
+
+Go 1.25+, gnark v0.15. The reference deployment runs on OpenBSD; the Go code is
+OS-portable (the pledge/unveil layer is behind build tags, with a no-op for
+non-OpenBSD). `go build ./...`; `go test ./internal/...`. ZK setup writes circuit
+keys via `cmd/zk-setup`.
+
+## Roadmap (honest)
+
+Not production-ready. Agentic AI authorization is **designed (humanAnchor +
+delegation-depth + attenuation) but not yet tested end-to-end**. Production needs:
+XRPL-native anchoring + XRPL Credentials integration; biometric uniqueness (fuzzy
+extractor + nullifier, currently a placeholder); the `.zkdid`/`.zkdns` production
+identity/naming layer (integrated behind an adapter — interim works today);
+persistent Trust Registry; hybrid PQ key migration; and an independent ZK-circuit +
+protocol audit. See `docs/XRPL-GRANT-PROPOSAL.md` for the funded plan.
+
+## License
+
+Apache-2.0 (see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE)). All dependencies are
+permissive (Apache-2.0 / BSD / MIT / ISC); no copyleft. Copyright 2026 Rudolf J.
+Coetzee / Violet Sky Security SEZC.

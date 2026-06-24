@@ -1,0 +1,24 @@
+SPT-Txn Proof of Concept
+Copyright 2026 Rudolf J. Coetzee / Violet Sky Security SEZC
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This product includes third-party software under permissive licenses
+(Apache-2.0, BSD-3-Clause, MIT, ISC). No copyleft (GPL/LGPL/MPL) dependencies
+are used. Principal cryptographic components:
+
+  - github.com/consensys/gnark           Apache-2.0  (Groth16 zk-SNARK frontend/backend)
+  - github.com/consensys/gnark-crypto     Apache-2.0  (field/curve arithmetic, Poseidon2, MiMC)
+  - github.com/consensys/bavard           Apache-2.0  (code generation for gnark-crypto)
+  - Go standard library (crypto/*)        BSD-3-Clause (Ed25519, AES-256-GCM, SHA-256)
+  - golang.org/x/crypto, x/sys, x/sync    BSD-3-Clause (X25519, OpenBSD pledge/unveil bindings)
+  - github.com/decred/dcrd/.../secp256k1  ISC
+  - github.com/lestrrat-go/jwx            MIT          (JOSE / SD-JWT handling)
+  - github.com/fxamacker/cbor             MIT
+  - github.com/rs/zerolog                 MIT
+  - github.com/bits-and-blooms/bitset     BSD-3-Clause
+  - github.com/google/go-cmp, pprof       BSD-3-Clause / Apache-2.0
+
+The full, verified transitive dependency-license inventory is generated from the
+Go module cache and recorded in THIRD_PARTY_LICENSES.txt. See also docs/cbom.json
+(CycloneDX Cryptographic Bill of Materials) for the cryptographic-asset inventory.

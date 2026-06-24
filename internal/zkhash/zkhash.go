@@ -9,25 +9,20 @@
 // Importing this package pulls only gnark-crypto field arithmetic + the hash —
 // NOT the gnark prover — so key-holding services (catsvc) stay lean.
 //
-// Current hash: MiMC over BN254 (gnark-crypto native <-> gnark/std/hash/mimc
-// in-circuit, matched by construction).
-//
-// Poseidon (the Section-5 target) is NOT available in the pinned gnark v0.11.0 /
-// gnark-crypto v0.14.0 — those ship only mimc/sha2/sha3. Adopting Poseidon2
-// requires upgrading to a newer gnark (which adds std/hash/poseidon2 + the native
-// poseidon2 package); that upgrade also changes the serialized circuit/key format
-// (re-run cmd/zk-setup) and may shift the frontend/backend APIs, so it is a
-// deliberate, isolated v2 task. MiMC is the working interim that keeps the native
-// and in-circuit hashes matched today and the token humanAnchor == the proven
-// commitment. To swap later: change HashTwo here AND the gadget in
-// internal/zkproof/circuits.go together, then re-run setup and the tests.
+// Current hash: Poseidon2 over BN254 (gnark-crypto native MerkleDamgardHasher <->
+// gnark/std/hash/poseidon2 in-circuit, matched by construction). Migrated from
+// MiMC in v2 (gnark v0.15 / gnark-crypto v0.20) for a large proving speedup. The
+// hash is defined in exactly two matched places — HashTwo here and the gadget in
+// internal/zkproof/circuits.go — so the token humanAnchor == the proven
+// commitment. Changing the hash changes the serialized circuit/key format, so
+// re-run cmd/zk-setup after any change here.
 package zkhash
 
 import (
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
-	mimc "github.com/consensys/gnark-crypto/ecc/bn254/fr/mimc"
+	poseidon2 "github.com/consensys/gnark-crypto/ecc/bn254/fr/poseidon2"
 )
 
 // FeFromBytes reduces arbitrary bytes to a field element (big-endian mod r).
@@ -56,7 +51,7 @@ func BigOf(e fr.Element) *big.Int {
 // in-circuit gadget (gnark hashes field elements written as canonical 32-byte
 // Marshal blocks).
 func HashTwo(a, b fr.Element) fr.Element {
-	h := mimc.NewMiMC()
+	h := poseidon2.NewMerkleDamgardHasher()
 	h.Write(a.Marshal())
 	h.Write(b.Marshal())
 	var out fr.Element

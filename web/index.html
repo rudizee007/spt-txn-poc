@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SPT-Txn Framework · foss.violetskysecurity.com</title>
+<meta name="description" content="Sovereign Policy Token Transactions — policy-bound, tamper-evident authorization across trust boundaries in agentic and multi-organizational systems.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0A0612;
+    --bg2:       #100A1E;
+    --bg3:       #16102A;
+    --violet:    #7B2FBE;
+    --violet-m:  #9D4EDD;
+    --violet-l:  #C77DFF;
+    --violet-xl: #E0AAFF;
+    --white:     #F8F8FF;
+    --muted:     #A09AB8;
+    --border:    rgba(155,78,221,0.18);
+    --glow:      rgba(123,47,190,0.35);
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--white);
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+    line-height: 1.65;
+    overflow-x: hidden;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1rem 2.5rem;
+    background: rgba(10,6,18,0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-brand {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700; font-size: 1rem;
+    color: var(--violet-l);
+    text-decoration: none;
+    letter-spacing: 0.04em;
+  }
+  .nav-brand span { color: var(--white); }
+  .nav-links { display: flex; gap: 2rem; list-style: none; }
+  .nav-links a {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.82rem; font-weight: 500;
+    color: var(--muted); text-decoration: none;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--violet-l); }
+
+  /* ── HERO ── */
+  #hero {
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center;
+    text-align: center;
+    padding: 6rem 2rem 4rem;
+    position: relative; overflow: hidden;
+  }
+  .hero-grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 60px 60px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black 30%, transparent 100%);
+  }
+  .hero-glow {
+    position: absolute;
+    width: 700px; height: 700px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(123,47,190,0.18) 0%, transparent 70%);
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+  .hero-eyebrow {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem; letter-spacing: 0.18em;
+    color: var(--violet-m); text-transform: uppercase;
+    margin-bottom: 1.5rem;
+    position: relative;
+  }
+  .hero-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(2.4rem, 6vw, 4.2rem);
+    font-weight: 700; line-height: 1.12;
+    letter-spacing: -0.02em;
+    max-width: 820px;
+    position: relative;
+  }
+  .hero-title .accent { color: var(--violet-l); }
+  .hero-sub {
+    font-size: 1.05rem; color: var(--muted);
+    max-width: 580px; margin: 1.5rem auto 0;
+    position: relative;
+  }
+
+  /* ── TOKEN CHAIN SVG (signature element) ── */
+  .token-chain-wrap {
+    position: relative;
+    margin: 3.5rem auto 2rem;
+    width: 100%; max-width: 720px;
+  }
+  .token-chain-wrap svg { width: 100%; height: auto; overflow: visible; }
+  @keyframes flowDash {
+    to { stroke-dashoffset: -24; }
+  }
+  .flow-line {
+    stroke-dasharray: 6 6;
+    animation: flowDash 1.2s linear infinite;
+  }
+  @keyframes tokenPulse {
+    0%, 100% { filter: drop-shadow(0 0 6px rgba(199,125,255,0.5)); }
+    50%       { filter: drop-shadow(0 0 18px rgba(199,125,255,0.9)); }
+  }
+  .token-node { animation: tokenPulse 3s ease-in-out infinite; }
+  .token-node:nth-child(2) { animation-delay: 0.8s; }
+  .token-node:nth-child(3) { animation-delay: 1.6s; }
+
+  .hero-tags {
+    display: flex; flex-wrap: wrap; gap: 0.6rem;
+    justify-content: center; position: relative;
+    margin-top: 0.5rem;
+  }
+  .hero-tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.68rem; letter-spacing: 0.1em;
+    color: var(--violet-l); text-transform: uppercase;
+    border: 1px solid var(--border);
+    border-radius: 2px; padding: 0.3rem 0.8rem;
+    background: rgba(123,47,190,0.08);
+  }
+
+  .hero-ctas {
+    display: flex; gap: 1rem; flex-wrap: wrap;
+    justify-content: center; margin-top: 2.5rem;
+    position: relative;
+  }
+  .btn-primary {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.85rem; font-weight: 600;
+    letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--white); text-decoration: none;
+    background: var(--violet);
+    border: 1px solid var(--violet-m);
+    border-radius: 3px; padding: 0.75rem 1.8rem;
+    transition: background 0.2s, box-shadow 0.2s;
+  }
+  .btn-primary:hover {
+    background: var(--violet-m);
+    box-shadow: 0 0 20px var(--glow);
+  }
+  .btn-ghost {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.85rem; font-weight: 500;
+    letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--violet-l); text-decoration: none;
+    border: 1px solid var(--border);
+    border-radius: 3px; padding: 0.75rem 1.8rem;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .btn-ghost:hover { border-color: var(--violet-m); color: var(--violet-xl); }
+
+  /* ── SECTION SHARED ── */
+  section { padding: 6rem 2rem; }
+  .section-inner { max-width: 1080px; margin: 0 auto; }
+  .section-eyebrow {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem; letter-spacing: 0.2em;
+    color: var(--violet-m); text-transform: uppercase;
+    margin-bottom: 0.9rem;
+  }
+  .section-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(1.6rem, 3.5vw, 2.4rem);
+    font-weight: 700; line-height: 1.2;
+    letter-spacing: -0.015em;
+    max-width: 680px; margin-bottom: 1.2rem;
+  }
+  .section-body {
+    font-size: 1rem; color: var(--muted);
+    max-width: 600px; line-height: 1.75;
+  }
+  .divider {
+    width: 100%; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+    margin: 0;
+  }
+
+  /* ── PROBLEM ── */
+  #problem { background: var(--bg2); }
+  .problem-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.5px; margin-top: 3.5rem;
+    border: 1px solid var(--border);
+  }
+  .problem-card {
+    background: var(--bg); padding: 2rem 1.8rem;
+    border-right: 1px solid var(--border);
+  }
+  .problem-card:last-child { border-right: none; }
+  .p-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem; letter-spacing: 0.2em;
+    color: var(--violet-m); margin-bottom: 0.8rem;
+  }
+  .p-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1rem; font-weight: 600;
+    margin-bottom: 0.6rem;
+  }
+  .p-body { font-size: 0.88rem; color: var(--muted); line-height: 1.65; }
+
+  /* ── TOKEN HIERARCHY ── */
+  #tokens { background: var(--bg); }
+  .token-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1px; margin-top: 3.5rem;
+    border: 1px solid var(--border);
+  }
+  .token-card {
+    background: var(--bg2);
+    padding: 2.2rem 2rem;
+    border-right: 1px solid var(--border);
+    position: relative; overflow: hidden;
+    transition: background 0.25s;
+  }
+  .token-card:hover { background: var(--bg3); }
+  .token-card:last-child { border-right: none; }
+  .token-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .token-card.cat::before  { background: linear-gradient(90deg, var(--violet), var(--violet-m)); }
+  .token-card.cap::before  { background: linear-gradient(90deg, var(--violet-m), var(--violet-l)); }
+  .token-card.txn::before  { background: linear-gradient(90deg, var(--violet-l), var(--violet-xl)); }
+  .tk-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--violet-m); margin-bottom: 0.5rem;
+  }
+  .tk-name {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.15rem; font-weight: 700;
+    margin-bottom: 0.8rem;
+  }
+  .tk-body { font-size: 0.87rem; color: var(--muted); line-height: 1.65; }
+  .tk-meta {
+    margin-top: 1.4rem; padding-top: 1.2rem;
+    border-top: 1px solid var(--border);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.68rem; color: var(--violet-l);
+    letter-spacing: 0.05em;
+  }
+
+  /* ── ENFORCEMENT ENGINE ── */
+  #engine { background: var(--bg2); }
+  .engine-steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1px; margin-top: 3.5rem;
+    border: 1px solid var(--border);
+  }
+  .step {
+    background: var(--bg); padding: 1.6rem 1.5rem;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .step-n {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.8rem; font-weight: 700;
+    color: var(--border); line-height: 1;
+    margin-bottom: 0.6rem;
+    background: linear-gradient(135deg, var(--violet-m), var(--violet-l));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .step-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.9rem; font-weight: 600;
+    margin-bottom: 0.4rem;
+  }
+  .step-body { font-size: 0.82rem; color: var(--muted); line-height: 1.6; }
+
+  /* ── ARCHITECTURE ── */
+  #architecture { background: var(--bg); }
+  .arch-stack {
+    margin-top: 3.5rem;
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .arch-layer {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.2s;
+    cursor: default;
+  }
+  .arch-layer:last-child { border-bottom: none; }
+  .arch-layer:hover { background: var(--bg2); }
+  .arch-label {
+    padding: 1.4rem 1.6rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--violet-l);
+    border-right: 1px solid var(--border);
+    display: flex; align-items: center;
+  }
+  .arch-content {
+    padding: 1.4rem 1.8rem;
+    font-size: 0.87rem; color: var(--muted); line-height: 1.65;
+  }
+  .arch-content strong { color: var(--white); font-weight: 500; }
+
+  /* ── PUBLICATIONS ── */
+  #publications { background: var(--bg2); }
+  .pub-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1px; margin-top: 3rem;
+    border: 1px solid var(--border);
+  }
+  .pub-card {
+    background: var(--bg); padding: 1.8rem;
+    border-right: 1px solid var(--border);
+  }
+  .pub-card:last-child { border-right: none; }
+  .pub-type {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.62rem; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--violet-m);
+    margin-bottom: 0.6rem;
+  }
+  .pub-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.95rem; font-weight: 600;
+    margin-bottom: 0.6rem; line-height: 1.4;
+  }
+  .pub-body { font-size: 0.82rem; color: var(--muted); line-height: 1.6; }
+  .pub-link {
+    display: inline-block; margin-top: 1rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--violet-l);
+    text-decoration: none; border-bottom: 1px solid var(--border);
+    padding-bottom: 1px; transition: border-color 0.2s, color 0.2s;
+  }
+  .pub-link:hover { color: var(--violet-xl); border-color: var(--violet-m); }
+
+  /* ── POC STATUS ── */
+  #poc { background: var(--bg); }
+  .milestone-list { margin-top: 3rem; }
+  .milestone {
+    display: grid; grid-template-columns: 80px 1fr;
+    border-bottom: 1px solid var(--border); padding: 1.4rem 0;
+    gap: 1.5rem; align-items: start;
+  }
+  .milestone:last-child { border-bottom: none; }
+  .ms-id {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.85rem; font-weight: 700;
+    color: var(--violet-m);
+  }
+  .ms-body { font-size: 0.88rem; color: var(--muted); line-height: 1.6; }
+  .ms-body strong { color: var(--white); font-weight: 500; font-family: 'Space Grotesk', sans-serif; }
+  .ms-status {
+    display: inline-block; margin-top: 0.4rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem; letter-spacing: 0.15em; text-transform: uppercase;
+    padding: 0.2rem 0.6rem; border-radius: 2px;
+  }
+  .ms-status.done   { background: rgba(123,47,190,0.2); color: var(--violet-l); }
+  .ms-status.active { background: rgba(199,125,255,0.15); color: var(--violet-xl); border: 1px solid var(--violet-m); }
+  .ms-status.next   { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+
+  /* ── FOOTER ── */
+  footer {
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    padding: 3rem 2.5rem 2rem;
+  }
+  .footer-inner {
+    max-width: 1080px; margin: 0 auto;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    flex-wrap: wrap; gap: 2rem;
+  }
+  .footer-brand {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700; font-size: 0.95rem;
+    color: var(--violet-l);
+  }
+  .footer-brand span { color: var(--muted); font-weight: 400; }
+  .footer-links { display: flex; gap: 2rem; flex-wrap: wrap; }
+  .footer-links a {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.8rem; color: var(--muted);
+    text-decoration: none; transition: color 0.2s;
+  }
+  .footer-links a:hover { color: var(--violet-l); }
+  .footer-copy {
+    width: 100%; margin-top: 2rem; padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.75rem; color: var(--muted);
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 680px) {
+    nav { padding: 1rem 1.2rem; }
+    .nav-links { display: none; }
+    .arch-layer { grid-template-columns: 1fr; }
+    .arch-label { border-right: none; border-bottom: 1px solid var(--border); }
+    .problem-card, .token-card { border-right: none; border-bottom: 1px solid var(--border); }
+    .pub-card { border-right: none; border-bottom: 1px solid var(--border); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .flow-line { animation: none; }
+    .token-node { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a class="nav-brand" href="/">SPT&#8209;Txn <span>· foss.violetskysecurity.com</span></a>
+  <ul class="nav-links">
+    <li><a href="#problem">Problem</a></li>
+    <li><a href="#tokens">Tokens</a></li>
+    <li><a href="#flow">Flow</a></li>
+    <li><a href="#engine">Engine</a></li>
+    <li><a href="#travelrule">Travel Rule</a></li>
+    <li><a href="#architecture">Architecture</a></li>
+    <li><a href="#publications">Publications</a></li>
+    <li><a href="#poc">POC</a></li>
+    <li><a href="https://www.violetskysecurity.com" target="_blank">Violet Sky ↗</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="hero-grid"></div>
+  <div class="hero-glow"></div>
+
+  <div class="hero-eyebrow">Sovereign Policy Token Transactions</div>
+
+  <h1 class="hero-title">
+    Authorization that follows<br>
+    the <span class="accent">human</span> across every boundary.
+  </h1>
+
+  <p class="hero-sub">
+    SPT-Txn extends the IETF OAuth Transaction Tokens work with cryptographically scoped capability grants that propagate human-origin identity across delegation chains — without exposing PII.
+  </p>
+
+  <!-- Signature element: animated token delegation chain -->
+  <div class="token-chain-wrap">
+    <svg viewBox="0 0 720 160" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="SPT-Txn chain: CAT compliance attestation, then Capability Token, then SPT-Txn transaction token">
+
+      <!-- Flow lines -->
+      <line x1="198" y1="80" x2="262" y2="80" stroke="#9D4EDD" stroke-width="1.5" class="flow-line"/>
+      <line x1="458" y1="80" x2="522" y2="80" stroke="#C77DFF" stroke-width="1.5" class="flow-line" style="animation-delay:0.4s"/>
+
+      <!-- Arrow heads -->
+      <polygon points="262,75 272,80 262,85" fill="#9D4EDD"/>
+      <polygon points="522,75 532,80 522,85" fill="#C77DFF"/>
+
+      <!-- Scope attenuation visualization: narrowing trapezoids -->
+      <path d="M 20 40 L 180 55 L 180 105 L 20 120 Z" fill="rgba(123,47,190,0.12)" stroke="#7B2FBE" stroke-width="1"/>
+      <path d="M 280 50 L 440 58 L 440 102 L 280 110 Z" fill="rgba(157,78,221,0.12)" stroke="#9D4EDD" stroke-width="1"/>
+      <path d="M 540 58 L 700 63 L 700 97 L 540 102 Z" fill="rgba(199,125,255,0.12)" stroke="#C77DFF" stroke-width="1"/>
+
+      <!-- Node labels -->
+      <text x="100" y="72" text-anchor="middle" font-family="Space Mono, monospace" font-size="10" fill="#C77DFF" letter-spacing="1">CAT</text>
+      <text x="100" y="88" text-anchor="middle" font-family="Inter, sans-serif" font-size="9" fill="#A09AB8">Verify once · Reusable</text>
+
+      <text x="360" y="72" text-anchor="middle" font-family="Space Mono, monospace" font-size="10" fill="#C77DFF" letter-spacing="1">CT</text>
+      <text x="360" y="88" text-anchor="middle" font-family="Inter, sans-serif" font-size="9" fill="#A09AB8">Scoped · Delegated</text>
+
+      <text x="620" y="72" text-anchor="middle" font-family="Space Mono, monospace" font-size="10" fill="#E0AAFF" letter-spacing="1">SPT-TXN</text>
+      <text x="620" y="88" text-anchor="middle" font-family="Inter, sans-serif" font-size="9" fill="#A09AB8">Per-transaction</text>
+
+      <!-- Flow label -->
+      <text x="360" y="148" text-anchor="middle" font-family="Space Mono, monospace" font-size="9" fill="#7B2FBE" letter-spacing="2">COMPLIANCE → CAPABILITY → TRANSACTION</text>
+    </svg>
+  </div>
+
+  <div class="hero-tags">
+    <span class="hero-tag">IETF Internet-Draft</span>
+    <span class="hero-tag">OAuth Transaction Tokens</span>
+    <span class="hero-tag">Zero-Knowledge</span>
+    <span class="hero-tag">FATF Travel Rule</span>
+    <span class="hero-tag">Offline Verification</span>
+    <span class="hero-tag">Post-Quantum Migration</span>
+    <span class="hero-tag">OpenBSD POC</span>
+  </div>
+
+  <div class="hero-ctas">
+    <a href="https://datatracker.ietf.org/doc/draft-coetzee-oauth-spt-txn-tokens/" target="_blank" class="btn-primary">IETF Draft -02 ↗</a>
+    <a href="#tokens" class="btn-ghost">How It Works</a>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- PROBLEM -->
+<section id="problem">
+  <div class="section-inner">
+    <div class="section-eyebrow">The Gap</div>
+    <h2 class="section-title">Bearer tokens were not built for regulated delegation chains.</h2>
+    <p class="section-body">Existing authorization frameworks enforce policy within a single trust domain. Cross-organizational, agentic, and regulated transaction chains need something stronger.</p>
+
+    <div class="problem-grid">
+      <div class="problem-card">
+        <div class="p-num">01</div>
+        <div class="p-title">No scope continuity</div>
+        <p class="p-body">A token issued at the edge of one organization carries no cryptographic guarantee that its scope was not widened before it reaches the next. Scope inflation is undetectable at the protocol layer.</p>
+      </div>
+      <div class="problem-card">
+        <div class="p-num">02</div>
+        <div class="p-title">Human origin is lost</div>
+        <p class="p-body">AI agent chains execute on behalf of humans, but the human-origin signal dissolves within one or two delegation hops. Regulators and auditors cannot reconstruct who authorized what.</p>
+      </div>
+      <div class="problem-card">
+        <div class="p-num">03</div>
+        <div class="p-title">Offline verification impossible</div>
+        <p class="p-body">Revocation checks require live issuer contact. In regulated cross-border transactions, latency, availability, and jurisdiction constraints make live verification operationally fragile.</p>
+      </div>
+      <div class="problem-card">
+        <div class="p-num">04</div>
+        <div class="p-title">No human-anchor under law</div>
+        <p class="p-body">When a transaction is disputed, there is no privacy-preserving mechanism to produce the authorized human principal under lawful process without exposing PII to every intermediary in the chain.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- TOKEN HIERARCHY -->
+<section id="tokens">
+  <div class="section-inner">
+    <div class="section-eyebrow">Token Hierarchy</div>
+    <h2 class="section-title">Three token types. One cryptographically bound chain.</h2>
+    <p class="section-body">Each token type operates at a different scope and lifetime. Scope can only narrow as the chain propagates — never widen. Every hop is verifiable offline.</p>
+
+    <div class="token-cards">
+      <div class="token-card cat">
+        <div class="tk-label">Layer 1 · CAT</div>
+        <div class="tk-name">Compliance Attestation Token</div>
+        <p class="tk-body">The verify-once credential. Issued by a KYC / compliance provider after verifying the user — KYC level, jurisdiction, accredited-investor status. Holds zkDID-bound, selectively-disclosable compliance claims; the user reuses it across every platform without re-submitting documents. No PII on the wire.</p>
+        <div class="tk-meta">Issued by a KYC provider · Reusable · SD-JWT</div>
+      </div>
+      <div class="token-card cap">
+        <div class="tk-label">Layer 2 · CT</div>
+        <div class="tk-name">Capability Token</div>
+        <p class="tk-body">The scoped authorization. A platform evaluates a zero-knowledge proof of the CAT against its policy and, on a match, issues a CT — e.g. "trade up to $50k/day until 2026-12." A root CT sets the maximum scope; delegated CTs (to an AI agent) are strict subsets with bounded depth. Carries the humanAnchor forward.</p>
+        <div class="tk-meta">Issued by the platform · Scope-attenuated · JWT / CWT</div>
+      </div>
+      <div class="token-card txn">
+        <div class="tk-label">Layer 3 · SPT-Txn</div>
+        <div class="tk-name">SPT-Txn Token</div>
+        <p class="tk-body">Ephemeral, transaction-bound token minted at execution time. Binds the authorization to one transaction-context hash for ~30 seconds; the eight-step engine verifies the full chain here, and it carries the Travel Rule attestation. Auditable without PII exposure.</p>
+        <div class="tk-meta">Per transaction · ~30 seconds · JWT / SD-JWT</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- FLOW / HOW IT WORKS -->
+<section id="flow">
+  <div class="section-inner">
+    <div class="section-eyebrow">How It Works</div>
+    <h2 class="section-title">From a verified human to a single bound transaction.</h2>
+    <p class="section-body">Attributes are evaluated once, at issuance; capability is enforced on every token afterward. Identity and PII never travel — only proofs.</p>
+
+    <div class="arch-stack">
+      <div class="arch-layer">
+        <div class="arch-label">1 · Verify Once</div>
+        <div class="arch-content">
+          <strong>Attributes proven in zero-knowledge.</strong> A KYC / compliance provider verifies the user — KYC level, jurisdiction, accredited-investor status (durable), with AML-risk and sanctions kept live via a DID-anchored oracle. Raw values are never disclosed, only zkDID-backed proofs.
+        </div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-label">2 · CAT Issued</div>
+        <div class="arch-content">
+          <strong>Compliance Attestation Token.</strong> The provider issues the CAT — the verify-once credential the user holds and reuses everywhere. It binds the zkDID and the selectively-disclosable compliance claims; documents are never submitted again.
+        </div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-label">3 · Policy Match</div>
+        <div class="arch-content">
+          <strong>A representation-agnostic policy object.</strong> A platform's decision point evaluates a zero-knowledge proof of the CAT against composable, jurisdiction-aware policy (e.g. VARA ∧ MiCA ∧ Travel Rule). This is the ABAC → TBAC boundary — policy is evaluated here, exactly once.
+        </div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-label">4 · CT Issued</div>
+        <div class="arch-content">
+          <strong>Capability Token, scoped.</strong> On a match the platform mints a CT — the maximum authorized scope. Delegated CTs narrow it for a specific AI agent or microservice (strict subset, bounded depth), carrying the humanAnchor forward unchanged.
+        </div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-label">5 · Transact</div>
+        <div class="arch-content">
+          <strong>SPT-Txn token, per transaction.</strong> At execution a 30-second, transaction-bound token is minted. Volatile attributes (AML-risk, sanctions) are re-proven here against the oracle's committed state under a max-proof-age — so access can be revoked in real time without re-issuing the CAT.
+        </div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-label">6 · Enforce</div>
+        <div class="arch-content">
+          <strong>Eight-step engine, offline.</strong> Every hop is verified cryptographically — signature, issuer trust, temporal bounds, revocation, scope subset, delegation depth, humanAnchor consistency, and transaction-context binding. Each step fails closed.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ENFORCEMENT ENGINE -->
+<section id="engine">
+  <div class="section-inner">
+    <div class="section-eyebrow">Eight-Step Enforcement Engine</div>
+    <h2 class="section-title">Every verification step is cryptographic, not policy-based.</h2>
+    <p class="section-body">The enforcement engine operates identically offline. No issuer contact. No trust-on-first-use. Each step fails closed.</p>
+
+    <div class="engine-steps">
+      <div class="step">
+        <div class="step-n">01</div>
+        <div class="step-title">Signature Verification</div>
+        <p class="step-body">Verify token signature against the issuer's registered public key. Algorithm resolved from the Trust Registry, not the token header — downgrade-resistant.</p>
+      </div>
+      <div class="step">
+        <div class="step-n">02</div>
+        <div class="step-title">Issuer Trust</div>
+        <p class="step-body">Confirm the issuer is registered in the on-chain Trust Registry with the correct role and active status at the token's issued-at time.</p>
+      </div>
+      <div class="step">
+        <div class="step-n">03</div>
+        <div class="step-title">Temporal Validity</div>
+        <p class="step-body">Verify issued-at and expiry bounds. Clock skew tolerance bounded by deployment policy. Expired tokens fail unconditionally.</p>
+      </div>
+      <div class="step">
+        <div class="step-n">04</div>
+        <div class="step-title">Revocation Check</div>
+        <p class="step-body">Check revocation status against a cached revocation set. Staleness policy is deployment-configurable. Online check available but not required for core enforcement.</p>
+      </div>
+      <div class="step">
+        <div class="step-n">05</div>
+        <div class="step-title">Scope Verification</div>
+        <p class="step-body">Confirm the token's declared scope is a strict subset of its parent's scope. Scope widening at any hop is a hard failure. The attenuation graph is verified end-to-end.</p>
+      </div>
+      <div class="step">
+        <div class="step-n">06</div>
+        <div class="step-title">Delegation Depth</div>
+        <p class="step-body">Verify the delegation depth has not exceeded the maximum declared in the CAT. Prevents unbounded re-delegation chains in agentic contexts.</p>
+      </div>
+      <div class="step">
+        <div class="step-n">07</div>
+        <div class="step-title">Human Anchor</div>
+        <p class="step-body">Verify the humanAnchor commitment is consistent across the full token chain. The ZK commitment to the authorizing human propagates unchanged from CAT to SPT-Txn Token.</p>
+      </div>
+      <div class="step">
+        <div class="step-n">08</div>
+        <div class="step-title">Scope Hash Binding</div>
+        <p class="step-body">Verify the transaction context hash matches the scope hash committed in the token. The authorization is bound to this specific transaction — not transferable or replayable.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- TRAVEL RULE -->
+<section id="travelrule">
+  <div class="section-inner">
+    <div class="section-eyebrow">Applied · FATF Travel Rule</div>
+    <h2 class="section-title">Privacy-preserving Travel Rule, running today.</h2>
+    <p class="section-body">SPT-Txn carries a payload-level zero-knowledge attestation over the inter-VASP Travel Rule Protocol (TRP) — closing the cleartext-PII gap that plain TRP leaves open and that TRISA addresses only with trusted decryption.</p>
+
+    <div class="token-cards">
+      <div class="token-card cat">
+        <div class="tk-label">Data Model</div>
+        <div class="tk-name">IVMS101 + SD-JWT</div>
+        <p class="tk-body">Originator and beneficiary identity expressed in the interVASP IVMS101 standard and carried as a selectively-disclosable SD-JWT — reveal a surname to a regulator, keep the given name and the amount hidden.</p>
+        <div class="tk-meta">FATF Recommendation 16</div>
+      </div>
+      <div class="token-card cap">
+        <div class="tk-label">Proofs</div>
+        <div class="tk-name">Three ZK predicates</div>
+        <p class="tk-body">Identity-commitment, amount-over-threshold (amount hidden), and beneficiary-VASP registration (which VASP hidden) — each bound to the specific payment via its transaction-context hash.</p>
+        <div class="tk-meta">Groth16 · BN254</div>
+      </div>
+      <div class="token-card txn">
+        <div class="tk-label">Topology</div>
+        <div class="tk-name">Two-VASP, verify-only</div>
+        <p class="tk-body">Originator and beneficiary run as separate services; the beneficiary holds only the verifying key. Cleartext-only transfers are refused — privacy is mandatory, not optional.</p>
+        <div class="tk-meta">OpenVASP TRP · TRISA bridge (designed)</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ARCHITECTURE -->
+<section id="architecture">
+  <div class="section-inner">
+    <div class="section-eyebrow">Architecture</div>
+    <h2 class="section-title">Layered trust with no single controllable chokepoint.</h2>
+    <p class="section-body">Each layer is independently auditable. The enforcement engine operates at the top; cryptographic roots anchor trust at the bottom.</p>
+
+    <div class="arch-stack">
+      <div class="arch-layer">
+        <div class="arch-label">Applications</div>
+        <div class="arch-content">
+          <strong>Wallets, AI agents, regulated services, IoT networks.</strong> Consume SPT-Txn Tokens. Present capability scopes. Operate within enforced delegation bounds. Never see raw identity data.
+        </div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-label">Authorization Layer</div>
+        <div class="arch-content">
+          <strong>SPT-Txn Framework.</strong> Token issuance, the eight-step enforcement engine, scope attenuation, humanAnchor propagation, offline verification, and audit trail. Extends the OAuth Transaction Tokens work (draft-ietf-oauth-transaction-tokens) and aligns with the OAuth 2.0 Security BCP (RFC 9700).
+        </div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-label">Escrow Layer</div>
+        <div class="arch-content">
+          <strong>Human-anchor escrow (Section 9.6).</strong> Threshold-shared deanonymization under lawful process only. t-of-n custody across distinct legal entities and jurisdictions. The human identity is never in the authorization path — only available to lawful process with quorum consent.
+        </div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-label">Trust Registry</div>
+        <div class="arch-content">
+          <strong>On-chain, permissionless read.</strong> Authoritative registry of issuer keys, roles, and algorithm assignments. Algorithm selection is registry-governed — not token-header-governed — providing downgrade resistance. Multi-chain: Ethereum, XDC, Algorand, Hedera, XRPL.
+        </div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-label">Cryptographic Root</div>
+        <div class="arch-content">
+          <strong>ZK circuits, key generation, randomness.</strong> Groth16 over BN254 for proof generation, with ZK-friendly hashing migrating MiMC → Poseidon. Ed25519 for signing (ML-DSA / Dilithium migration path defined). X25519/ECIES for escrow encapsulation (ML-KEM / Kyber migration path defined). Key generation per NIST SP 800-133. Identity anchored via zkDID commitments; policy bound as a representation-agnostic policy object, instantiable on-chain. Naming and discovery move to <strong>zkDNS</strong> — a capture-resistant, decentralised name→key root (no ICANN dependency, no single seizure point) with private resolution.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- PUBLICATIONS -->
+<section id="publications">
+  <div class="section-inner">
+    <div class="section-eyebrow">Publications &amp; Standards</div>
+    <h2 class="section-title">Open research. Standards-track engagement.</h2>
+    <p class="section-body">All publications are open access. The IETF Internet-Draft is an individual submission presented to the OAuth Working Group for technical review.</p>
+
+    <div class="pub-grid">
+      <div class="pub-card">
+        <div class="pub-type">IETF Internet-Draft · Revision -02</div>
+        <div class="pub-title">Sovereign Policy Token Transactions (SPT-Txn)</div>
+        <p class="pub-body">Individual Internet-Draft extending the OAuth Transaction Tokens work and aligning with the OAuth 2.0 Security BCP (RFC 9700). Presented to the OAuth Working Group for technical review. Revision -02 adds Section 11: Algorithm Agility and Post-Quantum Migration.</p>
+        <a href="https://datatracker.ietf.org/doc/draft-coetzee-oauth-spt-txn-tokens/" target="_blank" class="pub-link">IETF Datatracker ↗</a>
+      </div>
+      <div class="pub-card">
+        <div class="pub-type">Formal Theory · Zenodo Preprint</div>
+        <div class="pub-title">Transaction Binding Security for Policy-Bound Authorization Tokens</div>
+        <p class="pub-body">Formal security model. Defines transaction binding (TB), EUF-CCA, and unlinkability (UNL) game-based notions. Proves TB strictly implies EUF-CCA. Tight reduction, no rewinding. DOI 10.5281/zenodo.19299787.</p>
+        <a href="https://zenodo.org/records/19299787" target="_blank" class="pub-link">Zenodo ↗</a>
+      </div>
+      <div class="pub-card">
+        <div class="pub-type">Working Paper · Zenodo Preprint</div>
+        <div class="pub-title">The SPT-Txn Framework: A Token-Based Architecture for Sovereign Policy Enforcement</div>
+        <p class="pub-body">Architecture and deployment specification. Token hierarchy, TBAC engine, ZK circuit specification, multi-chain Trust Registry, regulatory alignment: MiCA · DORA · VARA · GENIUS Act · Travel Rule. DOI 10.5281/zenodo.18917439.</p>
+        <a href="https://zenodo.org/records/18917439" target="_blank" class="pub-link">Zenodo ↗</a>
+      </div>
+      <div class="pub-card">
+        <div class="pub-type">NIST Public Comments · June 2026</div>
+        <div class="pub-title">Comments on SP 800-133r3: Distributed Key Generation and Per-Key PQ Migration Urgency</div>
+        <p class="pub-body">Two technical comments submitted to NIST's public comment period for SP 800-133r3 (Recommendation for Cryptographic Key Generation). Addresses threshold DKG scope and heterogeneous HNDL exposure within a single trust domain.</p>
+        <a href="https://csrc.nist.gov/pubs/sp/800/133/r3/ipd" target="_blank" class="pub-link">NIST CSRC ↗</a>
+      </div>
+      <div class="pub-card">
+        <div class="pub-type">Reference Implementation · Source</div>
+        <div class="pub-title">SPT-Txn Proof of Concept (Go / OpenBSD)</div>
+        <p class="pub-body">The reference implementation in Go on a hardened OpenBSD host: the token chain, eight-step verifier, ZK circuits, and the live privacy-preserving Travel Rule services.</p>
+        <a href="https://github.com/rudizee007/SPT-TXN-POC" target="_blank" class="pub-link">GitHub ↗</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- POC STATUS -->
+<section id="poc">
+  <div class="section-inner">
+    <div class="section-eyebrow">Proof of Concept</div>
+    <h2 class="section-title">Reference implementation. OpenBSD. Go. Security by design.</h2>
+    <p class="section-body">The POC validates the protocol architecture end-to-end. Classical cryptography with algorithm-agility dispatch. Pledge and unveil sandbox. SQLite-backed Trust Registry. Two-domain cross-organizational demo.</p>
+
+    <div class="milestone-list">
+      <div class="milestone">
+        <div class="ms-id">M0</div>
+        <div class="ms-body">
+          <strong>Host &amp; TLS</strong> — OpenBSD 7.9 · relayd TLS termination · certbot · httpd backend · service users and directory tree provisioned.<br>
+          <span class="ms-status done">Complete</span>
+        </div>
+      </div>
+      <div class="milestone">
+        <div class="ms-id">M1</div>
+        <div class="ms-body">
+          <strong>Trust Registry Service</strong> — Go HTTP service · SQLite-backed registry · pledge/unveil sandbox · Unix socket · relayd /tr/* route.<br>
+          <span class="ms-status done">Complete</span>
+        </div>
+      </div>
+      <div class="milestone">
+        <div class="ms-id">M2</div>
+        <div class="ms-body">
+          <strong>Capability Token (CT) Issuance</strong> — Ed25519 signing · humanAnchor ZK commitment · holder binding · Trust Registry lookup.<br>
+          <span class="ms-status done">Complete</span>
+        </div>
+      </div>
+      <div class="milestone">
+        <div class="ms-id">M3</div>
+        <div class="ms-body">
+          <strong>Capability Token &amp; Scope Attenuation</strong> — Strict scope-subset enforcement · delegation depth counter · cross-domain issuance.<br>
+          <span class="ms-status done">Complete</span>
+        </div>
+      </div>
+      <div class="milestone">
+        <div class="ms-id">M4</div>
+        <div class="ms-body">
+          <strong>SPT-Txn Token</strong> — Ephemeral transaction token · ~30s TTL · transaction context hash binding · scope hash commitment.<br>
+          <span class="ms-status done">Complete</span>
+        </div>
+      </div>
+      <div class="milestone">
+        <div class="ms-id">M5</div>
+        <div class="ms-body">
+          <strong>Eight-Step Verifier</strong> — Full enforcement engine · offline verification · all eight steps integrated and tested.<br>
+          <span class="ms-status done">Complete</span>
+        </div>
+      </div>
+      <div class="milestone">
+        <div class="ms-id">M6</div>
+        <div class="ms-body">
+          <strong>Audit &amp; Merkle Trail</strong> — Append-only audit log · Merkle root commitment · tamper-evidence without PII.<br>
+          <span class="ms-status done">Complete</span>
+        </div>
+      </div>
+      <div class="milestone">
+        <div class="ms-id">M7</div>
+        <div class="ms-body">
+          <strong>Escrow Envelope</strong> — ECIES humanAnchor envelope · t-of-n threshold custody stub · deanonymization interface.<br>
+          <span class="ms-status done">Complete</span>
+        </div>
+      </div>
+      <div class="milestone">
+        <div class="ms-id">M8</div>
+        <div class="ms-body">
+          <strong>End-to-End Demo</strong> — Two-domain cross-organizational transaction · combined human wallet + AI agent · full chain audit.<br>
+          <span class="ms-status done">Complete</span>
+        </div>
+      </div>
+    </div>
+  </div>
+<div style="margin-top:3rem; border-top:1px solid var(--border); padding-top:2rem;">
+  <div class="section-eyebrow">Live Endpoints</div>
+  <div style="margin-top:1rem;">
+    <div class="milestone">
+      <div class="ms-id" style="font-size:0.75rem;">TRP</div>
+      <div class="ms-body">
+        <strong>Travel Rule API</strong> — beneficiary VASP health &amp; inbound TRP transfer, live over relayd TLS<br>
+        <a href="https://foss.violetskysecurity.com:4445/travel/health"
+           target="_blank" style="font-family:'Space Mono',monospace;font-size:0.72rem;color:var(--violet-l);">
+          https://foss.violetskysecurity.com:4445/travel/health ↗
+        </a>
+      </div>
+    </div>
+    <div class="milestone">
+      <div class="ms-id" style="font-size:0.75rem;">INT</div>
+      <div class="ms-body">
+        <strong>Trust Registry &amp; CAT issuer</strong> — internal, socket-only by design. The mutating issuance endpoints are never edge-exposed (verified by the security audit).
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<div class="divider"></div>
+
+<!-- STANDARDS STRIP -->
+<section id="standards" style="padding-top:4rem; padding-bottom:4rem;">
+  <div class="section-inner">
+    <div class="section-eyebrow">Built on Open Standards</div>
+    <p class="section-body" style="max-width:700px;">SPT-Txn extends recognised standards rather than replacing them. Each component anchors to its base specification — a profile and binding layer, not a new silo.</p>
+    <div class="hero-tags" style="justify-content:flex-start; margin-top:2rem; max-width:920px;">
+      <span class="hero-tag">W3C Verifiable Credentials</span>
+      <span class="hero-tag">W3C DID Core</span>
+      <span class="hero-tag">SD-JWT VC</span>
+      <span class="hero-tag">OAuth Transaction Tokens</span>
+      <span class="hero-tag">DPoP · RFC 9449</span>
+      <span class="hero-tag">OAuth 2.0 Security BCP · RFC 9700</span>
+      <span class="hero-tag">NIST SP 800-207</span>
+      <span class="hero-tag">NIST SP 800-162 ABAC</span>
+      <span class="hero-tag">FIPS 203 · 204</span>
+      <span class="hero-tag">FATF R.16 · IVMS101</span>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div>
+      <div class="footer-brand">SPT-Txn Framework <span>· Violet Sky Security SEZC</span></div>
+    </div>
+    <div class="footer-links">
+      <a href="https://datatracker.ietf.org/doc/draft-coetzee-oauth-spt-txn-tokens/" target="_blank">IETF Draft</a>
+      <a href="https://zenodo.org/records/19299787" target="_blank">Theory Paper</a>
+      <a href="https://zenodo.org/records/18917439" target="_blank">Working Paper</a>
+      <a href="https://orcid.org/0009-0009-6557-8843" target="_blank">ORCID</a>
+      <a href="https://www.violetskysecurity.com" target="_blank">Violet Sky Security</a>
+      <a href="https://github.com/rudizee007/SPT-TXN-POC" target="_blank">GitHub Source Code</a>
+    </div>
+    <div class="footer-copy">
+      Rudolf Jacobus Coetzee · Violet Sky Security SEZC · Cayman Islands Special Economic Zone ·
+      draft-coetzee-oauth-spt-txn-tokens is an individual IETF Internet-Draft, not endorsed by the IETF. ·
+      © 2026 Violet Sky Security SEZC
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

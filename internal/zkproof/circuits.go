@@ -10,22 +10,21 @@
 //   - VASP:       a counterparty is in the registered-VASP set, without
 //     revealing which member.
 //
-// MiMC is the ZK-friendly hash (gnark's native and in-circuit implementations
-// are matched by construction); it is a swappable parameter for Poseidon to
-// reach full Section-5 spec alignment. This package depends on gnark but the
-// M0-M2 services do not import it, so only the prover/verifier binaries pull in
-// the proving backend.
+// Poseidon2 is the ZK-friendly hash (gnark's native MerkleDamgard hasher and the
+// in-circuit gadget are matched by construction); it replaced MiMC in v2 for a
+// large proving speedup. This package depends on gnark but the M0-M2 services do
+// not import it, so only the prover/verifier binaries pull in the proving backend.
 package zkproof
 
 import (
 	"github.com/consensys/gnark/frontend"
-	circuitmimc "github.com/consensys/gnark/std/hash/mimc"
+	circuitposeidon2 "github.com/consensys/gnark/std/hash/poseidon2"
 )
 
 // VASPTreeDepth fixes the registered-VASP Merkle tree depth (2^depth members).
 const VASPTreeDepth = 8
 
-// CommitmentCircuit constrains Anchor == MiMC(ID, Randomness).
+// CommitmentCircuit constrains Anchor == Poseidon2(ID, Randomness).
 type CommitmentCircuit struct {
 	ID         frontend.Variable `gnark:",secret"`
 	Randomness frontend.Variable `gnark:",secret"`
@@ -33,7 +32,7 @@ type CommitmentCircuit struct {
 }
 
 func (c *CommitmentCircuit) Define(api frontend.API) error {
-	h, err := circuitmimc.NewMiMC(api)
+	h, err := circuitposeidon2.New(api)
 	if err != nil {
 		return err
 	}
@@ -52,7 +51,7 @@ type ThresholdCircuit struct {
 }
 
 func (c *ThresholdCircuit) Define(api frontend.API) error {
-	h, err := circuitmimc.NewMiMC(api)
+	h, err := circuitposeidon2.New(api)
 	if err != nil {
 		return err
 	}
@@ -74,7 +73,7 @@ type VASPCircuit struct {
 }
 
 func (c *VASPCircuit) Define(api frontend.API) error {
-	h, err := circuitmimc.NewMiMC(api)
+	h, err := circuitposeidon2.New(api)
 	if err != nil {
 		return err
 	}
