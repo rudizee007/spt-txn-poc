@@ -9,11 +9,12 @@
 // day, but recoverable under due process.
 //
 // Crypto (POC): single-party ECIES — an ephemeral X25519 ECDH to the escrow
-// public key, a SHA-256 key-derivation with domain separation, and AES-256-GCM
-// with the humanAnchor|issuer|iat tuple as additional authenticated data, so an
-// envelope cannot be silently re-pointed at a different anchor. Production
-// hardening (v2): HKDF for derivation and FROST threshold decryption so no
-// single party holds the escrow key. Standard library only.
+// public key, an HKDF-SHA256 key-derivation with a domain-separating info string
+// (ESC-2), and AES-256-GCM with the humanAnchor|issuer|iat tuple as additional
+// authenticated data, so an envelope cannot be silently re-pointed at a different
+// anchor. Production hardening (v2): FROST threshold decryption so no single
+// party holds the escrow key. Uses the standard library plus golang.org/x/crypto
+// for HKDF.
 package escrow
 
 import (
@@ -23,6 +24,9 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
+	"io"
+
+	"golang.org/x/crypto/hkdf"
 )
 
 // Envelope is an encrypted escrow record. The AAD fields are stored in the
@@ -41,11 +45,22 @@ func aad(humanAnchor, iss string, iat int64) []byte {
 	return []byte(fmt.Sprintf("spt-txn-escrow-aad-v1|%s|%s|%d", humanAnchor, iss, iat))
 }
 
-// deriveKey turns an ECDH shared secret into a 256-bit AEAD key with domain
-// separation. POC KDF; production should use HKDF.
-func deriveKey(shared []byte) []byte {
-	sum := sha256.Sum256(append([]byte("spt-txn-escrow-aead-v1\x00"), shared...))
-	return sum[:]
+// hkdfInfo binds the derived key to this scheme and version (ESC-2).
+const hkdfInfo = "spt-txn-escrow-aead-v1"
+
+// deriveKey turns an ECDH shared secret into a 256-bit AES-GCM key using
+// HKDF-SHA256 (ESC-2). The ephemeral X25519 key already randomizes the shared
+// secret per envelope, so a fixed (nil) salt is acceptable; the info string
+// provides domain separation. Both Seal and Open derive the key identically, so
+// round-trips are unaffected (escrow envelopes are ephemeral and not persisted
+// long-term, so no migration is needed despite the changed derivation).
+func deriveKey(shared []byte) ([]byte, error) {
+	r := hkdf.New(sha256.New, shared, nil, []byte(hkdfInfo))
+	key := make([]byte, 32) // AES-256
+	if _, err := io.ReadFull(r, key); err != nil {
+		return nil, fmt.Errorf("hkdf: %w", err)
+	}
+	return key, nil
 }
 
 // Seal encrypts identity material to the escrow public key, binding the
@@ -59,7 +74,11 @@ func Seal(identity []byte, escrowPub *ecdh.PublicKey, humanAnchor, issuer string
 	if err != nil {
 		return nil, fmt.Errorf("ecdh: %w", err)
 	}
-	block, err := aes.NewCipher(deriveKey(shared))
+	key, err := deriveKey(shared)
+	if err != nil {
+		return nil, err
+	}
+	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +113,11 @@ func (e *Envelope) Open(escrowPriv *ecdh.PrivateKey) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("ecdh: %w", err)
 	}
-	block, err := aes.NewCipher(deriveKey(shared))
+	key, err := deriveKey(shared)
+	if err != nil {
+		return nil, err
+	}
+	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
 	}

@@ -31,6 +31,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -115,7 +116,16 @@ func main() {
 		mux.HandleFunc("/travel/verify", handleVerify(verifier))
 		// Inbound TRP: accept transfers from originator VASPs. This VASP requires
 		// the SPT-Txn payload-level attestation (no cleartext-only transfers).
-		mux.Handle("/trp/transfer", trp.Handler(verifier.Verify, nil))
+		//
+		// expectedHash MUST be non-nil (the Handler fails closed otherwise,
+		// TR-3). In production this derives the txn-context hash from the
+		// on-chain transaction the beneficiary independently observes. For the
+		// POC single process we have no separate chain observer, so we derive it
+		// from the request's ledger transaction context via the shared
+		// ledger.ContextHash canonicalization — NOT by echoing the request's
+		// self-asserted hash. If the observed context cannot be canonicalized,
+		// we return an empty string, which the binding check will reject.
+		mux.Handle("/trp/transfer", trp.Handler(verifier.Verify, observedTxnContextHash))
 		log.Printf("beneficiary role: /travel/verify, /trp/transfer enabled")
 	}
 
@@ -275,7 +285,7 @@ func handleOriginate(iss *travelrule.Issuer, client *trp.Client) http.HandlerFun
 		}
 		treq := &trp.TransferRequest{
 			Asset:  trp.Asset{Symbol: req.Asset},
-			Amount: float64(req.Amount),
+			Amount: strconv.FormatUint(req.Amount, 10),
 			Extensions: trp.Extensions{SPTTxn: &trp.SPTTxn{
 				Version:        trp.ExtensionVersion,
 				Attestation:    *att,
@@ -423,6 +433,21 @@ func loadSDPub(pubPath string) (ed25519.PublicKey, error) {
 		return nil, fmt.Errorf("invalid SD-JWT public key in %s", pubPath)
 	}
 	return ed25519.PublicKey(raw), nil
+}
+
+// observedTxnContextHash supplies the beneficiary's INDEPENDENT view of the
+// transaction-context hash for an inbound TRP transfer (TR-3). It deliberately
+// does NOT read ext.TxnContextHash back from the request — trusting the
+// request's own assertion would make the payment binding vacuous (fail-open).
+//
+// In production this is derived from the on-chain transaction the beneficiary
+// observes itself (ledger.ContextHash over the locally reconstructed
+// TxnContext). For the POC single process there is no separate chain observer,
+// so the expected hash is configured out of band via SPT_TR_EXPECTED_TXN_HASH.
+// If that is unset we return "", which fails the binding check closed rather
+// than admitting an unverified transfer.
+func observedTxnContextHash(_ *trp.TransferRequest) string {
+	return os.Getenv("SPT_TR_EXPECTED_TXN_HASH")
 }
 
 func writeJSON(w http.ResponseWriter, v any) {

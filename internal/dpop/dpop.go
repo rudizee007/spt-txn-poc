@@ -24,6 +24,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -168,7 +169,10 @@ func Verify(proof, htm, htu, ath string, maxAge time.Duration) (jkt, jti string,
 	if claims.HTM != htm {
 		return "", "", fmt.Errorf("htm mismatch: proof %q, expected %q", claims.HTM, htm)
 	}
-	if claims.HTU != htu {
+	// Normalize both htu values before comparison per RFC 9449 §4.3: the scheme
+	// and host are case-insensitive and the query and fragment are not part of
+	// the binding, so an equivalent-but-differently-spelled URI must still match.
+	if normalizeHTU(claims.HTU) != normalizeHTU(htu) {
 		return "", "", fmt.Errorf("htu mismatch: proof %q, expected %q", claims.HTU, htu)
 	}
 	if ath != "" && claims.ATH != ath {
@@ -190,6 +194,24 @@ func Verify(proof, htm, htu, ath string, maxAge time.Duration) (jkt, jti string,
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
+
+// normalizeHTU canonicalizes a DPoP htu value for comparison per RFC 9449 §4.3:
+// the scheme and host are lowercased and the query and fragment are stripped
+// (they are not part of the htu binding). The path is left untouched so it
+// remains a meaningful security boundary. If the input does not parse as a URL
+// it is returned unchanged, so a malformed proof htu simply fails the exact
+// compare rather than being silently accepted.
+func normalizeHTU(htu string) string {
+	u, err := url.Parse(htu)
+	if err != nil {
+		return htu
+	}
+	u.Scheme = strings.ToLower(u.Scheme)
+	u.Host = strings.ToLower(u.Host)
+	u.RawQuery = ""
+	u.Fragment = ""
+	return u.String()
+}
 
 func b64(b []byte) string { return base64.RawURLEncoding.EncodeToString(b) }
 

@@ -30,8 +30,9 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
-	
+
 
 	"github.com/violetskysecurity/spt-txn-poc/internal/trustregistry"
 )
@@ -73,26 +74,53 @@ func main() {
 
 	// ── Bind Unix socket (for local inter-process) ─────────────────
 	_ = os.Remove(socketPath)
-	unixLn, err := net.Listen("unix", socketPath)
+	// Bind under a tight umask (0o177) so the socket node is *born* mode 0600.
+	// Previously Listen created the node under the inherited umask and a
+	// follow-up Chmod tightened it — leaving a TOCTOU window where the admin
+	// socket (which carries /tr/register) was connectable under looser perms
+	// (security review SVC-2).
+	var unixLn net.Listener
+	withTightUmask(func() {
+		unixLn, err = net.Listen("unix", socketPath)
+	})
 	if err != nil {
 		log.Printf("warn: listen unix %s: %v (continuing without unix socket)", socketPath, err)
 		unixLn = nil
 	} else {
 		// 0600: owner-only. The admin socket carries /tr/register, so only the
 		// service user (and root) may connect — never group/other, and never the
-		// network. relayd must not be pointed at this path.
-		_ = os.Chmod(socketPath, 0600)
-		log.Printf("admin Unix socket at %s (register is local-admin only)", socketPath)
+		// network. relayd must not be pointed at this path. The umask above
+		// already makes the node 0600; this Chmod re-asserts it defensively. If
+		// it fails we cannot guarantee the socket is owner-only, so we refuse to
+		// serve admin rather than expose registration under unknown perms.
+		if err := os.Chmod(socketPath, 0600); err != nil {
+			log.Printf("warn: chmod admin socket %s: %v — refusing to serve admin", socketPath, err)
+			_ = unixLn.Close()
+			_ = os.Remove(socketPath)
+			unixLn = nil
+		} else {
+			log.Printf("admin Unix socket at %s (register is local-admin only)", socketPath)
+		}
 	}
 
-	// ── pledge ─────────────────────────────────────────────────────
-	// Iteration 1: syscall confinement only (security review C4). Promise set is
-	// a small superset of what serving needs: stdio (runtime), rpath (read the
-	// registry file at startup), wpath+cpath (atomic registry persistence —
-	// write temp file, rename into place — plus Go unlinks the unix socket on
-	// listener Close at shutdown), inet (TCP), unix (admin socket). unveil
-	// (filesystem confinement) is added in the next pass once this is proven
-	// stable under load.
+	// ── unveil + pledge ────────────────────────────────────────────
+	// unveil (filesystem confinement, security review SVC-5): restrict the
+	// visible filesystem to ONLY the two directories trsvc legitimately
+	// touches at runtime — the registry DB dir (read the store at startup;
+	// write temp + rename + dir-fsync on every registration) and the socket
+	// dir (create/remove the admin socket node). "rwc" covers read, write, and
+	// create for both. After unveilLock no other path on disk is reachable, so
+	// a bug in the registrar cannot read or clobber anything else.
+	unveil(filepath.Dir(dbPath), "rwc")
+	unveil(filepath.Dir(socketPath), "rwc")
+	unveilLock()
+
+	// pledge (syscall confinement, security review C4). Promise set is a small
+	// superset of what serving needs: stdio (runtime), rpath (read the registry
+	// file at startup + fsync the parent dir after rename), wpath+cpath (atomic
+	// registry persistence — write temp file, rename into place — plus Go
+	// unlinks the unix socket on listener Close at shutdown), inet (TCP), unix
+	// (admin socket).
 	if err := pledge("stdio rpath wpath cpath inet unix"); err != nil {
 		log.Fatalf("pledge: %v", err)
 	}
@@ -329,7 +357,12 @@ func handleRegister(reg trustregistry.Mutable) http.HandlerFunc {
 			PublicKey string `json:"public_key"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			jsonError(w, "invalid JSON: "+err.Error(), http.StatusBadRequest)
+			// Don't echo the decoder error to the client — it can leak parser
+			// internals/offsets. Log server-side, return a generic message
+			// (security review SVC-7). This endpoint is admin-only, but we keep
+			// it consistent with the network-facing handlers.
+			log.Printf("register: decode body: %v", err)
+			jsonError(w, "invalid request body", http.StatusBadRequest)
 			return
 		}
 		pubBytes, err := hex.DecodeString(body.PublicKey)
@@ -343,7 +376,10 @@ func handleRegister(reg trustregistry.Mutable) http.HandlerFunc {
 			return
 		}
 		// Reject malformed or degenerate keys at the registrar (review C1/C2):
-		// Ed25519/X25519 public keys are 32 bytes and must never be all-zero.
+		// the only supported key types (Ed25519 for signing roles, X25519 for
+		// escrow) are 32-byte public keys, and must never be all-zero. PQ key
+		// types are not yet supported (see trustregistry validKeyTypes), so this
+		// fixed 32-byte check matches the registry's own validation (SVC-6).
 		if len(pubBytes) != 32 {
 			jsonError(w, "public_key must be 32 bytes", http.StatusBadRequest)
 			return
@@ -367,12 +403,17 @@ func handleRegister(reg trustregistry.Mutable) http.HandlerFunc {
 			Status:   trustregistry.StatusActive,
 			Metadata: map[string]string{"note": "registered via regkey tool (socket)"},
 		}
-		// Revoke any existing active record first, then register.
+		// Atomically supersede any existing active record and install the new
+		// one. Replace does the revoke-old + append-new under a single lock and
+		// a single persisted save with rollback-on-failure, so a crash can never
+		// leave this issuer with no active key (security review SVC-1). The old
+		// Revoke-then-Register pair was two separate saves with a gap between
+		// them — and it swallowed the Revoke error with `_ =`.
 		ctx := r.Context()
-		_ = reg.Revoke(ctx, body.Iss, role, now)
-		if err := reg.Register(ctx, rec); err != nil {
+		if err := reg.Replace(ctx, rec); err != nil {
+			// Don't echo the registry error to the client (SVC-7).
 			log.Printf("register %s/%s: %v", body.Iss, body.Role, err)
-			jsonError(w, "register failed: "+err.Error(), http.StatusBadRequest)
+			jsonError(w, "registration failed", http.StatusBadRequest)
 			return
 		}
 		log.Printf("registered %s / %s key=%s", body.Iss, body.Role, body.PublicKey[:16]+"...")

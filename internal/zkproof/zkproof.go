@@ -183,9 +183,9 @@ func (a *Artifacts) verify(p ProofBytes, public frontend.Circuit) error {
 // ProveCommitment proves knowledge of (idMaterial, randomness) behind the
 // returned humanAnchor.
 func (a *Artifacts) ProveCommitment(idMaterial, randomness []byte) (proof ProofBytes, anchor *big.Int, err error) {
-	id := feFromBytes(idMaterial)
-	r := feFromBytes(randomness)
-	anc := hashTwo(id, r)
+	id := feFromWide(idMaterial)
+	r := feFromWide(randomness)
+	anc := hashAnchor(id, r)
 	proof, err = a.prove(&CommitmentCircuit{ID: bigOf(id), Randomness: bigOf(r), Anchor: bigOf(anc)})
 	return proof, bigOf(anc), err
 }
@@ -202,8 +202,8 @@ func (a *Artifacts) VerifyCommitment(p ProofBytes, anchor *big.Int) error {
 // amount commitment. The amount itself is never revealed.
 func (a *Artifacts) ProveThreshold(amount uint64, blinding []byte, threshold uint64) (proof ProofBytes, commitment *big.Int, err error) {
 	amt := feFromUint64(amount)
-	bl := feFromBytes(blinding)
-	commit := hashTwo(amt, bl)
+	bl := feFromWide(blinding)
+	commit := hashAmount(amt, bl)
 	proof, err = a.prove(&ThresholdCircuit{
 		Amount: bigOf(amt), Blinding: bigOf(bl),
 		Commitment: bigOf(commit), Threshold: new(big.Int).SetUint64(threshold),

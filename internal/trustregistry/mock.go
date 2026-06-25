@@ -54,6 +54,31 @@ func (r *MockRegistry) Register(_ context.Context, rec *Record) error {
 	return nil
 }
 
+// Replace implements Mutable. It revokes any existing active record for
+// (rec.Iss, rec.Role) and appends rec as the new active record under a
+// single held lock. MockRegistry has no persistence, so there is no save to
+// fail and nothing to roll back — but it mirrors PersistentRegistry.Replace
+// so callers behave identically against either implementation (security
+// review SVC-1).
+func (r *MockRegistry) Replace(_ context.Context, rec *Record) error {
+	if err := validateRecord(rec); err != nil {
+		return err
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	key := registryKey{rec.Iss, rec.Role}
+	for _, existing := range r.records[key] {
+		if existing.Status == StatusActive {
+			existing.Status = StatusRevoked
+			break
+		}
+	}
+	cp := copyRecord(rec)
+	r.records[key] = append(r.records[key], cp)
+	return nil
+}
+
 // Lookup implements Registry.
 func (r *MockRegistry) Lookup(_ context.Context, iss string, role Role) (*Record, error) {
 	r.mu.RLock()
@@ -122,14 +147,18 @@ func (r *MockRegistry) Close() error { return nil }
 // ── helpers ────────────────────────────────────────────────────────────
 
 // validKeyTypes is the set of key types accepted by this implementation.
-// ML-DSA and ML-KEM are recognised but not yet implemented (PQ migration
-// path per Section 11 of the draft).
+// Both currently-supported types are 32-byte keys, which is what
+// validateRecord length-checks below.
+//
+// PQ types (ML-DSA-44/65, ML-KEM-768) are NOT yet supported and are
+// deliberately omitted: their public keys are 1312/1952/1184 bytes, not 32,
+// so accepting them here would either be rejected by the length check anyway
+// or — if the length check were relaxed — admit malformed keys. Re-add them
+// with the correct per-type length checks when PQ signing/escrow is actually
+// implemented (PQ migration path per Section 11 of the draft).
 var validKeyTypes = map[string]bool{
 	"Ed25519": true,
 	"X25519":  true,
-	"ML-DSA-44": true,
-	"ML-DSA-65": true,
-	"ML-KEM-768": true,
 }
 
 func validateRecord(rec *Record) error {
@@ -139,6 +168,9 @@ func validateRecord(rec *Record) error {
 	if !rec.Role.IsValid() {
 		return ErrInvalidRecord
 	}
+	// Both supported key types (Ed25519, X25519) are 32-byte public keys.
+	// When PQ types are added to validKeyTypes this must become a per-KeyType
+	// length check (see the validKeyTypes comment).
 	if len(rec.PublicKey) != 32 {
 		return ErrInvalidRecord
 	}

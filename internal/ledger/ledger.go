@@ -22,9 +22,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"math"
+	"math/big"
 	"sort"
-	"strconv"
 	"strings"
 )
 
@@ -97,14 +96,15 @@ func validAmount(s string) error {
 	if s == "" {
 		return fmt.Errorf("amount required")
 	}
-	f, err := strconv.ParseFloat(s, 64)
-	if err != nil {
-		return fmt.Errorf("amount %q is not numeric: %w", s, err)
+	// Parse as an exact decimal rational. big.Rat.SetString accepts decimal
+	// (and fractional/exponent) forms but rejects NaN/Inf and non-numeric junk
+	// outright, so finiteness is guaranteed by a successful parse — no float
+	// rounding is introduced.
+	r, ok := new(big.Rat).SetString(s)
+	if !ok {
+		return fmt.Errorf("amount %q is not a valid decimal", s)
 	}
-	if math.IsNaN(f) || math.IsInf(f, 0) {
-		return fmt.Errorf("amount %q is not finite", s)
-	}
-	if f <= 0 {
+	if r.Sign() <= 0 {
 		return fmt.Errorf("amount %q must be positive", s)
 	}
 	return nil

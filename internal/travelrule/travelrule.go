@@ -120,6 +120,10 @@ func (iss *Issuer) Build(t Transfer, s Secrets, txnContextHash string, ttl time.
 	bound := map[string]any{
 		"txn_context_hash": txnContextHash,
 		"human_anchor":     anchor.Text(10),
+		// Bind the committed amount into the signed attestation so the
+		// threshold proof is provably about THIS transfer's commitment and an
+		// attacker cannot swap in a different AmountCommitment (TR-1).
+		"amount_commitment": amtCommit.Text(10),
 	}
 	sd, err := sdjwt.IssueBound(iss.Name, disclosable, bound, iss.Signer, ttl)
 	if err != nil {
@@ -188,6 +192,9 @@ func (v *Verifier) Verify(att *Attestation, expectedTxnContextHash string, discl
 	}
 	if claims["human_anchor"] != att.HumanAnchor {
 		return nil, fmt.Errorf("SD-JWT anchor binding mismatch")
+	}
+	if claims["amount_commitment"] != att.AmountCommitment {
+		return nil, fmt.Errorf("SD-JWT amount-commitment binding mismatch")
 	}
 
 	// 4. Zero-knowledge proofs against the trusted public inputs.

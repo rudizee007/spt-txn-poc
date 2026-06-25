@@ -80,7 +80,14 @@ func (r *PersistentRegistry) load() error {
 		return fmt.Errorf("trustregistry: read %s: %w", r.path, err)
 	}
 	if len(data) == 0 {
-		return nil
+		// save() writes the full JSON envelope via a temp-then-rename, so it
+		// never produces a zero-byte backing file. A present-but-empty file is
+		// therefore a truncated/corrupted store (e.g. a crash mid-write on a
+		// filesystem that lost the rename, or external tampering). Treat it like
+		// malformed JSON: surface an error rather than silently re-seeding, which
+		// would wipe every registered issuer (security review SVC-4). An absent
+		// file (os.IsNotExist, handled above) remains a legitimately fresh deploy.
+		return fmt.Errorf("trustregistry: %s is present but empty (corrupt or truncated store)", r.path)
 	}
 	var ff fileFormat
 	if err := json.Unmarshal(data, &ff); err != nil {
@@ -134,6 +141,15 @@ func (r *PersistentRegistry) save() error {
 	if err := os.Rename(tmpName, r.path); err != nil {
 		return fmt.Errorf("trustregistry: rename into place: %w", err)
 	}
+	// fsync the parent directory so the rename itself is durable: without
+	// this, a crash immediately after a confirmed registration could lose the
+	// directory entry update even though the file data was synced, silently
+	// reverting the just-acknowledged write (security review SVC-3). Needs only
+	// the existing rpath promise.
+	if d, err := os.Open(dir); err == nil {
+		_ = d.Sync()
+		_ = d.Close()
+	}
 	return nil
 }
 
@@ -159,6 +175,48 @@ func (r *PersistentRegistry) Register(_ context.Context, rec *Record) error {
 	if err := r.save(); err != nil {
 		// Roll back the append so memory matches disk.
 		r.records[key] = r.records[key][:len(r.records[key])-1]
+		return err
+	}
+	return nil
+}
+
+// Replace implements Mutable. It atomically revokes any existing active
+// record for (rec.Iss, rec.Role) and appends rec as the new active record
+// under a SINGLE lock and a SINGLE save(). If save() fails, BOTH in-memory
+// edits (the revoke of the old record and the append of the new one) are
+// rolled back, so the prior active record survives the failure intact
+// (security review SVC-1). This closes the window where a separate Revoke
+// then Register could crash between the two persisted saves and leave the
+// issuer with no active key.
+func (r *PersistentRegistry) Replace(_ context.Context, rec *Record) error {
+	if err := validateRecord(rec); err != nil {
+		return err
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	key := registryKey{rec.Iss, rec.Role}
+
+	// Revoke the current active record (if any) in memory, remembering it so we
+	// can restore its status on a save failure.
+	var revoked *Record
+	for _, existing := range r.records[key] {
+		if existing.Status == StatusActive {
+			revoked = existing
+			existing.Status = StatusRevoked
+			break
+		}
+	}
+
+	cp := copyRecord(rec)
+	r.records[key] = append(r.records[key], cp)
+
+	if err := r.save(); err != nil {
+		// Roll back BOTH edits so memory matches what is durable.
+		r.records[key] = r.records[key][:len(r.records[key])-1]
+		if revoked != nil {
+			revoked.Status = StatusActive
+		}
 		return err
 	}
 	return nil

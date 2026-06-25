@@ -36,3 +36,14 @@ func unveilLock() {
 		log.Printf("unveil lock: %v", err)
 	}
 }
+
+// withTightUmask runs fn with the process umask set to 0o177 (clears group/
+// other and the owner-execute bit), restoring the previous umask afterwards.
+// Used to bind the admin Unix socket so the node is *born* mode 0600 with no
+// TOCTOU window between Listen and Chmod (security review SVC-2). unix.Umask
+// is OpenBSD-only here; the non-OpenBSD stub is a plain passthrough.
+func withTightUmask(fn func()) {
+	old := unix.Umask(0o177)
+	defer unix.Umask(old)
+	fn()
+}

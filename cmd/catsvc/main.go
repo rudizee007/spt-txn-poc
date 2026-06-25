@@ -166,7 +166,10 @@ func handleIssue(privKey ed25519.PrivateKey, issuerPub ed25519.PublicKey) http.H
 
 		var req issueRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			jsonError(w, "invalid JSON: "+err.Error(), http.StatusBadRequest)
+			// Don't echo the decoder error to the client — it can leak parser
+			// internals. Log server-side, return a generic message (SVC-7).
+			log.Printf("issue: decode body: %v", err)
+			jsonError(w, "invalid request body", http.StatusBadRequest)
 			return
 		}
 
@@ -218,7 +221,9 @@ func handleIssue(privKey ed25519.PrivateKey, issuerPub ed25519.PublicKey) http.H
 			HolderPublicKey:    ed25519.PublicKey(holderKeyBytes),
 		}, privKey)
 		if err != nil {
-			jsonError(w, "issue failed: "+err.Error(), http.StatusBadRequest)
+			// Don't echo the issuance error to the client (SVC-7).
+			log.Printf("issue: cattoken.Issue: %v", err)
+			jsonError(w, "issuance failed", http.StatusBadRequest)
 			return
 		}
 

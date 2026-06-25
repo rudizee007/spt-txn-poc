@@ -163,6 +163,16 @@ type Mutable interface {
 	// Revoke or Supersede the existing record first.
 	Register(ctx context.Context, rec *Record) error
 
+	// Replace atomically supersedes any existing active record for
+	// (rec.Iss, rec.Role) and installs rec as the new active record. The
+	// revoke-of-old and append-of-new happen under a SINGLE lock and a
+	// SINGLE persisted save, so a crash or failed save can never leave the
+	// issuer with no active key (security review SVC-1). On a save failure
+	// BOTH in-memory edits are rolled back, leaving the prior active record
+	// intact. Unlike Register, Replace never returns ErrConflict — it is the
+	// caller's explicit intent to rotate.
+	Replace(ctx context.Context, rec *Record) error
+
 	// Revoke marks an active record as revoked. Returns ErrNotFound if no
 	// active record exists for (iss, role).
 	Revoke(ctx context.Context, iss string, role Role, at time.Time) error

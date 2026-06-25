@@ -170,3 +170,22 @@ func TestTravelRule_WrongRegistryRootRejected(t *testing.T) {
 		t.Error("attestation referencing an untrusted registry root must be rejected")
 	}
 }
+
+
+// TR-1: the amount commitment is bound into the signed SD-JWT. Swapping in a
+// different AmountCommitment after issuance must be caught by Verify's binding
+// check (before the ZK threshold proof is even reached).
+func TestTravelRule_AmountCommitmentBindingTamperRejected(t *testing.T) {
+	reg := registryWith(t, benVASP)
+	iss, ver := newIssuerVerifier(t, reg)
+	tr, se := sampleTransfer(5000)
+	const ctxHash = "deadbeefcafe0002"
+	att, err := iss.Build(tr, se, ctxHash, time.Hour)
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	att.AmountCommitment = "999999999999"
+	if _, err := ver.Verify(att, ctxHash, []string{"currency"}); err == nil {
+		t.Error("a swapped amount commitment must be rejected by the SD-JWT binding check")
+	}
+}

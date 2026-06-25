@@ -20,7 +20,7 @@ func TestLog_AppendReloadVerify(t *testing.T) {
 		t.Fatal(err)
 	}
 	for i := 0; i < 5; i++ {
-		if _, err := l.Append("txn_issued", "jti-"+strconv.Itoa(i), map[string]string{"amount": "5000"}); err != nil {
+		if _, err := l.Append("txn_issued", "jti-"+strconv.Itoa(i), map[string]string{"amount_commitment": "c3b0...opaque"}); err != nil {
 			t.Fatalf("append: %v", err)
 		}
 	}
@@ -115,4 +115,28 @@ func TestMerkle_DeterministicAndSigned(t *testing.T) {
 		t.Error("Merkle root must change when the log changes")
 	}
 	l.Close()
+}
+
+
+// AUD-2: Append must reject Detail maps that carry a known-sensitive (PII) key,
+// forcing callers to log commitments/opaque IDs instead of raw values.
+func TestLog_RejectsPIIDetail(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "pii.log")
+	l, err := audit.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Close()
+	for _, k := range []string{"amount", "name", "account", "pan", "iban", "dob", "AMOUNT"} {
+		if _, err := l.Append("txn_issued", "jti-1", map[string]string{k: "secret"}); err == nil {
+			t.Errorf("Append with PII key %q must be rejected", k)
+		}
+	}
+	// An opaque reference is accepted.
+	if _, err := l.Append("txn_issued", "jti-1", map[string]string{"amount_commitment": "c0ffee"}); err != nil {
+		t.Errorf("opaque detail must be accepted, got %v", err)
+	}
+	if n := len(l.Entries()); n != 1 {
+		t.Fatalf("only the opaque append should have succeeded, got %d entries", n)
+	}
 }

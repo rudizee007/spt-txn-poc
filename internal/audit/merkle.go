@@ -17,23 +17,34 @@ import (
 	"time"
 )
 
-// MerkleRoot returns the SHA-256 Merkle root over the entries' hashes. An odd
-// node at any level is paired with itself. Empty input yields nil.
+// Merkle domain-separation tags (RFC 6962 style): leaves and interior nodes are
+// hashed under distinct prefixes so no interior node can be reinterpreted as a
+// leaf (or vice versa), and the duplicate-last-node second-preimage ambiguity
+// (CVE-2012-2459) is removed by promoting an unpaired node unchanged instead of
+// hashing it with itself.
+const (
+	leafPrefix     = 0x00
+	interiorPrefix = 0x01
+)
+
+// MerkleRoot returns the SHA-256 Merkle root over the entries' hashes, using
+// RFC 6962 leaf/interior domain separation. An odd node at a level is promoted
+// to the next level unchanged (no self-duplication). Empty input yields nil.
 func MerkleRoot(entries []Entry) []byte {
 	if len(entries) == 0 {
 		return nil
 	}
 	layer := make([][]byte, len(entries))
 	for i, e := range entries {
-		layer[i] = e.Hash
+		layer[i] = hashLeaf(e.Hash)
 	}
 	for len(layer) > 1 {
 		next := make([][]byte, 0, (len(layer)+1)/2)
 		for i := 0; i < len(layer); i += 2 {
 			if i+1 < len(layer) {
-				next = append(next, hashPair(layer[i], layer[i+1]))
+				next = append(next, hashInterior(layer[i], layer[i+1]))
 			} else {
-				next = append(next, hashPair(layer[i], layer[i])) // duplicate last
+				next = append(next, layer[i]) // promote unpaired node unchanged
 			}
 		}
 		layer = next
@@ -41,8 +52,18 @@ func MerkleRoot(entries []Entry) []byte {
 	return layer[0]
 }
 
-func hashPair(a, b []byte) []byte {
+// hashLeaf computes SHA-256(0x00 || entryHash).
+func hashLeaf(entryHash []byte) []byte {
 	h := sha256.New()
+	h.Write([]byte{leafPrefix})
+	h.Write(entryHash)
+	return h.Sum(nil)
+}
+
+// hashInterior computes SHA-256(0x01 || left || right).
+func hashInterior(a, b []byte) []byte {
+	h := sha256.New()
+	h.Write([]byte{interiorPrefix})
 	h.Write(a)
 	h.Write(b)
 	return h.Sum(nil)

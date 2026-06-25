@@ -204,7 +204,9 @@ func Verify(tokenStr string, issuerPublicKey ed25519.PublicKey) (map[string]any,
 	if !ok {
 		return nil, fmt.Errorf("missing exp claim")
 	}
-	if time.Now().Unix() > int64(exp) {
+	// RFC 7519: valid only while now < exp; expired once now >= exp. Matches
+	// cttoken, txntoken, and the engine (VER-4).
+	if time.Now().Unix() >= int64(exp) {
 		return nil, fmt.Errorf("token expired")
 	}
 

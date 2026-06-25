@@ -3,13 +3,26 @@ package cattoken_test
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/violetskysecurity/spt-txn-poc/internal/cattoken"
 )
+
+// forgeCAT mints a compact JWT with caller-chosen claims, signed by key, for
+// boundary tests that cattoken.Issue would not naturally produce.
+func forgeCAT(t *testing.T, claims map[string]any, key ed25519.PrivateKey) string {
+	t.Helper()
+	hdr, _ := json.Marshal(map[string]string{"alg": "EdDSA", "typ": "JWT"})
+	body, _ := json.Marshal(claims)
+	si := base64.RawURLEncoding.EncodeToString(hdr) + "." + base64.RawURLEncoding.EncodeToString(body)
+	sig := ed25519.Sign(key, []byte(si))
+	return si + "." + base64.RawURLEncoding.EncodeToString(sig)
+}
 
 func generateTestKeypair(t *testing.T) (ed25519.PublicKey, ed25519.PrivateKey) {
 	t.Helper()
@@ -131,6 +144,30 @@ func TestVerify_Expired(t *testing.T) {
 	_, err = cattoken.Verify(cat.Token, issuerPub)
 	if err == nil {
 		t.Error("expected expiry error, got nil")
+	}
+}
+
+// VER-4: a CAT whose exp equals the current time is expired (now >= exp),
+// matching cttoken/txntoken/engine and RFC 7519 intent. Before the fix cattoken
+// used a strict `>` so now == exp incorrectly still verified.
+func TestVerify_ExpiresAtExactBoundary(t *testing.T) {
+	issuerPub, issuerPriv := generateTestKeypair(t)
+	holderPub, _ := generateTestKeypair(t)
+	claims := map[string]any{
+		"iss":                  "domain-a.authorg",
+		"sub":                  "grace",
+		"iat":                  time.Now().Add(-time.Minute).Unix(),
+		"exp":                  time.Now().Unix(), // exp == now (boundary)
+		"jti":                  "boundary-jti",
+		"txn_token_type":       "CAT",
+		"human_anchor":         hex.EncodeToString(make([]byte, 32)),
+		"capability_scope":     map[string]any{"action": "read"},
+		"delegation_depth_max": 1,
+		"holder_key":           hex.EncodeToString(holderPub),
+	}
+	token := forgeCAT(t, claims, issuerPriv)
+	if _, err := cattoken.Verify(token, issuerPub); err == nil {
+		t.Error("expected exp==now to be treated as expired, got nil")
 	}
 }
 

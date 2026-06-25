@@ -67,6 +67,24 @@ func TestVerify_ATHBinding(t *testing.T) {
 	}
 }
 
+// htu normalization (RFC 9449 §4.3): a proof and the expected htu that differ
+// only in scheme/host case or in a query/fragment must still match.
+func TestVerify_HTUNormalization(t *testing.T) {
+	_, priv, _ := ed25519.GenerateKey(rand.Reader)
+	// Proof carries an upper-cased host and a query+fragment; the verifier expects
+	// the canonical lower-cased URI with neither.
+	proof, _ := dpop.Proof(priv, "POST", "HTTPS://FOSS.Violetskysecurity.com/b/verify?x=1#frag", "")
+	if _, _, err := dpop.Verify(proof, "POST", "https://foss.violetskysecurity.com/b/verify", "", 0); err != nil {
+		t.Errorf("normalized-equivalent htu should match: %v", err)
+	}
+	// A genuinely different path must still be rejected — normalization must not
+	// loosen the path boundary.
+	proof2, _ := dpop.Proof(priv, "POST", "https://foss.violetskysecurity.com/b/verify", "")
+	if _, _, err := dpop.Verify(proof2, "POST", "https://foss.violetskysecurity.com/b/admin", "", 0); err == nil {
+		t.Error("different path must still be rejected")
+	}
+}
+
 func TestThumbprint_Stable(t *testing.T) {
 	pub, _, _ := ed25519.GenerateKey(rand.Reader)
 	if dpop.Thumbprint(pub) != dpop.Thumbprint(pub) {

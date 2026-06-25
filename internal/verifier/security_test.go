@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/violetskysecurity/spt-txn-poc/internal/cattoken"
+	"github.com/violetskysecurity/spt-txn-poc/internal/dpop"
 	"github.com/violetskysecurity/spt-txn-poc/internal/trustregistry"
 )
 
@@ -24,6 +26,25 @@ func forgeToken(claims map[string]any, key ed25519.PrivateKey) string {
 	si := b64u(hdr) + "." + b64u(body)
 	sig := ed25519.Sign(key, []byte(si))
 	return si + "." + b64u(sig)
+}
+
+// decodeClaims returns the (unverified) claims of a compact JWT for tests that
+// re-forge a token with one field changed.
+func decodeClaims(t *testing.T, token string) map[string]any {
+	t.Helper()
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		t.Fatalf("malformed token: %d parts", len(parts))
+	}
+	body, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		t.Fatalf("decode payload: %v", err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(body, &m); err != nil {
+		t.Fatalf("parse payload: %v", err)
+	}
+	return m
 }
 
 // Algorithm-confusion: a token with alg:none and an empty signature must be
@@ -91,4 +112,69 @@ func TestSec_CrossDomainAudience(t *testing.T) {
 	h := build(t)
 	h.in.Audience = "domain-c.someone-else"
 	mustDeny(t, h.eng.Verify(context.Background(), h.in), 3)
+}
+
+// VER-2: a signature-verified SPT-Txn Token carrying a non-string human_anchor
+// (e.g. a JSON object) must be rejected cleanly at the chain step — never panic
+// the verifier by comparing uncomparable `any` values with !=.
+func TestSec_NonStringHumanAnchor_NoPanic(t *testing.T) {
+	h := build(t)
+	claims := decodeClaims(t, h.in.TxnToken)
+	claims["human_anchor"] = map[string]any{"evil": "uncomparable"} // not a string
+	forged := forgeToken(claims, h.ttsPriv)
+	// Re-bind a fresh DPoP proof to the re-signed token so steps 1-5 pass and the
+	// chain step (6) is reached.
+	proof, err := dpop.Proof(h.agentPriv, htm, htu, dpop.ATH(forged))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.in.TxnToken = forged
+	h.in.DPoPProof = proof
+	mustDeny(t, h.eng.Verify(context.Background(), h.in), 6)
+}
+
+// VER-1: a CT presented with a different (but validly-signed) CAT than the one
+// it was issued against must be rejected — its spt_parent_hash no longer matches
+// the presented CAT.
+func TestSec_CTPresentedWithDifferentCAT(t *testing.T) {
+	h := build(t)
+	other, err := cattoken.Issue(cattoken.IssueRequest{
+		Issuer: issCT, Subject: "alice", PrincipalName: "alice",
+		Scope:              cattoken.CapabilityScope{"action": "payment", "max_amount": 10000, "currency": "USD"},
+		DelegationDepthMax: 3, TTL: time.Hour, HolderPublicKey: h.agentPub,
+	}, h.ctPriv)
+	if err != nil {
+		t.Fatalf("other CAT: %v", err)
+	}
+	h.in.CAT = other.Token
+	mustDeny(t, h.eng.Verify(context.Background(), h.in), 6)
+}
+
+// VER-1 (direct): swapping in a CAT whose jti the CT *does* reference but whose
+// bytes differ must still be rejected by the spt_parent_hash check. We forge a
+// CAT reusing the original CAT's jti (so the spt_cat_ref linkage passes) and the
+// same human_anchor, leaving spt_parent_hash as the only check that can fire.
+func TestSec_CTParentHashMismatch(t *testing.T) {
+	h := build(t)
+	catClaims := decodeClaims(t, h.cat.Token)
+	catClaims["sub"] = "alice-tampered" // change the bytes, keep jti + human_anchor
+	forgedCAT := forgeToken(catClaims, h.ctPriv)
+	if forgedCAT == h.cat.Token {
+		t.Fatal("forged CAT must differ from the original")
+	}
+	h.in.CAT = forgedCAT
+	mustDeny(t, h.eng.Verify(context.Background(), h.in), 6)
+}
+
+// VER-3: a token whose iat is well in the future (beyond the skew tolerance)
+// must be rejected at the expiry step even though its exp is still valid.
+func TestSec_FutureIAT(t *testing.T) {
+	h := build(t)
+	claims := decodeClaims(t, h.in.TxnToken)
+	claims["iat"] = float64(time.Now().Add(2 * time.Hour).Unix())
+	claims["exp"] = float64(time.Now().Add(3 * time.Hour).Unix())
+	forged := forgeToken(claims, h.ttsPriv)
+	h.in.TxnToken = forged
+	// step2 runs before DPoP, so the original proof binding is irrelevant here.
+	mustDeny(t, h.eng.Verify(context.Background(), h.in), 2)
 }

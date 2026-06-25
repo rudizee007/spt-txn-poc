@@ -30,8 +30,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/big"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/violetskysecurity/spt-txn-poc/internal/travelrule"
@@ -65,8 +69,10 @@ type Asset struct {
 // alongside these fields; SPT-Txn carries it instead as a payload-level
 // zero-knowledge attestation in Extensions.SPTTxn.
 type TransferRequest struct {
-	Asset      Asset      `json:"asset"`
-	Amount     float64    `json:"amount"`
+	Asset Asset `json:"asset"`
+	// Amount is a decimal string (never a float) so it canonicalizes
+	// byte-exactly across languages and carries no float rounding (TR-4).
+	Amount     string     `json:"amount"`
 	Callback   string     `json:"callback,omitempty"`
 	Extensions Extensions `json:"extensions"`
 }
@@ -128,9 +134,15 @@ func DecodeTravelAddress(addr string) (string, error) {
 // Client sends outbound TRP transfers (the originator VASP side).
 type Client struct {
 	HTTP *http.Client
+	// AllowInsecureTarget, when true, disables the production target guard that
+	// requires https and rejects loopback/private/link-local destinations
+	// (TR-2). It exists ONLY so tests can target httptest servers on 127.0.0.1.
+	// It MUST stay false in production; the zero value is secure.
+	AllowInsecureTarget bool
 }
 
 // NewClient returns a TRP client; a nil http.Client gets a 60s-timeout default.
+// The target guard is on by default (AllowInsecureTarget is false).
 func NewClient(h *http.Client) *Client {
 	if h == nil {
 		h = &http.Client{Timeout: 60 * time.Second}
@@ -145,6 +157,12 @@ func NewClient(h *http.Client) *Client {
 func (c *Client) Send(ctx context.Context, travelAddress string, req *TransferRequest) (*TransferResponse, int, error) {
 	endpoint, err := DecodeTravelAddress(travelAddress)
 	if err != nil {
+		return nil, 0, err
+	}
+	if err := c.validateTarget(endpoint); err != nil {
+		return nil, 0, err
+	}
+	if err := ValidAmount(req.Amount); err != nil {
 		return nil, 0, err
 	}
 	body, err := json.Marshal(req)
@@ -189,11 +207,18 @@ type VerifyFunc func(att *travelrule.Attestation, expectedTxnContextHash string,
 // SPT-Txn attestation and replies approved/rejected. This VASP requires the
 // payload-level extension: a cleartext-only TRP transfer is rejected.
 //
-// expectedHash, if non-nil, supplies the txn-context hash the beneficiary
-// independently expects (in production, derived from the observed on-chain
-// transaction — not trusted from the request). If nil, the request's value is
-// used (POC convenience).
+// expectedHash supplies the txn-context hash the beneficiary INDEPENDENTLY
+// expects — in production, derived from the on-chain transaction it observes,
+// not read back from the request. It MUST be non-nil: a nil expectedHash would
+// reduce the payment binding to the request asserting its own hash (a
+// self-referential, fail-open check). Handler therefore fails closed when
+// expectedHash is nil, rejecting every request with 422 (TR-3).
+//
+// Replay note (TR-5): seen Request-Identifiers are recorded in an in-process,
+// TTL-bounded set and duplicates are rejected with 409. This assumes a single
+// service instance; a multi-instance deployment needs a shared store.
 func Handler(verify VerifyFunc, expectedHash func(*TransferRequest) string) http.Handler {
+	seen := newReplayGuard(10 * time.Minute)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set(HeaderAPIVersion, APIVersion)
 		reqID := r.Header.Get(HeaderRequestIdentifier)
@@ -212,6 +237,19 @@ func Handler(verify VerifyFunc, expectedHash func(*TransferRequest) string) http
 			reject(w, http.StatusBadRequest, "unsupported Api-Version "+v)
 			return
 		}
+		// Fail closed: without an independent transaction-context source the
+		// payment binding is meaningless, so refuse to serve at all (TR-3).
+		if expectedHash == nil {
+			reject(w, http.StatusUnprocessableEntity,
+				"server misconfigured: no independent transaction-context source")
+			return
+		}
+		// Inbound replay protection: a Request-Identifier seen recently is a
+		// replay (TR-5).
+		if !seen.observe(reqID) {
+			reject(w, http.StatusConflict, "duplicate Request-Identifier (replay)")
+			return
+		}
 		r.Body = http.MaxBytesReader(w, r.Body, 256<<10)
 		var req TransferRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -224,10 +262,11 @@ func Handler(verify VerifyFunc, expectedHash func(*TransferRequest) string) http
 				"missing spt-txn extension: this VASP requires a payload-level ZK attestation and does not accept cleartext-only TRP transfers")
 			return
 		}
-		expected := ext.TxnContextHash
-		if expectedHash != nil {
-			expected = expectedHash(&req)
+		if err := ValidAmount(req.Amount); err != nil {
+			reject(w, http.StatusUnprocessableEntity, err.Error())
+			return
 		}
+		expected := expectedHash(&req)
 		disclosed, err := verify(&ext.Attestation, expected, ext.Disclose)
 		if err != nil {
 			reject(w, http.StatusUnprocessableEntity, "attestation rejected: "+err.Error())
@@ -253,6 +292,102 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+// validateTarget enforces that an outbound TRP endpoint is safe to dial (TR-2):
+// it must be an absolute https URL, and — unless AllowInsecureTarget is set for
+// tests — its host must not be a loopback, private, link-local, or unspecified
+// address. This blocks a malicious Travel Address from steering the request at
+// an internal service (SSRF) or downgrading to plaintext http.
+func (c *Client) validateTarget(endpoint string) error {
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return fmt.Errorf("trp: bad target endpoint: %w", err)
+	}
+	if u.Host == "" {
+		return fmt.Errorf("trp: target endpoint has no host")
+	}
+	// Tests targeting an httptest server opt out of the https + private-host
+	// guards entirely; production keeps the zero value and both apply.
+	if c.AllowInsecureTarget {
+		return nil
+	}
+	if u.Scheme != "https" {
+		return fmt.Errorf("trp: target endpoint must be https, got %q", u.Scheme)
+	}
+	host := u.Hostname()
+	if strings.EqualFold(host, "localhost") {
+		return fmt.Errorf("trp: target endpoint resolves to a forbidden (loopback) host")
+	}
+	// Resolve and reject any address that is loopback/private/link-local/
+	// unspecified. A literal IP resolves to itself.
+	addrs, err := net.LookupIP(host)
+	if err != nil {
+		return fmt.Errorf("trp: cannot resolve target host %q: %w", host, err)
+	}
+	for _, ip := range addrs {
+		if forbiddenIP(ip) {
+			return fmt.Errorf("trp: target endpoint resolves to a forbidden (loopback/private/link-local) address %s", ip)
+		}
+	}
+	return nil
+}
+
+// forbiddenIP reports whether ip is in a range a public inter-VASP target must
+// never be: loopback, unspecified, link-local, or RFC1918/ULA private space.
+func forbiddenIP(ip net.IP) bool {
+	if ip.IsLoopback() || ip.IsUnspecified() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+		return true
+	}
+	return ip.IsPrivate() // 10/8, 172.16/12, 192.168/16, fc00::/7
+}
+
+// ValidAmount reports whether a TRP transfer amount is a well-formed, positive,
+// finite decimal string (TR-4). Parsing as big.Rat rejects NaN/Inf and junk.
+func ValidAmount(s string) error {
+	if s == "" {
+		return fmt.Errorf("trp: amount required")
+	}
+	r, ok := new(big.Rat).SetString(s)
+	if !ok {
+		return fmt.Errorf("trp: amount %q is not a valid decimal", s)
+	}
+	if r.Sign() <= 0 {
+		return fmt.Errorf("trp: amount %q must be positive", s)
+	}
+	return nil
+}
+
+// replayGuard is an in-process, TTL-bounded set of seen Request-Identifiers
+// (TR-5). It assumes a single service instance; a multi-instance deployment
+// would need a shared store. Expired entries are pruned lazily on observe.
+type replayGuard struct {
+	mu   sync.Mutex
+	ttl  time.Duration
+	seen map[string]time.Time
+}
+
+func newReplayGuard(ttl time.Duration) *replayGuard {
+	return &replayGuard{ttl: ttl, seen: make(map[string]time.Time)}
+}
+
+// observe records id and returns true if it is new, false if it is a live
+// (non-expired) duplicate — i.e. a replay.
+func (g *replayGuard) observe(id string) bool {
+	now := time.Now()
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	// Lazy prune.
+	for k, t := range g.seen {
+		if now.Sub(t) > g.ttl {
+			delete(g.seen, k)
+		}
+	}
+	if t, ok := g.seen[id]; ok && now.Sub(t) <= g.ttl {
+		return false
+	}
+	g.seen[id] = now
+	return true
 }
 
 // newRequestIdentifier returns a RFC-4122 v4 UUID for the Request-Identifier

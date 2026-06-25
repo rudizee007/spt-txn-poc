@@ -231,6 +231,100 @@ func TestValidate_RejectsInvalidRecords(t *testing.T) {
 	}
 }
 
+// TestReplace_SupersedesActive confirms Replace revokes the prior active
+// record and installs the new one, leaving exactly one active record
+// (security review SVC-1). Unlike Register, Replace must not return
+// ErrConflict on an existing active record.
+func TestReplace_SupersedesActive(t *testing.T) {
+	r := newTestRegistry(t)
+	ctx := context.Background()
+
+	old := &Record{
+		Iss: "domain-a", Role: RoleCTIssuer,
+		PublicKey: newEd25519PublicKey(t), KeyType: "Ed25519",
+		ValidFrom: time.Now().Add(-time.Hour), ValidUntil: time.Now().Add(time.Hour),
+		Status: StatusActive,
+	}
+	if err := r.Register(ctx, old); err != nil {
+		t.Fatalf("Register old: %v", err)
+	}
+
+	newPub := newEd25519PublicKey(t)
+	newRec := &Record{
+		Iss: "domain-a", Role: RoleCTIssuer,
+		PublicKey: newPub, KeyType: "Ed25519",
+		ValidFrom: time.Now().Add(-time.Hour), ValidUntil: time.Now().Add(time.Hour),
+		Status: StatusActive,
+	}
+	if err := r.Replace(ctx, newRec); err != nil {
+		t.Fatalf("Replace: %v", err)
+	}
+
+	got, err := r.Lookup(ctx, "domain-a", RoleCTIssuer)
+	if err != nil {
+		t.Fatalf("Lookup after Replace: %v", err)
+	}
+	if string(got.PublicKey) != string(newPub) {
+		t.Errorf("active key after Replace is not the new key")
+	}
+
+	all, err := r.List(ctx, RoleCTIssuer)
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	active := 0
+	for _, rec := range all {
+		if rec.Status == StatusActive {
+			active++
+		}
+	}
+	if active != 1 {
+		t.Errorf("active records after Replace = %d, want 1", active)
+	}
+}
+
+// TestReplace_OnEmptyJustRegisters confirms Replace works when no prior record
+// exists (it simply installs the new active record).
+func TestReplace_OnEmptyJustRegisters(t *testing.T) {
+	r := newTestRegistry(t)
+	ctx := context.Background()
+
+	rec := &Record{
+		Iss: "fresh", Role: RoleTTSIssuer,
+		PublicKey: newEd25519PublicKey(t), KeyType: "Ed25519",
+		ValidFrom: time.Now().Add(-time.Hour), ValidUntil: time.Now().Add(time.Hour),
+		Status: StatusActive,
+	}
+	if err := r.Replace(ctx, rec); err != nil {
+		t.Fatalf("Replace on empty: %v", err)
+	}
+	if _, err := r.Lookup(ctx, "fresh", RoleTTSIssuer); err != nil {
+		t.Fatalf("Lookup after Replace on empty: %v", err)
+	}
+}
+
+// TestValidate_RejectsUnsupportedPQKeyTypes confirms ML-DSA/ML-KEM key types
+// are rejected: they are not yet supported and were removed from validKeyTypes
+// to avoid advertising types the length check cannot honestly admit (SVC-6).
+func TestValidate_RejectsUnsupportedPQKeyTypes(t *testing.T) {
+	r := newTestRegistry(t)
+	ctx := context.Background()
+
+	for _, kt := range []string{"ML-DSA-44", "ML-DSA-65", "ML-KEM-768"} {
+		t.Run(kt, func(t *testing.T) {
+			rec := &Record{
+				Iss: "x", Role: RoleCTIssuer,
+				PublicKey: make([]byte, 32), KeyType: kt,
+				ValidFrom: time.Now(), ValidUntil: time.Now().Add(time.Hour),
+				Status: StatusActive,
+			}
+			if err := r.Register(ctx, rec); !errors.Is(err, ErrInvalidRecord) {
+				t.Errorf("Register %s: got err = %v, want ErrInvalidRecord", kt, err)
+			}
+		})
+	}
+}
+
 // TestIsCurrentlyValid covers Record.IsCurrentlyValid in isolation.
 func TestIsCurrentlyValid(t *testing.T) {
 	now := time.Now()

@@ -15,6 +15,7 @@ package verifier
 import (
 	"context"
 	"crypto/ed25519"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -164,13 +165,26 @@ func (e *Engine) step1Signature(ctx context.Context, token string) (map[string]a
 	return claims, nil
 }
 
+// iatSkew is the tolerance allowed when checking that a token's iat is not in
+// the future, accommodating modest clock drift between issuer and verifier.
+const iatSkew = 60 // seconds
+
 func step2Expiry(txClaims map[string]any) error {
 	exp, ok := txClaims["exp"].(float64)
 	if !ok {
 		return fmt.Errorf("missing exp claim")
 	}
-	if time.Now().Unix() >= int64(exp) {
+	now := time.Now().Unix()
+	if now >= int64(exp) {
 		return fmt.Errorf("SPT-Txn Token expired")
+	}
+	// VER-3: reject a token whose iat is in the future beyond a small skew. exp
+	// alone does not catch a token issued (or back-/forward-dated) with a future
+	// iat. Lenient by iatSkew to avoid clock-skew false rejects.
+	if iat, ok := txClaims["iat"].(float64); ok {
+		if int64(iat) > now+iatSkew {
+			return fmt.Errorf("SPT-Txn Token iat is in the future")
+		}
 	}
 	return nil
 }
@@ -242,8 +256,22 @@ func (e *Engine) step6Chain(ctx context.Context, txClaims map[string]any, ctToke
 	if ctClaims["spt_cat_ref"] != catClaims["jti"] {
 		return nil, fmt.Errorf("CT spt_cat_ref does not reference the presented CAT")
 	}
-	anchor := txClaims["human_anchor"]
-	if anchor == nil || anchor != ctClaims["human_anchor"] || anchor != catClaims["human_anchor"] {
+	// VER-1: the CT commits to its parent CAT by hash (base64url(SHA-256(compact
+	// CAT)), minted in cttoken.Issue). Re-derive it from the presented CAT and
+	// require an exact match, so a CT cannot be paired with a different (even
+	// validly-signed) CAT than the one it was issued against.
+	catSum := sha256.Sum256([]byte(catToken))
+	if ctClaims["spt_parent_hash"] != base64.RawURLEncoding.EncodeToString(catSum[:]) {
+		return nil, fmt.Errorf("CT spt_parent_hash does not match presented CAT")
+	}
+	// VER-2: read humanAnchor as a string on all three tokens and fail closed if
+	// any is missing, empty, or a non-string. Comparing raw `any` values with !=
+	// would panic on an uncomparable type (e.g. a map/slice human_anchor in a
+	// signature-verified token), so the type assertion is the guard.
+	anchor, ok := txClaims["human_anchor"].(string)
+	ctA, ok2 := ctClaims["human_anchor"].(string)
+	catA, ok3 := catClaims["human_anchor"].(string)
+	if !ok || !ok2 || !ok3 || anchor == "" || anchor != ctA || anchor != catA {
 		return nil, fmt.Errorf("humanAnchor not propagated unchanged across the chain")
 	}
 

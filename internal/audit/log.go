@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -142,9 +143,40 @@ func (l *Log) load(data []byte) error {
 	return nil
 }
 
+// sensitiveDetailKeys are Detail keys that would leak PII into the audit log.
+// Callers MUST pass commitments, hashes, or opaque IDs instead of raw values;
+// Append rejects any of these keys to keep the published log PII-free (AUD-2).
+var sensitiveDetailKeys = map[string]bool{
+	"amount":  true,
+	"name":    true,
+	"account": true,
+	"pan":     true,
+	"iban":    true,
+	"dob":     true,
+}
+
+// ErrPIIInAuditDetail is returned by Append when a Detail key is on the
+// known-sensitive list. The audit log must carry only opaque references.
+var ErrPIIInAuditDetail = fmt.Errorf("audit: detail contains a PII key; pass a commitment/hash/opaque id instead")
+
+// checkNoPII rejects detail maps that carry a known-sensitive (PII) key.
+func checkNoPII(detail map[string]string) error {
+	for k := range detail {
+		if sensitiveDetailKeys[strings.ToLower(k)] {
+			return fmt.Errorf("%w (key %q)", ErrPIIInAuditDetail, k)
+		}
+	}
+	return nil
+}
+
 // Append adds an event to the log and flushes it to disk. It returns the new
-// entry. Concurrent-safe.
+// entry. Subject and Detail values must be opaque (commitments/hashes/IDs), not
+// PII; Append rejects Detail maps carrying a known-sensitive key (AUD-2).
+// Concurrent-safe.
 func (l *Log) Append(eventType, subject string, detail map[string]string) (Entry, error) {
+	if err := checkNoPII(detail); err != nil {
+		return Entry{}, err
+	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
 

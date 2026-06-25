@@ -16,20 +16,33 @@ import (
 	"github.com/violetskysecurity/spt-txn-poc/internal/zkhash"
 )
 
-func feFromBytes(b []byte) fr.Element   { return zkhash.FeFromBytes(b) }
-func feFromUint64(u uint64) fr.Element  { return zkhash.FeFromUint64(u) }
-func bigOf(e fr.Element) *big.Int       { return zkhash.BigOf(e) }
-func hashTwo(a, b fr.Element) fr.Element { return zkhash.HashTwo(a, b) }
+func feFromBytes(b []byte) fr.Element  { return zkhash.FeFromBytes(b) }
+func feFromWide(b []byte) fr.Element   { return zkhash.FeFromWide(b) }
+func feFromUint64(u uint64) fr.Element { return zkhash.FeFromUint64(u) }
+func bigOf(e fr.Element) *big.Int      { return zkhash.BigOf(e) }
 
-// Commit is the public commitment for a pair of secret inputs, used for both
-// the humanAnchor (ID, Randomness) and the amount commitment (Amount, Blinding).
+// Domain-separated hash helpers (CR-1): each mirrors a distinct in-circuit
+// gadget that absorbs the same domain tag first. hashAnchor backs the identity
+// humanAnchor, hashAmount the amount commitment, and hashNode the Merkle inner
+// nodes — so a value computed for one purpose cannot be replayed as another.
+func hashAnchor(id, r fr.Element) fr.Element     { return zkhash.HashAnchor(id, r) }
+func hashAmount(amt, bl fr.Element) fr.Element   { return zkhash.HashAmount(amt, bl) }
+func hashNode(left, right fr.Element) fr.Element { return zkhash.HashNode(left, right) }
+
+// Commit is the public identity humanAnchor commitment for a pair of secret
+// inputs (ID, Randomness): H(DomainAnchor, FeFromWide(ID), FeFromWide(r)). It is
+// domain-separated from the amount commitment (which goes through hashAmount in
+// ProveThreshold) and uses the safe wide field reduction (CR-3).
 func Commit(secret, blinding []byte) *big.Int {
-	return bigOf(hashTwo(feFromBytes(secret), feFromBytes(blinding)))
+	return bigOf(hashAnchor(feFromWide(secret), feFromWide(blinding)))
 }
 
 // ── registered-VASP Merkle tree ──────────────────────────────────────────────
 
-// MerkleTree is a MiMC Merkle tree over the registered-VASP set.
+// MerkleTree is a Poseidon2 Merkle tree over the registered-VASP set. Inner
+// nodes are domain-separated under DomainMerkleNode (hashNode), distinct from
+// the identity/amount commitment domains. Leaves are the raw member field
+// elements (feFromBytes) and are not themselves hashed.
 type MerkleTree struct {
 	levels [][]fr.Element // levels[0] = leaves, last = [root]
 	index  map[string]int // member-id hex -> leaf index
@@ -54,7 +67,7 @@ func BuildVASPRegistry(memberIDs [][]byte) (*MerkleTree, error) {
 	for len(cur) > 1 {
 		next := make([]fr.Element, len(cur)/2)
 		for i := 0; i < len(cur); i += 2 {
-			next[i/2] = hashTwo(cur[i], cur[i+1])
+			next[i/2] = hashNode(cur[i], cur[i+1])
 		}
 		levels = append(levels, next)
 		cur = next

@@ -453,39 +453,256 @@ to a one-line attestation.
 
 ## 6. Privacy-preserving FATF Travel Rule (deployed)
 
-*(to be drafted: IVMS101 data model; the three ZK predicates bound to the payment;*
-*two-VASP verify-only topology; TRP transport carrying the payload-level*
-*attestation; cleartext-refusal policy; TRISA bridge design; live deployment.)*
+The FATF Travel Rule (Recommendation 16) requires that originator and beneficiary
+identity travel between VASPs for qualifying virtual-asset transfers. The two
+dominant protocols carry that data differently: **TRISA** (gRPC, protocol buffers)
+seals it in per-message encrypted Secure Envelopes; **OpenVASP TRP** (HTTPS/JSON)
+relies on transport-level mTLS and ships the IVMS101 identity in cleartext to the
+counterparty. TRP's gap is decisive for privacy: once the JSON arrives, the
+receiving VASP holds the full PII — a standing breach liability and a tension with
+data-minimisation law.
+
+SPT-Txn closes that gap with a **payload-level zero-knowledge attestation** rather
+than trusted decryption. Instead of shipping the identity, the originator ships:
+
+- the IVMS101 fields as a selectively-disclosable **SD-JWT** (reveal a surname to a
+  regulator; keep the given name, account, and amount hidden); and
+- three **Groth16 predicates** bound to the specific payment via its
+  transaction-context hash: identity-commitment (the humanAnchor), amount ≥ the
+  reporting threshold (amount hidden), and beneficiary-VASP registration (which
+  VASP hidden).
+
+The beneficiary learns *"this transfer is reportable, between registered VASPs,
+with an authenticated originator"* without receiving the amount or the identity
+fields it is not entitled to. Identity is carried in the **IVMS101** data model
+(the standard TRISA and TRP share), so the attestation interoperates with existing
+networks.
+
+**Topology and policy.** Originator and beneficiary run as **separate services**:
+the originator holds the proving keys; the beneficiary holds **only the verifying
+key** — it can check an attestation but cannot forge one. A transfer with no
+SPT-Txn attestation (a plain-IVMS101 cleartext TRP transfer) is **refused** — this
+VASP requires payload-level privacy, not optionally. A **TRISA bridge** is designed
+(map the attestation into a Secure Envelope `Payload`, sealed to the recipient via
+KeyExchange/GDS), giving defence in depth: zero-knowledge for what the counterparty
+may compute, sealing for confidentiality at rest.
+
+**Deployed.** This runs today on the reference host: two OpenBSD `rc.d` services
+(originator + beneficiary) behind relayd TLS, exchanging an attestation over a real
+TRP hop; the beneficiary returns *approved* disclosing only the surname and
+currency, with the amount and other fields never transmitted. (`internal/trp`,
+`internal/travelrule`, `internal/ivms101`, `internal/vaspregistry`, `cmd/tr-svc`;
+see `docs/TRP-TRISA-INTEROP.md`.)
 
 ## 7. Security and threat model
 
-*(to be drafted, per layer: token/chain, attribute oracle, escrow, zkDNS;*
-*OpenBSD hardening — pledge/unveil, privsep, relayd, signify; trust-registry*
-*persistence finding; trusted-setup risk; assumptions.)*
+### 7.1 Adversaries and assets
+
+Protected assets: the issuer signing keys (the root of the capability chain), the
+subject's identity/PII, and the integrity of the authorization chain. Adversaries
+considered: a network attacker on the inter-VASP path; a malicious or curious
+counterparty/verifier; a compromised individual service; a curious attribute oracle
+or directory; and a coerced issuer.
+
+### 7.2 Per-layer
+
+- **Token chain.** Scope can only narrow (CT ⊆ parent enforced cryptographically at
+  every hop); delegation depth is bounded; the humanAnchor is immutable; the
+  SPT-Txn token is bound to one transaction context and sender-constrained (DPoP),
+  so a captured token+proof is non-replayable (denied at enforcement step 5). The
+  eight-step engine verifies the chain **offline** — no issuer contact, fail closed.
+- **Attribute oracle / discovery.** Volatile attributes are re-proven against the
+  oracle's *committed* state under a max-proof-age; blind, ODoH/DECO-style queries
+  (§4.4) hide the query graph from the oracle.
+- **Escrow.** Re-identification is possible only via the escrow path, under
+  quorum/lawful process; the envelope uses a fresh ephemeral X25519 per seal, a
+  random nonce, and AAD binding `anchor|iss|iat`; deanonymization requests carry a
+  freshness window and replay guard.
+- **Registry / discovery root.** Issuer authorisation is a registry lookup, not a
+  query about the subject; the registrar rejects malformed and all-zero keys;
+  registration is served only on an owner-only admin socket, never the edge.
+
+### 7.3 Platform hardening (OpenBSD reference)
+
+Every service applies real `pledge(2)` (syscall-set restriction) and `unveil(2)`
+(filesystem restriction) — e.g. the issuer can read only its own key path — runs
+under a dedicated least-privilege user, sits behind relayd TLS with a deny-by-
+default protocol, and uses OpenBSD `signify` keys (the loader rejects encrypted or
+checksum-invalid keys). A repeatable host audit (`scripts/security-audit.sh`)
+reports **FAIL=0**. The Go code is OS-portable (pledge/unveil is build-tagged); the
+production-Linux equivalents are seccomp-bpf (≈ pledge) and Landlock (≈ unveil).
+
+### 7.4 Known limitations (stated honestly)
+
+Per the full review (`docs/SECURITY-REVIEW.md`), all Critical and High findings are
+fixed and verified. Deferred, bounded items: **key encryption-at-rest** (keys are
+`0400`/unveil-confined but unencrypted — fix via softraid/LUKS+TPM, HSM, or FROST);
+**Trust Registry persistence** (the mock registry reverts to revoked placeholders
+on restart — an interim re-registration script is in place); and the **trusted-setup
+risk** inherent to Groth16 (mitigated by PLONK/transparent options, §5.4).
+Production assurance is closed by an **independent ZK-circuit + protocol audit**,
+not by self-assertion.
+
+### 7.5 Assumptions
+
+Soundness of the proving system and its parameters; honesty (or multi-issuer
+attestation) of credential issuers — ZK cannot defend against a coerced issuer
+fabricating credentials; secure-enclave integrity for biometric uniqueness; and an
+honest-quorum for escrow deanonymization.
 
 ## 8. Related work and differentiation
 
-*(to be drafted: vs DNA Protocol and XRPL ZK-identity — no token, no new chain,*
-*compliance-first; vs git-id (MyNextID) — complementary (who the agent is vs what*
-*it may do); SSI/VC, soulbound tokens, anonymous credentials; NIST alignment —*
-*IR 8587, SP 800-207/204/63/162; the honest PQ posture vs "quantum-ready" claims.)*
+**Foundations SPT-Txn composes.** Self-sovereign identity and W3C Verifiable
+Credentials / DID Core give user-controlled, privacy-preserving identity but no
+on-line policy enforcement or transaction binding; object-capability security
+(Biscuit, Macaroons) gives scoped, delegable authority but no identity provenance;
+the OAuth Transaction Tokens work gives transaction-scoped tokens but no compliance
+semantics; anonymous credentials (BBS+, AnonCreds) and soulbound tokens give
+unlinkable attributes but no composed ABAC/enforcement chain. SPT-Txn's contribution
+is the *composition* of these into one offline-verifiable, accountable chain.
 
-## 9. Regulatory and legal posture
+**vs DNA Protocol and XRPL ZK-identity.** Recent XRPL-adjacent ZK-identity work
+(e.g. DNA Protocol) is consumer/genomic identity, **token-gated** (a native token
+is consumed to generate proofs) and built on its **own chain** bridged to XRPL.
+SPT-Txn differs on three axes that matter for institutional adoption: **no native
+token** (proofs run on the VASP's own infrastructure), **blockchain-agnostic** (no
+new chain; XRPL is a target behind an adapter), and **compliance-first**
+(complements FATF/regulation rather than an anti-institutional sovereignty pitch).
+On post-quantum, competitors advertise "quantum-ready"; SPT-Txn instead states a
+*measured* hybrid migration (§5.6) and is explicit that pairing-based Groth16 is not
+yet PQ — a more defensible claim now that EO 14409 makes "post-quantum" a checkable
+assertion.
 
-*(to be drafted, informative: utility framing (Howey); authorization-layer-only,*
-*"do not touch the money" (money transmission); VASP/CIMA, MiCA; EU AI Act Art.*
-*14; not legal advice.)*
+**vs git-id (MyNextID) — complementary, not competing.** git-id answers *who an
+agent is*; SPT-Txn answers *what it may do* in a specific transaction. The gaps
+git-id leaves — no proof-of-possession, no cryptographic owner→agent binding, no
+transaction binding — are exactly what SPT-Txn's transaction-binding (TB) property
+and humanAnchor close. The natural composition: resolve agent identity via git-id →
+issue an SPT-Txn-scoped capability → enforce with the eight-step engine.
+
+**NIST alignment.** SPT-Txn is the cryptographic primitive several NIST frameworks
+assume but do not specify: **IR 8587** (protecting tokens/assertions from forgery,
+theft, and misuse — the most direct fit, incl. demonstrated proof-of-possession and
+global revocation), **SP 800-207** (Zero Trust — per-transaction binding the
+PE/PA/PEP model presumes), **SP 800-204** series (microservices ABAC over JWTs),
+**SP 800-63** (digital identity / privacy), and **SP 800-162** (ABAC). The Travel
+Rule layer interoperates with **TRISA**, **OpenVASP TRP**, and **IVMS101**.
+
+## 9. Regulatory and legal posture (informative)
+
+*This section is informative and not legal advice; classifications are
+jurisdiction- and structure-specific and require qualified counsel.*
+
+**Securities (US Howey).** The core primitives are compliance/authorization
+utilities — a CAT is a signed credential, a CT a scoped access token, an SPT-Txn
+token a per-transaction record — failing the profit-expectation prong, the
+practical death blow to a securities argument. The framework introduces **no native
+token**. Where a policy is instantiated on-chain (an optional, informative
+deployment detail), it is framed strictly as **compliance infrastructure, never an
+appreciating or yield-bearing asset**; the moment marketing implies investment
+return, that classification changes.
+
+**Money transmission.** SPT-Txn operates at the **authorization layer and never
+touches the underlying value transfer** ("do not touch the money") — the safe
+structural boundary under FinCEN's MSB framework and state MTL regimes. Commercial
+fee structures (e.g. KYC-provider network access, policy-template licensing) are
+designed as **direct billing**, never as funds passing through the operator, to
+stay clear of the "accept-and-transmit" definition.
+
+**Licensing.** Depending on activity and jurisdiction, **VASP registration** (e.g.
+Cayman Islands under the VASP Act / CIMA) and **MiCA CASP** authorisation (EU) may
+apply to the operating entity; a written legal opinion should precede commercial
+activity. The framework's design (no custody, no native asset, authorization-layer
+only) is intended to minimise — not assert away — these obligations.
+
+**AI governance.** The immutable humanAnchor provides the cryptographic evidence
+that a unique, accountable human authorised an AI agent and can be reconstructed
+under lawful process — the mechanism EU AI Act Article 14 (effective human
+oversight, enforceable August 2026) requires and that no current agent stack
+provides.
+
+**Post-quantum / federal.** US Executive Order 14409 (2026) mandates PQC migration
+(FIPS 203/204/205) and CBOM guidance; SPT-Txn's crypto-agility and published CBOM
+(§5.6–§5.7) align it to that trajectory ahead of the deadlines.
 
 ## 10. Terminology and standards mapping
 
-*(to be drafted from docs/GLOSSARY.md §4: every coined term → base standard, with*
-*the anchor-on-first-use rule; VC-DATA-MODEL, SD-JWT-VC, TXN-TOKENS, RFC 9449,*
-*RFC 9700, DID-CORE, SP 800-162/207/63, FIPS 203/204, FATF R.16, IVMS101.)*
+SPT-Txn coins terms only where it adds a real profile, binding, or constraint, and
+**anchors each to its base standard on first use** — so novel work reads as an
+*extension* of the standards landscape, not a reinvention of it.
+
+| SPT-Txn term | Base standard / reference | What SPT-Txn adds |
+|---|---|---|
+| **CAT** — Compliance Attestation Token | W3C Verifiable Credentials 2.0; SD-JWT VC | compliance-attribute profile; zkDID binding; KYC-issued, reusable |
+| **CT** — Capability Token | object-capability security (Biscuit, Macaroons); OAuth access token | humanAnchor propagation; scope-subset + delegation-depth invariants |
+| **SPT-Txn token** | OAuth Transaction Tokens; DPoP (RFC 9449) | transaction-context binding; ~30 s TTL; Travel Rule attestation |
+| **zkDID** | W3C DID Core; anonymous credentials (BBS+, AnonCreds) | ZK commitment so the DID itself is never revealed (unlinkable) |
+| **humanAnchor** | SD-JWT key binding; proof-of-personhood | registered claim `human_anchor`; immutable cross-token propagation |
+| **Policy object** | ABAC (NIST SP 800-162); XACML PDP/PEP | composable cross-jurisdiction policy; on-chain instantiation (informative) |
+| **zkDNS** | DNSSEC; ENS/Handshake; ODoH (RFC 9230); DECO | ZK membership + private resolution over a compliance/VASP registry |
+| **Eight-step enforcement** | NIST SP 800-207 Zero Trust (PE/PA/PEP) | offline, cryptographic per-step enforcement on the bound token |
+
+Primitives used as-is: Groth16/BN254 (and BLS12-381) zk-SNARKs; Poseidon2;
+Ed25519/X25519/ECIES; **ML-KEM (FIPS 203) / ML-DSA (FIPS 204)**; fuzzy extractors +
+nullifiers; **FATF Recommendation 16** + **IVMS101**; OpenID4VCI for issuance.
+Aligns with **OAuth 2.0 Security BCP (RFC 9700)**, **NIST IR 8587**, and **SP
+800-63**. (Full table and the anchor-on-first-use rule: `docs/GLOSSARY.md` §4.)
 
 ## 11. Conclusion and roadmap
 
-*(to be drafted.)*
+SPT-Txn composes self-sovereign credentials, attribute-based policy evaluation, and
+capability/transaction tokens into a single chain that is privacy-preserving,
+accountable across organisational and agentic boundaries, and verifiable offline:
+**verify once, prove everywhere**. The design is disciplined along three axes of
+agnosticism — ledger (XRPL a target, not a dependency), policy representation, and
+identity method (zkDID behind an adapter) — so no part of the system is hostage to
+an external component or a single chain, and it carries no native token.
+
+This is demonstrated, not asserted. The reference implementation is **deployed and
+security-audited (FAIL=0)** on a hardened OpenBSD host, with **real Groth16
+zero-knowledge** (MiMC → Poseidon2, benchmarked), a **live two-party FATF Travel
+Rule** exchange over OpenVASP TRP carrying a payload-level ZK attestation, a
+published **CycloneDX CBOM**, and a measured, lifetime-triaged hybrid
+post-quantum migration plan aligned to US Executive Order 14409.
+
+**Roadmap.** XRPL-native anchoring and XRPL Credentials integration; a biometric
+uniqueness layer (fuzzy extractor + nullifier + attested liveness) for Sybil
+resistance; adoption of the `.zkdid`/`.zkdns` production identity/naming layer
+behind the existing adapter; the hybrid PQ key migration; a containerised Linux
+production target (seccomp/Landlock parity); end-to-end testing of agentic
+delegation (designed today, not yet tested); a persistent/chain-backed Trust
+Registry; and an independent ZK-circuit + protocol audit. SPT-Txn rides existing
+standards rather than replacing them — the posture that fits IETF (an OAuth
+Transaction Tokens extension), NIST engagement (IR 8587, SP 800-207/204/63/162),
+and the FATF Travel Rule ecosystem.
 
 ## References
 
-*(to be compiled.)*
+- W3C *Verifiable Credentials Data Model 2.0*; *Decentralized Identifiers (DID)
+  Core 1.0*.
+- IETF *Selective Disclosure for JWTs (SD-JWT)* and *SD-JWT-based Verifiable
+  Credentials (SD-JWT VC)*; *OAuth 2.0 Transaction Tokens*
+  (`draft-ietf-oauth-transaction-tokens`); RFC 9449 *DPoP*; RFC 9700 *OAuth 2.0
+  Security Best Current Practice*; RFC 9230 *Oblivious DNS over HTTPS*.
+- NIST *IR 8587* (Protecting Tokens and Assertions from Forgery, Theft, and Misuse);
+  SP 800-207 / 800-207A (Zero Trust Architecture); SP 800-204 A/B/C (Microservices);
+  SP 800-63-4 (Digital Identity); SP 800-162 (ABAC); SP 800-57 (Key Management);
+  SP 800-133r3 (Key Generation).
+- NIST FIPS 203 *ML-KEM*; FIPS 204 *ML-DSA*; FIPS 205 *SLH-DSA*.
+- FATF *Recommendation 16* (Travel Rule); interVASP *IVMS101*; TRISA; OpenVASP TRP.
+- EU *Artificial Intelligence Act* (Reg. 2024/1689), Article 14; US *Executive Order
+  14409*, "Securing the Nation Against Advanced Cryptographic Attacks" (2026).
+- Grassi, Khovratovich, Roy, Schofnegger, *Poseidon2*; *LaBRADOR* and *Greyhound*
+  (post-quantum lattice SNARKs); BBS+ signatures; Hyperledger AnonCreds.
+- Chainlink *DECO*; ENS; Handshake; Namecoin; ICANN *OCTO-034* (alternative name
+  systems).
+- R. J. Coetzee, *SPT-Txn Transaction Tokens*, IETF Internet-Draft
+  `draft-coetzee-oauth-spt-txn-tokens`; companion preprints, Zenodo
+  10.5281/zenodo.19299787 and 10.5281/zenodo.18917439.
+
+---
+
+*Companion artifacts in this repository: `docs/GLOSSARY.md` (terminology + standards
+mapping), `docs/CBOM.md` + `docs/cbom.json` (Cryptographic Bill of Materials),
+`docs/SECURITY-REVIEW.md`, `docs/TRP-TRISA-INTEROP.md`, and the reference
+implementation under `cmd/` and `internal/`.*
