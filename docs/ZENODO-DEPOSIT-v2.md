@@ -1,9 +1,9 @@
 # Zenodo Deposit — SPT-Txn v2 Working Paper (paste-ready)
 
 Everything below is ready to paste into the Zenodo upload form. The file to upload is
-**`docs/WORKING-PAPER-v2.pdf`** (current; regenerate with the pandoc line at the bottom if
-you edit the `.md` first). I can't publish to your Zenodo account — you do the final
-upload + "Publish" — but every field is pre-written here.
+**`docs/spt-txn-framework-expanded-v2.pdf`** (em-dashes thinned, TOC after the abstract,
+companion-artifacts line removed; `.docx` alongside if you prefer). I can't publish to your
+Zenodo account — you do the final upload + "Publish" — but every field is pre-written here.
 
 ## How to publish (recommended path)
 
@@ -77,7 +77,9 @@ zero-knowledge proofs, verifiable credentials, FATF Travel Rule, ABAC, TBAC, aut
 
 ```sh
 cd ~/Claude/Projects/"SPT-TXN POC"/spt-poc
-pandoc docs/WORKING-PAPER-v2.md -o docs/WORKING-PAPER-v2.pdf \
-  --pdf-engine=xelatex -V geometry:margin=1in -V fontsize=11pt --toc
+pandoc docs/WORKING-PAPER-v2.md -o docs/spt-txn-framework-expanded-v2.pdf \
+  --pdf-engine=xelatex --shift-heading-level-by=-1 \
+  -V mainfont="DejaVu Serif" -V monofont="DejaVu Sans Mono"
 ```
-(The committed PDF is already current — only needed if the source changes.)
+(TOC/abstract order and fonts come from the YAML front matter in the `.md`. The committed
+PDF is already current — only needed if the source changes.)

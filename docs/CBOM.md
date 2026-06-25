@@ -44,7 +44,8 @@ primitives — which this one does not.
 | **BLS12-381** | pairing curve | high-assurance proving config (benchmarked alt) | ~128-bit | No (Shor) | Low | STARK / lattice | planned (opt-in) |
 | **Poseidon2** | hash (ZK-friendly) | humanAnchor + amount commitments; VASP Merkle tree | ~127-bit (BN254 field) | Grover-only (halved) | Low | widen output if required | deployed |
 | **SHA-256** | hash | audit-log Merkle root; general hashing | 128-bit | Grover-only | Low | SHA-384/512 if required | deployed |
-| **AES-256-GCM** | authenticated encryption | TLS 1.3 transport (relayd); TRISA payload | 256→128-bit (Grover) | **Yes** (NIST level 1) | None | none — PQ-OK | deployed (TLS) / designed (TRISA) |
+| **AES-256-GCM** | authenticated encryption | TLS 1.3 transport (relayd); escrow envelope payload; TRISA payload | 256→128-bit (Grover) | **Yes** (NIST level 1) | None | none — PQ-OK | deployed (TLS, escrow) / designed (TRISA) |
+| **HKDF-SHA-256** | KDF | escrow AEAD key derivation (X25519 secret → AES-256-GCM key) | 128-bit | Grover-only | Low | none | deployed |
 | **HMAC-SHA-256** | MAC | TRISA SecureEnvelope integrity | 128-bit | Grover-only | Low | none | designed |
 | **TLS 1.3** | protocol | relayd edge (X25519 KEX + AES-256-GCM + SHA-384) | — | KEX not PQ | **High** — transport | hybrid X25519+ML-KEM (TLS) | deployed |
 | **RSA (Let's Encrypt)** | signature / X.509 cert | edge TLS server certificate | ~128-bit | No (Shor) | Medium | PQ cert when CA + browsers support | deployed |
@@ -64,7 +65,7 @@ primitives — which this one does not.
 - Ed25519 on the **30-second SPT-Txn token** and the **Groth16/BN254 ZK proofs** —
   their value expires before any quantum threat lands; PQ-ZK (STARK/lattice) is a
   measured roadmap item, not an emergency.
-- **Poseidon2 / SHA-256 / HMAC** (hashes/MACs) — only weakened by Grover
+- **Poseidon2 / SHA-256 / HMAC / HKDF** (hashes/MACs/KDF) — only weakened by Grover
   (quadratic), already at comfortable margins; widen output if ever required.
 - **AES-256-GCM** — already PQ-OK at NIST level 1.
 
