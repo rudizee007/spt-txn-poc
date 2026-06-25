@@ -62,7 +62,7 @@ ivms101, vaspregistry, sdjwt, dpop, escrow, verifier, trustregistry, tbac, …) 
 Terminology anchors to W3C Verifiable Credentials / DID Core, SD-JWT, OAuth
 Transaction Tokens (`draft-coetzee-oauth-spt-txn-tokens`), DPoP (RFC 9449), NIST SP
 800-207/162, FIPS 203/204, FATF Rec 16 / IVMS101. Live: <https://foss.violetskysecurity.com>.
-Preprints: Zenodo `10.5281/zenodo.19299787`, `10.5281/zenodo.18917439`.
+Preprints: Zenodo `10.5281/zenodo.20870193` (framework paper v2), `10.5281/zenodo.19299787` (theory), `10.5281/zenodo.18917439` (framework v1).
 
 ## Build & test
 
