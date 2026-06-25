@@ -1,5 +1,10 @@
 # Zenodo Deposit — SPT-Txn v2 Working Paper (paste-ready)
 
+> ✅ **PUBLISHED 2026-06-25** — DOI **10.5281/zenodo.20870193**
+> (https://doi.org/10.5281/zenodo.20870193, record 20870193). Also hosted at
+> https://foss.violetskysecurity.com/papers/spt-txn-framework-expanded-v2.pdf.
+> The metadata below is retained for reference / future versions.
+
 Everything below is ready to paste into the Zenodo upload form. The file to upload is
 **`docs/spt-txn-framework-expanded-v2.pdf`** (em-dashes thinned, TOC after the abstract,
 companion-artifacts line removed; `.docx` alongside if you prefer). I can't publish to your
