@@ -11,7 +11,7 @@
 // offline-first BY DESIGN: the library is the primary path, this endpoint never
 // makes a synchronous issuer or chain call (it reads only the cached snapshot).
 //
-// Listens on 127.0.0.1:8086. Reachable externally via relayd (TLS termination).
+// Listens on 127.0.0.1:8087. Reachable externally via relayd (TLS termination).
 // The issue/delegate role (which holds a ct_issuer key) is a separate, audited
 // surface — see docs/AGENTSVC-AND-ZKCHAIN-SCOPING.md — and is not in this build.
 //
@@ -57,7 +57,7 @@ import (
 )
 
 const (
-	defaultAddr     = "127.0.0.1:8086"
+	defaultAddr     = "127.0.0.1:8087" // 8086 is tr-svc; keep agentsvc clear of it
 	defaultRegistry = "/var/spt-txn/b/registry.snapshot"
 )
 
