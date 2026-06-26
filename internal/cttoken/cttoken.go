@@ -177,6 +177,140 @@ func Issue(req IssueRequest, signingKey ed25519.PrivateKey) (*CT, error) {
 	}, nil
 }
 
+// DelegateRequest is the input to CT→CT delegation (Milestone 7, agentic
+// authorization). An agent that holds a Capability Token hands a strictly
+// narrower capability to a sub-agent or tool. Unlike IssueRequest (whose parent
+// is a CAT), the parent here is itself a CT, so the chain can extend to multiple
+// hops while remaining monotonically attenuating and depth-bounded.
+type DelegateRequest struct {
+	// Issuer is the registered ct_issuer identifier signing THIS delegation. In
+	// a multi-agent deployment the delegating party is itself a registered
+	// issuer, so revoking its key collapses every capability it delegated
+	// downstream without touching its own parent capability.
+	Issuer string
+
+	// ParentCT is the compact JWT of the parent Capability Token.
+	ParentCT string
+
+	// ParentIssuerKey is the public key the parent CT was signed with. In the
+	// running service this comes from a Trust Registry lookup for
+	// (parentCT.iss, role=ct_issuer).
+	ParentIssuerKey ed25519.PublicKey
+
+	// RequestedScope is the (narrower) scope for the sub-agent. It MUST be
+	// contained within the parent CT's capability_scope.
+	RequestedScope tbac.Scope
+
+	// HolderPublicKey is the Ed25519 key of the sub-agent this CT is bound to.
+	HolderPublicKey ed25519.PublicKey
+
+	// TTL overrides DefaultTTL when non-zero. A delegated CT SHOULD NOT outlive
+	// its parent; callers SHOULD pass a TTL no longer than the parent's
+	// remaining life.
+	TTL time.Duration
+}
+
+// Delegate verifies the parent CT, attenuates its scope, decrements the
+// remaining delegation depth, and signs a child Capability Token bound to the
+// sub-agent's key. signingKey is the delegating ct_issuer's Ed25519 private key.
+//
+// The child commits to its immediate parent by hash (spt_parent_hash) and by
+// jti (spt_parent_ref), and carries the root CAT reference (spt_cat_ref) and the
+// humanAnchor forward unchanged, so a verifier can re-walk the whole chain
+// offline from the root CAT to the leaf without contacting any issuer.
+func Delegate(req DelegateRequest, signingKey ed25519.PrivateKey) (*CT, error) {
+	if req.Issuer == "" {
+		return nil, fmt.Errorf("issuer required")
+	}
+	if len(req.HolderPublicKey) != ed25519.PublicKeySize {
+		return nil, fmt.Errorf("holder public key must be %d bytes", ed25519.PublicKeySize)
+	}
+	if req.RequestedScope == nil {
+		return nil, fmt.Errorf("requested scope required")
+	}
+
+	// ── 1. Verify the parent CT ───────────────────────────────────────
+	parent, err := Verify(req.ParentCT, req.ParentIssuerKey)
+	if err != nil {
+		return nil, fmt.Errorf("parent CT invalid: %w", err)
+	}
+
+	// ── 2. Extract parent fields ──────────────────────────────────────
+	parentScopeRaw, ok := parent["capability_scope"].(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("parent CT missing capability_scope")
+	}
+	parentScope := tbac.Scope(parentScopeRaw)
+
+	humanAnchor, ok := parent["human_anchor"].(string)
+	if !ok || humanAnchor == "" {
+		return nil, fmt.Errorf("parent CT missing human_anchor")
+	}
+	sub, _ := parent["sub"].(string)
+	parentJTI, _ := parent["jti"].(string)
+	// Root CAT reference, propagated unchanged down every hop so the leaf still
+	// names the human's root authority.
+	rootCATRef, _ := parent["spt_cat_ref"].(string)
+
+	// delegation_depth_remaining arrives as float64 after JSON decoding.
+	remF, ok := parent["delegation_depth_remaining"].(float64)
+	if !ok {
+		return nil, fmt.Errorf("parent CT missing delegation_depth_remaining")
+	}
+	remaining := int(remF) - 1
+	if remaining < 0 {
+		return nil, fmt.Errorf("delegation depth exhausted: parent CT permits no further delegation")
+	}
+
+	// ── 3. Attenuate scope (containment check) ────────────────────────
+	attenuated, err := tbac.Attenuate(parentScope, req.RequestedScope)
+	if err != nil {
+		return nil, err
+	}
+
+	// ── 4. Build claims ───────────────────────────────────────────────
+	now := time.Now().UTC()
+	ttl := req.TTL
+	if ttl == 0 {
+		ttl = DefaultTTL
+	}
+	exp := now.Add(ttl)
+	jti, err := newJTI()
+	if err != nil {
+		return nil, fmt.Errorf("generate jti: %w", err)
+	}
+	parentHash := sha256.Sum256([]byte(req.ParentCT))
+
+	claims := map[string]any{
+		"iss":                        req.Issuer,
+		"sub":                        sub,
+		"iat":                        now.Unix(),
+		"exp":                        exp.Unix(),
+		"jti":                        jti,
+		"txn_token_type":             "CT",
+		"human_anchor":               humanAnchor,
+		"capability_scope":           map[string]any(attenuated),
+		"delegation_depth_remaining": remaining,
+		"holder_key":                 hex.EncodeToString(req.HolderPublicKey),
+		"spt_cat_ref":                rootCATRef,                // root CAT, unchanged
+		"spt_parent_ref":             parentJTI,                 // immediate parent CT
+		"spt_parent_hash":            base64url(parentHash[:]),  // hash of immediate parent
+	}
+
+	token, err := signJWT(claims, signingKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return &CT{
+		Token:       token,
+		HumanAnchor: humanAnchor,
+		Claims:      claims,
+		IssuedAt:    now,
+		ExpiresAt:   exp,
+	}, nil
+}
+
 // Verify checks the signature and basic claims of a Capability Token. Like
 // cattoken.Verify it does not consult the Trust Registry — that is the
 // verifier's job (M5).

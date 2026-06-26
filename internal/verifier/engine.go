@@ -56,8 +56,9 @@ type Input struct {
 	TxnToken  string            // the SPT-Txn Token (compact JWT)
 	DPoPProof string            // DPoP proof of possession of the holder key
 	HTM, HTU  string            // HTTP method and URI the DPoP proof must bind
-	CT       string            // parent Capability Token (for chain + scope)
-	CAT       string            // grandparent CAT (optional; full-chain check)
+	CT       string            // single parent Capability Token (one-hop; legacy)
+	CTChain   []string          // ordered CT delegation chain, root→leaf (multi-hop)
+	CAT       string            // root CAT (required; full-chain check)
 	Txn       ledger.TxnContext // the concrete transaction being authorized
 	Audience  string            // this domain's identifier (expected aud)
 }
@@ -125,8 +126,8 @@ func (e *Engine) Verify(ctx context.Context, in Input) Decision {
 	if err := e.step5DPoP(txClaims, in.TxnToken, in.DPoPProof, in.HTM, in.HTU); err != nil {
 		return deny(5, err)
 	}
-	// Step 6 — capability chain CAT -> CT -> SPT-Txn. Returns CT claims.
-	ctClaims, err := e.step6Chain(ctx, txClaims, in.CT, in.CAT)
+	// Step 6 — capability chain CAT -> CT[…] -> SPT-Txn. Returns leaf CT claims.
+	ctClaims, err := e.step6Chain(ctx, txClaims, in.CT, in.CAT, in.CTChain)
 	if err != nil {
 		return deny(6, err)
 	}
@@ -227,80 +228,138 @@ func (e *Engine) step5DPoP(txClaims map[string]any, token, proof, htm, htu strin
 	return txntoken.CheckSenderConstraint(txClaims, jkt)
 }
 
-// step6Chain verifies the full capability chain CAT -> CT -> SPT-Txn and
-// returns the CT claims for the scope check. The executing domain re-derives
-// every guarantee from the presented tokens rather than trusting that issuance
-// performed them (review H3): it verifies both signatures against registry keys,
-// checks the jti/anchor linkage, binds the SPT-Txn holder to the CT holder key,
-// and independently re-enforces scope monotonicity (CT scope contained in CAT
-// scope) and delegation depth. The CAT must be presented — attenuation cannot be
-// verified without the parent.
-func (e *Engine) step6Chain(ctx context.Context, txClaims map[string]any, ctToken, catToken string) (map[string]any, error) {
-	if ctToken == "" || catToken == "" {
-		return nil, fmt.Errorf("the full capability chain (CAT and CT) must be presented")
+// step6Chain verifies the full capability chain CAT -> CT[0] -> … -> CT[n-1] ->
+// SPT-Txn and returns the leaf CT claims for the scope check. It supports both a
+// single-hop chain (in.CT) and a multi-hop agentic delegation chain (in.CTChain,
+// ordered root→leaf); the chain logic is identical, a one-hop chain is just the
+// degenerate case.
+//
+// The executing domain re-derives every guarantee from the presented tokens
+// rather than trusting that issuance performed them (review H3). At EVERY link it
+// verifies the signature against a registry key, binds the child to its immediate
+// parent by hash (so a CT cannot be paired with a different parent than the one
+// it was delegated from), re-enforces scope monotonicity (each hop ⊆ its parent)
+// and the depth decrement (exactly one per hop, never below zero — this is what
+// bounds the delegation depth), and confirms the humanAnchor is propagated
+// unchanged. Finally it binds the SPT-Txn to the LEAF CT (jti + holder key). The
+// root CAT must be presented — attenuation cannot be verified without it.
+func (e *Engine) step6Chain(ctx context.Context, txClaims map[string]any, ctToken, catToken string, ctChain []string) (map[string]any, error) {
+	// Normalize the CT list: an explicit chain wins; otherwise fall back to the
+	// single-hop CT for backward compatibility.
+	cts := ctChain
+	if len(cts) == 0 {
+		if ctToken == "" {
+			return nil, fmt.Errorf("the capability chain (CAT and at least one CT) must be presented")
+		}
+		cts = []string{ctToken}
+	}
+	if catToken == "" {
+		return nil, fmt.Errorf("the full capability chain (root CAT) must be presented")
 	}
 
-	ctClaims, err := e.verifyChainToken(ctx, ctToken, cttoken.Verify)
-	if err != nil {
-		return nil, fmt.Errorf("CT: %w", err)
-	}
+	// Root CAT.
 	catClaims, err := e.verifyChainToken(ctx, catToken, cattoken.Verify)
 	if err != nil {
 		return nil, fmt.Errorf("CAT: %w", err)
 	}
-
-	// Linkage: jti references and humanAnchor propagation across the chain.
-	if txClaims["spt_ct_ref"] != ctClaims["jti"] {
-		return nil, fmt.Errorf("spt_ct_ref does not reference the presented CT")
+	catJTI, _ := catClaims["jti"].(string)
+	// VER-2: humanAnchor read as a string and required non-empty; everything
+	// downstream is compared against this root value.
+	anchor, ok := catClaims["human_anchor"].(string)
+	if !ok || anchor == "" {
+		return nil, fmt.Errorf("CAT missing humanAnchor")
 	}
-	if ctClaims["spt_cat_ref"] != catClaims["jti"] {
-		return nil, fmt.Errorf("CT spt_cat_ref does not reference the presented CAT")
-	}
-	// VER-1: the CT commits to its parent CAT by hash (base64url(SHA-256(compact
-	// CAT)), minted in cttoken.Issue). Re-derive it from the presented CAT and
-	// require an exact match, so a CT cannot be paired with a different (even
-	// validly-signed) CAT than the one it was issued against.
-	catSum := sha256.Sum256([]byte(catToken))
-	if ctClaims["spt_parent_hash"] != base64.RawURLEncoding.EncodeToString(catSum[:]) {
-		return nil, fmt.Errorf("CT spt_parent_hash does not match presented CAT")
-	}
-	// VER-2: read humanAnchor as a string on all three tokens and fail closed if
-	// any is missing, empty, or a non-string. Comparing raw `any` values with !=
-	// would panic on an uncomparable type (e.g. a map/slice human_anchor in a
-	// signature-verified token), so the type assertion is the guard.
-	anchor, ok := txClaims["human_anchor"].(string)
-	ctA, ok2 := ctClaims["human_anchor"].(string)
-	catA, ok3 := catClaims["human_anchor"].(string)
-	if !ok || !ok2 || !ok3 || anchor == "" || anchor != ctA || anchor != catA {
-		return nil, fmt.Errorf("humanAnchor not propagated unchanged across the chain")
+	catMax, ok := intClaim(catClaims, "delegation_depth_max")
+	if !ok {
+		return nil, fmt.Errorf("CAT missing delegation_depth_max")
 	}
 
-	// Holder binding: the SPT-Txn cnf.jkt must commit to the CT holder key.
-	if err := checkHolderBinding(txClaims, ctClaims); err != nil {
+	// Walk the CT chain root→leaf. The "parent budget" starts at the CAT's max
+	// and must decrease by exactly one at each hop.
+	parentClaims := catClaims
+	parentToken := catToken
+	parentBudget := catMax
+	var leaf map[string]any
+
+	for i, ctTok := range cts {
+		ctClaims, err := e.verifyChainToken(ctx, ctTok, cttoken.Verify)
+		if err != nil {
+			return nil, fmt.Errorf("CT[%d]: %w", i, err)
+		}
+
+		// VER-1: each CT commits to the compact bytes of its ACTUAL immediate
+		// parent (the CAT for the first hop, the prior CT after). Re-derive the
+		// hash and require an exact match, so no validly-signed CT can be spliced
+		// in under a parent it was not delegated from.
+		pSum := sha256.Sum256([]byte(parentToken))
+		if ctClaims["spt_parent_hash"] != base64.RawURLEncoding.EncodeToString(pSum[:]) {
+			return nil, fmt.Errorf("CT[%d] spt_parent_hash does not match its presented parent", i)
+		}
+
+		// jti linkage: first hop references the root CAT; later hops reference
+		// their immediate parent CT AND still carry the root CAT ref unchanged.
+		if i == 0 {
+			if ctClaims["spt_cat_ref"] != catJTI {
+				return nil, fmt.Errorf("CT[0] spt_cat_ref does not reference the presented CAT")
+			}
+		} else {
+			parentJTI, _ := parentClaims["jti"].(string)
+			if ctClaims["spt_parent_ref"] != parentJTI {
+				return nil, fmt.Errorf("CT[%d] spt_parent_ref does not reference its parent CT", i)
+			}
+			if ctClaims["spt_cat_ref"] != catJTI {
+				return nil, fmt.Errorf("CT[%d] spt_cat_ref does not reference the root CAT", i)
+			}
+		}
+
+		// VER-2: humanAnchor unchanged at this hop (type-asserted to avoid a
+		// panic on an uncomparable value in a signature-verified token).
+		a, ok := ctClaims["human_anchor"].(string)
+		if !ok || a == "" || a != anchor {
+			return nil, fmt.Errorf("humanAnchor not propagated unchanged at CT[%d]", i)
+		}
+
+		// Attenuation monotonicity: this hop's scope ⊆ its parent's scope.
+		parentScope, err := scopeOf(parentClaims)
+		if err != nil {
+			return nil, fmt.Errorf("parent scope at CT[%d]: %w", i, err)
+		}
+		ctScope, err := scopeOf(ctClaims)
+		if err != nil {
+			return nil, fmt.Errorf("CT[%d] scope: %w", i, err)
+		}
+		if err := tbac.Contains(parentScope, ctScope); err != nil {
+			return nil, fmt.Errorf("CT[%d] scope exceeds its parent: %w", i, err)
+		}
+
+		// Delegation depth: remaining must be exactly the parent's budget minus
+		// one, and never negative. Enforced per hop, this caps the chain length.
+		ctRem, ok := intClaim(ctClaims, "delegation_depth_remaining")
+		if !ok || ctRem != parentBudget-1 || ctRem < 0 {
+			return nil, fmt.Errorf("delegation depth violated at CT[%d] (parent_budget=%d this_remaining=%d)", i, parentBudget, ctRem)
+		}
+
+		// Advance to the next hop.
+		parentClaims = ctClaims
+		parentToken = ctTok
+		parentBudget = ctRem
+		leaf = ctClaims
+	}
+
+	// Bind the SPT-Txn to the LEAF capability: jti reference, humanAnchor, and
+	// the holder key (DPoP cnf.jkt) all commit to the final delegated CT.
+	if txClaims["spt_ct_ref"] != leaf["jti"] {
+		return nil, fmt.Errorf("spt_ct_ref does not reference the leaf CT")
+	}
+	txAnchor, ok := txClaims["human_anchor"].(string)
+	if !ok || txAnchor == "" || txAnchor != anchor {
+		return nil, fmt.Errorf("SPT-Txn humanAnchor does not match the chain")
+	}
+	if err := checkHolderBinding(txClaims, leaf); err != nil {
 		return nil, err
 	}
 
-	// Attenuation monotonicity: CT scope must be contained in CAT scope.
-	catScope, err := scopeOf(catClaims)
-	if err != nil {
-		return nil, fmt.Errorf("CAT scope: %w", err)
-	}
-	ctScope, err := scopeOf(ctClaims)
-	if err != nil {
-		return nil, fmt.Errorf("CT scope: %w", err)
-	}
-	if err := tbac.Contains(catScope, ctScope); err != nil {
-		return nil, fmt.Errorf("CT scope exceeds CAT scope: %w", err)
-	}
-
-	// Delegation depth: CT remaining must be exactly CAT max minus one, >= 0.
-	catMax, ok1 := intClaim(catClaims, "delegation_depth_max")
-	ctRem, ok2 := intClaim(ctClaims, "delegation_depth_remaining")
-	if !ok1 || !ok2 || ctRem != catMax-1 || ctRem < 0 {
-		return nil, fmt.Errorf("delegation depth violated (cat_max=%d cap_remaining=%d)", catMax, ctRem)
-	}
-
-	return ctClaims, nil
+	return leaf, nil
 }
 
 // verifyChainToken resolves the token's CT issuer key from the registry and
