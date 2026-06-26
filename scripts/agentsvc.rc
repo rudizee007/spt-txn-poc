@@ -7,7 +7,7 @@
 # write to disk or mutate the registry. Runs as _sptbv — the Domain B verify
 # user — which reads the snapshot but holds no private key.
 #
-# Listens on 127.0.0.1:8086; relayd forwards /agent/verify and /agent/health
+# Listens on 127.0.0.1:8087; relayd forwards /agent/verify and /agent/health
 # (deny-by-default) from the public TLS port :4446.
 #
 # The registry snapshot must be provisioned out of band (a cached copy of the
