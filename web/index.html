@@ -449,6 +449,7 @@
     <li><a href="#tokens">Tokens</a></li>
     <li><a href="#flow">Flow</a></li>
     <li><a href="#engine">Engine</a></li>
+    <li><a href="#verify">Verify</a></li>
     <li><a href="#travelrule">Travel Rule</a></li>
     <li><a href="#architecture">Architecture</a></li>
     <li><a href="#publications">Publications</a></li>
@@ -690,7 +691,7 @@
   <div class="section-inner">
     <div class="section-eyebrow">Eight-Step Enforcement Engine</div>
     <h2 class="section-title">Every verification step is cryptographic, not policy-based.</h2>
-    <p class="section-body">The enforcement engine operates identically offline. No issuer contact. No trust-on-first-use. Each step fails closed.</p>
+    <p class="section-body">The enforcement engine operates identically offline — it reads only the token and a locally cached Trust Registry snapshot. No issuer contact, no live registry or chain read in the hot path, no trust-on-first-use. Each step fails closed.</p>
 
     <div class="engine-steps">
       <div class="step">
@@ -701,7 +702,7 @@
       <div class="step">
         <div class="step-n">02</div>
         <div class="step-title">Issuer Trust</div>
-        <p class="step-body">Confirm the issuer is registered in the on-chain Trust Registry with the correct role and active status at the token's issued-at time.</p>
+        <p class="step-body">Confirm the issuer is registered in the Trust Registry — a locally cached snapshot of the on-chain source of truth — with the correct role and active status at the token's issued-at time.</p>
       </div>
       <div class="step">
         <div class="step-n">03</div>
@@ -732,6 +733,78 @@
         <div class="step-n">08</div>
         <div class="step-title">Scope Hash Binding</div>
         <p class="step-body">Verify the transaction context hash matches the scope hash committed in the token. The authorization is bound to this specific transaction — not transferable or replayable.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ISSUE vs VERIFY / OFFLINE (composable adoption model) -->
+<section id="verify">
+  <div class="section-inner">
+    <div class="section-eyebrow">Adoption Model · Offline by Design</div>
+    <h2 class="section-title">Issue once. Verify anywhere — offline.</h2>
+    <p class="section-body">SPT-Txn is a verifiable authorization format, not a protocol both sides must install. An issuer creates value the moment it issues — a provable compliance posture, a tamper-evident audit trail, and a privacy-preserving human anchor it can produce under lawful process — whether or not the counterparty does anything. Verifying is a cheap, optional, fully offline capability any party adopts unilaterally: drop in the verifier library, hold a cached snapshot of the Trust Registry, and check the token. No handshake, no shared registry to join, no synchronized rollout.</p>
+
+    <figure style="margin:2.6rem auto 0.5rem; max-width:820px;">
+      <svg viewBox="0 0 760 340" role="img" aria-labelledby="iv-t iv-d" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">
+        <title id="iv-t">SPT-Txn: issue unilaterally versus verify offline</title>
+        <desc id="iv-d">An issuer (a VASP, AI-agent platform, or RWA issuer) unilaterally issues an SPT-Txn token — the CAT to CT to SPT-Txn chain, human-anchored and scope-bound — and attaches it to a transaction. The token travels with the transaction over any transport. Any verifier checks it offline using only an open-source verifier library and a locally cached snapshot of the Trust Registry (issuer keys and algorithm assignments); the eight-step engine confirms scope, humanAnchor and transaction binding with no contact to the issuer and no live registry or chain read.</desc>
+        <text x="20" y="30" font-family="Space Mono, monospace" font-size="11" letter-spacing="1.5" fill="#C77DFF">ISSUE · UNILATERAL</text>
+        <text x="452" y="30" font-family="Space Mono, monospace" font-size="11" letter-spacing="1.5" fill="#C77DFF">VERIFY · OFFLINE</text>
+        <line x1="412" y1="44" x2="412" y2="300" stroke="rgba(155,78,221,0.20)" stroke-width="1"/>
+        <rect x="20" y="50" width="170" height="48" rx="5" fill="rgba(123,47,190,0.12)" stroke="#9D4EDD"/>
+        <text x="105" y="71" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" fill="#E0AAFF">Issuer</text>
+        <text x="105" y="87" text-anchor="middle" font-family="Inter, sans-serif" font-size="9.5" fill="#A09AB8">VASP · AI-agent platform · RWA</text>
+        <line x1="105" y1="98" x2="105" y2="116" stroke="#9D4EDD" stroke-width="1.5"/><polygon points="100,116 105,124 110,116" fill="#9D4EDD"/>
+        <rect x="20" y="126" width="170" height="62" rx="5" fill="rgba(123,47,190,0.12)" stroke="#7B2FBE"/>
+        <text x="105" y="147" text-anchor="middle" font-family="Space Mono, monospace" font-size="12" fill="#C77DFF">SPT-Txn token</text>
+        <text x="105" y="163" text-anchor="middle" font-family="Inter, sans-serif" font-size="9.5" fill="#A09AB8">CAT → CT → SPT-Txn</text>
+        <text x="105" y="177" text-anchor="middle" font-family="Inter, sans-serif" font-size="9.5" fill="#A09AB8">human-anchored · scope-bound</text>
+        <line x1="105" y1="188" x2="105" y2="206" stroke="#9D4EDD" stroke-width="1.5"/><polygon points="100,206 105,214 110,206" fill="#9D4EDD"/>
+        <rect x="20" y="216" width="170" height="38" rx="5" fill="rgba(160,154,184,0.08)" stroke="#6b6480"/>
+        <text x="105" y="239" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#A09AB8">+ the transaction</text>
+        <text x="20" y="280" font-family="Inter, sans-serif" font-size="9.5" fill="#A09AB8">Issued alone — value without a counterparty:</text>
+        <text x="20" y="295" font-family="Inter, sans-serif" font-size="9.5" fill="#C77DFF">compliance posture · tamper-evident audit · lawful-process anchor</text>
+        <line x1="190" y1="157" x2="470" y2="157" stroke="#C77DFF" stroke-width="1.5" stroke-dasharray="5 4"/><polygon points="470,152 478,157 470,162" fill="#C77DFF"/>
+        <text x="300" y="149" text-anchor="middle" font-family="Inter, sans-serif" font-size="9" fill="#A09AB8">travels with the txn · any transport (TRP / TRISA / none)</text>
+        <rect x="452" y="50" width="140" height="40" rx="5" fill="rgba(157,78,221,0.10)" stroke="#9D4EDD"/>
+        <text x="522" y="68" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#E0AAFF">verifier library</text>
+        <text x="522" y="82" text-anchor="middle" font-family="Inter, sans-serif" font-size="8.5" fill="#A09AB8">open source · Go / JS / Py</text>
+        <rect x="606" y="50" width="148" height="40" rx="5" fill="rgba(157,78,221,0.10)" stroke="#9D4EDD"/>
+        <text x="680" y="68" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#E0AAFF">cached registry snapshot</text>
+        <text x="680" y="82" text-anchor="middle" font-family="Inter, sans-serif" font-size="8.5" fill="#A09AB8">issuer keys · algorithms</text>
+        <line x1="522" y1="90" x2="545" y2="124" stroke="#9D4EDD" stroke-width="1.5"/><line x1="680" y1="90" x2="615" y2="124" stroke="#9D4EDD" stroke-width="1.5"/>
+        <rect x="488" y="126" width="184" height="50" rx="5" fill="rgba(199,125,255,0.10)" stroke="#C77DFF"/>
+        <text x="580" y="147" text-anchor="middle" font-family="Space Mono, monospace" font-size="11" fill="#C77DFF">Eight-step engine</text>
+        <text x="580" y="163" text-anchor="middle" font-family="Inter, sans-serif" font-size="9.5" fill="#A09AB8">runs locally · fails closed</text>
+        <text x="488" y="199" font-family="Inter, sans-serif" font-size="10.5" fill="#F8F8FF">✓ scope subset   ✓ humanAnchor   ✓ txn-bound</text>
+        <text x="488" y="219" font-family="Inter, sans-serif" font-size="10" fill="#C77DFF">no issuer contact · no live registry / chain read</text>
+        <text x="488" y="237" font-family="Inter, sans-serif" font-size="9.5" fill="#A09AB8">No handshake · no registry to join · no synchronized rollout</text>
+        <text x="385" y="324" text-anchor="middle" font-family="Space Mono, monospace" font-size="9" fill="#7B2FBE">ISSUING IS VALUABLE ALONE · VERIFYING IS CHEAP, OPTIONAL, OFFLINE · NEITHER SIDE MUST JOIN</text>
+      </svg>
+      <figcaption style="font-family:'Space Mono',monospace; font-size:0.72rem; letter-spacing:1px; color:var(--muted); text-align:center; margin-top:0.9rem;">The token travels with the transaction over any transport · verification needs only the token + a cached trust anchor, never the issuer</figcaption>
+    </figure>
+
+    <div class="token-cards">
+      <div class="token-card cat">
+        <div class="tk-label">To issue</div>
+        <div class="tk-name">Unilateral, standalone value</div>
+        <p class="tk-body">Mint the CAT → CT → SPT-Txn chain, sign with your registered key, attach it to the transaction. You gain a provable compliance posture, a tamper-evident audit trail, and a lawful-process human anchor — no PII on the wire, no dependency on the counterparty.</p>
+        <div class="tk-meta">Issuer: VASP · AI-agent platform · RWA</div>
+      </div>
+      <div class="token-card cap">
+        <div class="tk-label">To verify (offline)</div>
+        <div class="tk-name">Verifier library + cached registry</div>
+        <p class="tk-body">A verifier needs only the open-source verifier library and a locally cached Trust Registry snapshot (issuer keys + algorithm assignments). The eight-step engine confirms scope, humanAnchor, and transaction binding — with no issuer contact and no live registry or chain read in the hot path.</p>
+        <div class="tk-meta">No handshake · no registry to join</div>
+      </div>
+      <div class="token-card txn">
+        <div class="tk-label">Composable</div>
+        <div class="tk-name">Rides alongside, never replaces</div>
+        <p class="tk-body">SPT-Txn sits on top of whatever Travel Rule transport you already run (OpenVASP TRP, TRISA) — or none. It removes the PII-leakage problem from the transport rather than competing with it, so adoption is one-sided and incremental.</p>
+        <div class="tk-meta">Transport-agnostic · adopt unilaterally</div>
       </div>
     </div>
   </div>
@@ -842,7 +915,7 @@
       <div class="arch-layer">
         <div class="arch-label">Trust Registry</div>
         <div class="arch-content">
-          <strong>On-chain, permissionless read.</strong> Authoritative registry of issuer keys, roles, and algorithm assignments. Algorithm selection is registry-governed — not token-header-governed — providing downgrade resistance. Multi-chain: Ethereum, XDC, Algorand, Hedera, XRPL.
+          <strong>Source of truth on-chain; cached locally for offline verify.</strong> The authoritative registry of issuer keys, roles, and algorithm assignments lives on-chain (permissionless read); verifiers hold a locally cached snapshot and read it at verify time, so the eight-step check never makes a synchronous issuer or chain call. Algorithm selection is registry-governed — not token-header-governed — providing downgrade resistance. Multi-chain: XRPL, Ethereum, XDC, Algorand, Hedera.
         </div>
       </div>
       <div class="arch-layer">
