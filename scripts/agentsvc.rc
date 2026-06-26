@@ -1,0 +1,44 @@
+#!/bin/ksh
+# /etc/rc.d/agentsvc — SPT-Txn agentic authorization VERIFY service (M7).
+#
+# Runs the eight-step enforcement engine on a presented capability chain
+# (CAT -> CT[…] -> SPT-Txn) against a LOCAL, read-only Trust Registry snapshot.
+# Verify-only: holds NO signing key and, under pledge "stdio rpath inet", cannot
+# write to disk or mutate the registry. Runs as _sptbv — the Domain B verify
+# user — which reads the snapshot but holds no private key.
+#
+# Listens on 127.0.0.1:8086; relayd forwards /agent/verify and /agent/health
+# (deny-by-default) from the public TLS port :4446.
+#
+# The registry snapshot must be provisioned out of band (a cached copy of the
+# on-chain trust anchor), readable by _sptbv:
+#   doas install -d -o _sptbv -g _sptcommon -m 750 /var/spt-txn/b
+#   doas install -o _sptbv -g _sptcommon -m 640 registry.snapshot \
+#        /var/spt-txn/b/registry.snapshot
+#
+# Install:
+#   doas cp scripts/agentsvc.rc /etc/rc.d/agentsvc
+#   doas chmod 555 /etc/rc.d/agentsvc
+#   doas rcctl enable agentsvc
+#   doas rcctl start agentsvc
+
+daemon="/usr/local/bin/agentsvc"
+daemon_user="_sptbv"
+daemon_flags=""
+daemon_timeout=30
+
+. /etc/rc.d/rc.subr
+
+rc_bg=YES
+rc_reload=NO
+
+rc_start() {
+    install -d -o _sptbv -g _sptcommon -m 750 /var/spt-txn/b
+    rc_exec "${daemon} ${daemon_flags}"
+}
+
+rc_stop() {
+    pkill -TERM -u _sptbv agentsvc
+}
+
+rc_cmd "$1"
