@@ -1209,6 +1209,15 @@
     <span class="hero-tag">Algorand</span>
   </div>
   <p style="font-family:'Space Mono',monospace; font-size:0.72rem; letter-spacing:1px; color:var(--muted); margin-top:0.7rem;">transaction-binding implemented &amp; tested · one adapter interface</p>
+
+  <div style="margin-top:1.8rem; border:1px solid var(--violet-m); border-radius:10px; background:rgba(123,47,190,0.08); padding:1.1rem 1.2rem;">
+    <div class="section-eyebrow" style="color:var(--violet-l);">Live · zero-knowledge verified on-chain</div>
+    <p class="section-body" style="margin-top:0.5rem; margin-bottom:0.7rem; max-width:720px;">A selective-disclosure proof — <strong>amount ≥ threshold, with the amount itself hidden</strong> — is verified on Ethereum Sepolia by a gnark Groth16 verifier (BN254), and the attestation is anchored <strong>only if the proof checks out</strong>. A tampered proof reverts and anchors nothing. Verify a predicate without revealing the data, enforced on-chain.</p>
+    <a href="https://sepolia.etherscan.io/address/0x311612c4E2D7E93CF5d80C0138B55C8A723B95ef" target="_blank" style="font-family:'Space Mono',monospace;font-size:0.72rem;color:var(--violet-l);">verifier 0x311612…95ef ↗</a>
+    &nbsp;·&nbsp;
+    <a href="https://sepolia.etherscan.io/tx/0x57dc3614ccb0fd882ce66d4c060345804ec56c686c1eee131ea68ce62eecd76c" target="_blank" style="font-family:'Space Mono',monospace;font-size:0.72rem;color:var(--violet-l);">verified-anchor tx ↗</a>
+  </div>
+
   <div style="margin-top:1.6rem;">
     <div class="milestone">
       <div class="ms-id" style="font-size:0.72rem;">ETH</div>

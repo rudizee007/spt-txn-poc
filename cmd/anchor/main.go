@@ -139,9 +139,9 @@ func printCalldata(chain, hexHash string) {
 		fmt.Printf("  anchor calldata (EVM, bytes32):\n    cast send <ADDR> \"anchor(bytes32)\" 0x%s\n", hexHash)
 	case "starknet":
 		low, high := "0x"+hexHash[32:64], "0x"+hexHash[0:32]
-		fmt.Printf("  anchor calldata (Cairo, u256 low high):\n    sncast invoke --function anchor --calldata %s %s\n", low, high)
+		fmt.Printf("  anchor calldata (Cairo, u256 low high):\n    sncast --account spt invoke --contract-address <ADDR> --function anchor --calldata %s %s --network sepolia\n", low, high)
 	case "aptos":
-		fmt.Printf("  anchor calldata (Move, vector<u8>):\n    aptos move run --function-id <ADDR>::attestation_anchor::anchor --args hex:0x%s\n", hexHash)
+		fmt.Printf("  anchor calldata (Move; anchor takes book_owner + root):\n    aptos move run --function-id <ADDR>::attestation_anchor::anchor --args address:<BOOK_OWNER> hex:0x%s --assume-yes\n", hexHash)
 	case "solana":
 		fmt.Printf("  anchor memo (SPL memo):\n    spt-txn-anchor:%s\n", hexHash)
 	default:
