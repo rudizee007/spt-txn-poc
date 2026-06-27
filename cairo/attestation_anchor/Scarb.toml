@@ -1,0 +1,21 @@
+# SPT-Txn Attestation Anchor — Starknet/Cairo contract.
+# Versions move fast; match these to your installed toolchain:
+#   scarb --version   (Scarb + Cairo)
+#   starkli --version (deploy tool)
+# If `scarb build` complains about the edition or the starknet version, set them
+# to what your scarb reports (e.g. edition = "2023_11", or a different starknet tag).
+
+[package]
+name = "spt_attestation_anchor"
+version = "0.1.0"
+edition = "2024_07"
+
+[dependencies]
+starknet = ">=2.8.0"
+
+[[target.starknet-contract]]
+sierra = true
+casm = true
+
+[dev-dependencies]
+# snforge_std = "0.40.0"   # uncomment + match version if testing with starknet-foundry

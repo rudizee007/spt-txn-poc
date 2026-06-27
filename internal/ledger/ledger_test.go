@@ -93,7 +93,7 @@ func TestXRPL_Validate(t *testing.T) {
 }
 
 func TestGet_UnknownAdapter(t *testing.T) {
-	if _, err := ledger.Get("solana"); err == nil {
+	if _, err := ledger.Get("no-such-chain"); err == nil {
 		t.Error("unregistered adapter must return an error")
 	}
 }

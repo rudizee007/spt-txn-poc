@@ -66,3 +66,7 @@ docs/APTOS-GRANT-FORM-ANSWERS.md
 spt-sepolia-key.json
 spt-sepolia-account.json
 cairo/**/target/
+# Aptos / Move — build output and the CLI key/config (NEVER commit .aptos)
+move/**/build/
+.aptos/
+**/.aptos/
