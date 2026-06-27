@@ -81,6 +81,12 @@ func Setup(id CircuitID) (*Artifacts, error) {
 // NbConstraints reports the circuit size (useful for diagnostics/benchmarks).
 func (a *Artifacts) NbConstraints() int { return a.ccs.GetNbConstraints() }
 
+// ExportSolidity writes a Solidity Groth16 verifier for this circuit's verifying
+// key. The generated contract lets an Ethereum / EVM L2 verify an SPT-Txn proof
+// on-chain. Export from a PINNED verifying key (Load/LoadVerifier), never a fresh
+// Setup, so the on-chain verifier matches the key the prover actually uses.
+func (a *Artifacts) ExportSolidity(w io.Writer) error { return a.vk.ExportSolidity(w) }
+
 // ── persistence ──────────────────────────────────────────────────────────────
 //
 // groth16.Setup is randomized, so prover and verifier MUST share the keys from a

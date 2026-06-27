@@ -1031,7 +1031,7 @@
       <div class="arch-layer">
         <div class="arch-label">Trust Registry</div>
         <div class="arch-content">
-          <strong>Source of truth on-chain; cached locally for offline verify.</strong> The authoritative registry of issuer keys, roles, and algorithm assignments lives on-chain (permissionless read); verifiers hold a locally cached snapshot and read it at verify time, so the eight-step check never makes a synchronous issuer or chain call. Algorithm selection is registry-governed — not token-header-governed — providing downgrade resistance. Attestation hashes and audit roots anchor to a chain's native ordering service — e.g. the Hedera Consensus Service, or the SPL Memo program on Solana. Multi-chain: XRPL, Hedera, Solana, Stellar, Ethereum, XDC, Algorand.
+          <strong>Source of truth on-chain; cached locally for offline verify.</strong> The authoritative registry of issuer keys, roles, and algorithm assignments lives on-chain (permissionless read); verifiers hold a locally cached snapshot and read it at verify time, so the eight-step check never makes a synchronous issuer or chain call. Algorithm selection is registry-governed — not token-header-governed — providing downgrade resistance. Attestation hashes and audit roots anchor to a chain's native ordering service — e.g. the Hedera Consensus Service, or the SPL Memo program on Solana. Multi-chain transaction-binding (implemented and tested): XRPL, Hedera, Solana, Stellar, Ethereum, Starknet, Aptos, XDC, Algorand.
         </div>
       </div>
       <div class="arch-layer">
@@ -1162,7 +1162,6 @@
         </div>
       </div>
     </div>
-  </div>
 <div style="margin-top:3rem; border-top:1px solid var(--border); padding-top:2rem;">
   <div class="section-eyebrow">Live Endpoints</div>
   <div style="margin-top:1rem;">
@@ -1196,7 +1195,7 @@
 </div>
 <div style="margin-top:3rem; border-top:1px solid var(--border); padding-top:2rem;">
   <div class="section-eyebrow">Ledger-agnostic · demonstrated across chains</div>
-  <p class="section-body" style="margin-top:1rem; max-width:760px;">SPT-Txn binds an authorization to a specific transaction without depending on any chain. The binding is implemented and tested behind one Go adapter interface for seven ledgers, and the attestation-anchor footprint is live on public testnets. Chains are integration targets, never dependencies — the authorization verifies offline with no chain at all.</p>
+  <p class="section-body" style="margin-top:1rem; max-width:760px;">SPT-Txn binds an authorization to a specific transaction without depending on any chain. The binding is implemented and tested behind one Go adapter interface for nine ledgers, and the attestation-anchor footprint is live on public testnets. Chains are integration targets, never dependencies — the authorization verifies offline with no chain at all.</p>
   <p id="anchorLive" style="margin-top:0.9rem; font-family:'Space Mono',monospace; font-size:0.8rem; color:var(--muted);">Reading the live on-chain anchor…</p>
   <div class="hero-tags" style="justify-content:flex-start; margin-top:1.4rem; max-width:920px;">
     <span class="hero-tag">Ethereum</span>
@@ -1206,6 +1205,8 @@
     <span class="hero-tag">Stellar</span>
     <span class="hero-tag">Starknet</span>
     <span class="hero-tag">Aptos</span>
+    <span class="hero-tag">XDC</span>
+    <span class="hero-tag">Algorand</span>
   </div>
   <p style="font-family:'Space Mono',monospace; font-size:0.72rem; letter-spacing:1px; color:var(--muted); margin-top:0.7rem;">transaction-binding implemented &amp; tested · one adapter interface</p>
   <div style="margin-top:1.6rem;">
@@ -1240,6 +1241,7 @@
   </div>
   <p class="section-body" style="margin-top:1.4rem; font-size:0.88rem; color:var(--muted); max-width:760px;">Testnet and devnet footprints demonstrate the anchoring mechanism per chain. Mainnet anchoring and chain-native compliance bindings — e.g. complementing confidential-transfer standards with the cross-VASP Travel Rule — are per-chain integration work.</p>
 </div>
+  </div>
 </section>
 
 <div class="divider"></div>
