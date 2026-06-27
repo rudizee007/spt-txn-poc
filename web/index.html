@@ -866,7 +866,7 @@
       <div class="token-card cat">
         <div class="tk-label">Data Model</div>
         <div class="tk-name">IVMS101 + SD-JWT</div>
-        <p class="tk-body">Originator and beneficiary identity expressed in the interVASP IVMS101 standard and carried as a selectively-disclosable SD-JWT — disclose exactly the FATF-required fields (name, account, an identifier) to the counterparty, nothing more and nothing on-ledger; the exact amount stays hidden.</p>
+        <p class="tk-body">Originator and beneficiary identity expressed in the interVASP IVMS101 standard and carried as a selectively-disclosable SD-JWT — disclose exactly the FATF-required fields (name, account, an identifier) to the counterparty, nothing more and nothing on-ledger; the exact amount stays hidden. IVMS101 is designed to travel within ISO 20022 cross-border and trade-finance messaging, so the attestation slots into existing institutional payment rails.</p>
         <div class="tk-meta">FATF Recommendation 16</div>
       </div>
       <div class="token-card cap">
@@ -947,7 +947,7 @@
       <div class="arch-layer">
         <div class="arch-label">Trust Registry</div>
         <div class="arch-content">
-          <strong>Source of truth on-chain; cached locally for offline verify.</strong> The authoritative registry of issuer keys, roles, and algorithm assignments lives on-chain (permissionless read); verifiers hold a locally cached snapshot and read it at verify time, so the eight-step check never makes a synchronous issuer or chain call. Algorithm selection is registry-governed — not token-header-governed — providing downgrade resistance. Multi-chain: XRPL, Ethereum, XDC, Algorand, Hedera.
+          <strong>Source of truth on-chain; cached locally for offline verify.</strong> The authoritative registry of issuer keys, roles, and algorithm assignments lives on-chain (permissionless read); verifiers hold a locally cached snapshot and read it at verify time, so the eight-step check never makes a synchronous issuer or chain call. Algorithm selection is registry-governed — not token-header-governed — providing downgrade resistance. Attestation hashes and audit roots anchor to a chain's native ordering service — e.g. the Hedera Consensus Service, or the SPL Memo program on Solana. Multi-chain: XRPL, Hedera, Solana, Stellar, Ethereum, XDC, Algorand.
         </div>
       </div>
       <div class="arch-layer">
@@ -1011,7 +1011,7 @@
   <div class="section-inner">
     <div class="section-eyebrow">Proof of Concept</div>
     <h2 class="section-title">Reference implementation. OpenBSD. Go. Security by design.</h2>
-    <p class="section-body">The POC validates the protocol architecture end-to-end. Classical cryptography with algorithm-agility dispatch. Pledge and unveil sandbox. File-backed persistent Trust Registry. Two-domain cross-organizational demo.</p>
+    <p class="section-body">The POC validates the protocol architecture end-to-end. Classical cryptography with algorithm-agility dispatch. Pledge and unveil sandbox. File-backed persistent Trust Registry. Two-domain cross-organizational demo. A single ledger-adapter interface binds the authorization to a transaction across six chains, and the agentic layer adds multi-hop CT→CT delegation with an offline N-hop verifier.</p>
 
     <div class="milestone-list">
       <div class="milestone">
@@ -1093,12 +1093,59 @@
       </div>
     </div>
     <div class="milestone">
+      <div class="ms-id" style="font-size:0.75rem;">AGT</div>
+      <div class="ms-body">
+        <strong>Agentic verify API</strong> — offline N-hop delegation verifier, live over relayd TLS<br>
+        <a href="https://foss.violetskysecurity.com:4446/agent/health"
+           target="_blank" style="font-family:'Space Mono',monospace;font-size:0.72rem;color:var(--violet-l);">
+          https://foss.violetskysecurity.com:4446/agent/health ↗
+        </a>
+      </div>
+    </div>
+    <div class="milestone">
       <div class="ms-id" style="font-size:0.75rem;">INT</div>
       <div class="ms-body">
         <strong>Trust Registry &amp; CAT issuer</strong> — internal, socket-only by design. The mutating issuance endpoints are never edge-exposed (verified by the security audit).
       </div>
     </div>
   </div>
+</div>
+<div style="margin-top:3rem; border-top:1px solid var(--border); padding-top:2rem;">
+  <div class="section-eyebrow">Ledger-agnostic · demonstrated across chains</div>
+  <p class="section-body" style="margin-top:1rem; max-width:760px;">SPT-Txn binds an authorization to a specific transaction without depending on any chain. The binding is implemented and tested behind one Go adapter interface for six ledgers, and the attestation-anchor footprint is live on public testnets. Chains are integration targets, never dependencies — the authorization verifies offline with no chain at all.</p>
+  <div class="hero-tags" style="justify-content:flex-start; margin-top:1.4rem; max-width:920px;">
+    <span class="hero-tag">XRPL</span>
+    <span class="hero-tag">Hedera</span>
+    <span class="hero-tag">Solana</span>
+    <span class="hero-tag">Stellar</span>
+    <span class="hero-tag">Starknet</span>
+    <span class="hero-tag">Aptos</span>
+  </div>
+  <p style="font-family:'Space Mono',monospace; font-size:0.72rem; letter-spacing:1px; color:var(--muted); margin-top:0.7rem;">transaction-binding implemented &amp; tested · one adapter interface</p>
+  <div style="margin-top:1.6rem;">
+    <div class="milestone">
+      <div class="ms-id" style="font-size:0.72rem;">STRK</div>
+      <div class="ms-body">
+        <strong>Starknet Sepolia</strong> — attestation-anchor contract (Cairo), live with anchored roots<br>
+        <a href="https://sepolia.voyager.online/contract/0x0620fe8ccb9c19fe9acce44dccc6a6a3d851974dcd97f05949982453de853de1" target="_blank" style="font-family:'Space Mono',monospace;font-size:0.72rem;color:var(--violet-l);">0x0620fe…53de1 ↗</a>
+      </div>
+    </div>
+    <div class="milestone">
+      <div class="ms-id" style="font-size:0.72rem;">APT</div>
+      <div class="ms-body">
+        <strong>Aptos testnet</strong> — attestation-anchor module (Move), live with anchored roots<br>
+        <a href="https://explorer.aptoslabs.com/account/0x0b1f35b54e92d49d21d1badca271b9ab5686f22f82d6f88c6731cac20cbe0aa2?network=testnet" target="_blank" style="font-family:'Space Mono',monospace;font-size:0.72rem;color:var(--violet-l);">0x0b1f35…0aa2 ↗</a>
+      </div>
+    </div>
+    <div class="milestone">
+      <div class="ms-id" style="font-size:0.72rem;">SOL</div>
+      <div class="ms-body">
+        <strong>Solana devnet</strong> — attestation roots anchored via SPL memo<br>
+        <a href="https://explorer.solana.com/address/BeWdnfiJ52LpaGudU6ZhGLVcpeBEYxHYewZC4DZopVi4?cluster=devnet" target="_blank" style="font-family:'Space Mono',monospace;font-size:0.72rem;color:var(--violet-l);">BeWdnf…opVi4 ↗</a>
+      </div>
+    </div>
+  </div>
+  <p class="section-body" style="margin-top:1.4rem; font-size:0.88rem; color:var(--muted); max-width:760px;">Testnet and devnet footprints demonstrate the anchoring mechanism per chain. Mainnet anchoring and chain-native compliance bindings — e.g. complementing confidential-transfer standards with the cross-VASP Travel Rule — are per-chain integration work.</p>
 </div>
 </section>
 

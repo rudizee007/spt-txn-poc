@@ -1,0 +1,20 @@
+# SPT-Txn Attestation Anchor — Aptos / Move package.
+# Versions move fast; if `aptos move compile` complains about the framework API,
+# bump the AptosFramework `rev` to match your installed `aptos` CLI (aptos --version).
+#
+# The named address `spt_txn` is left as "_" (unset) — supply it at compile/publish:
+#   aptos move publish --named-addresses spt_txn=<your-account-address>
+# or `spt_txn=default` to use the active CLI profile's account.
+
+[package]
+name = "spt_attestation_anchor"
+version = "0.1.0"
+authors = ["Violet Sky Security SEZC"]
+
+[addresses]
+spt_txn = "_"
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-core.git"
+subdir = "aptos-move/framework/aptos-framework"
+rev = "mainnet"
