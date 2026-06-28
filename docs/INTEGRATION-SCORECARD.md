@@ -14,7 +14,7 @@ questionnaire answers in [VASP-SECURITY-QUESTIONNAIRE.md](VASP-SECURITY-QUESTION
 | Open source (Apache-2.0) | 🟢 | Auditable, no lock-in; embed-don't-host model |
 | Offline / embeddable verifier (not a data processor) | 🟢 | Shipped as `pkg/verify` — embed the eight-step engine; verification runs in *your* infra |
 | IVMS101 | 🔵 | Implemented |
-| Travel Rule protocol coverage | 🟡 | TRP live; TRISA **payload bridge built**, sealed-gRPC transport scoped |
+| Travel Rule protocol coverage | 🟡 | TRP live; TRISA **payload bridge + Secure Envelope sealing core built**, gRPC/GDS/mTLS wire cert-gated |
 | On-chain footprints | 🟡 | 6 live testnets; mainnet runbook ready, not deployed |
 | CBOM / post-quantum plan | 🔵 | Published CBOM + hybrid-PQ plan (EO-14409-aligned) |
 | Audit trail | 🔵 | Hash-chained + signed Merkle roots; keyless re-verify tool |

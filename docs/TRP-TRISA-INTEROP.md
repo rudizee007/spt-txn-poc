@@ -1,6 +1,6 @@
 # SPT-Txn ↔ Travel Rule Protocol (TRP) and TRISA Interop
 
-Status: TRP transport **implemented and green on host**; TRISA **payload bridge implemented** (`internal/trisa`, round-trip tested) — only the sealed gRPC **transport** is deferred to a separate module.
+Status: TRP transport **implemented and green on host**; TRISA **payload bridge implemented** (`internal/trisa`, round-trip tested) and the TRISA **Secure Envelope sealing core implemented** (`clients/trisa-transport`, offline-tested) — only the gRPC/GDS/mTLS **network wire** is deferred (cert-gated).
 Scope: privacy-preserving FATF Recommendation 16 (the "Travel Rule") for SPT-Txn.
 
 ## 1. The two protocols SPT-Txn must speak to
@@ -75,26 +75,33 @@ travel-address round-trip, approval, bad-binding rejection, and cleartext-only r
 | `txn_context_hash` (payment binding) | `extensions.spt-txn.txn_context_hash` | envelope `id` / transaction ref |
 | disclosure request | `extensions.spt-txn.disclose` | out-of-band policy |
 
-## 4. TRISA bridge — designed, deferred
+## 4. TRISA bridge + sealing core — implemented; network wire deferred
 
-TRISA's `SecureEnvelope` already has the right shape to carry SPT-Txn: a `Payload` with an
-IVMS101 `identity`, a generic `transaction`, and timestamps, wrapped in per-message AES-GCM
-and sealed to the recipient's public key. The bridge:
+The TRISA-shaped payload **bridge** (`internal/trisa`) and the Secure Envelope
+**sealing core** (`clients/trisa-transport`) are both built. The bridge:
 
-1. Put the SD-JWT (IVMS101 selective disclosure) in `Payload.identity`.
-2. Put the three proofs + public inputs + `txn_context_hash` in a TRISA generic
+1. Puts the SD-JWT (IVMS101 selective disclosure) in `Payload.identity`.
+2. Puts the three proofs + public inputs + `txn_context_hash` in a TRISA generic
    `transaction` (or a registered envelope extension).
-3. Seal per the TRISA flow: generate the AES key + HMAC secret, encrypt and HMAC the
-   payload, seal the key/secret with the recipient's public sealing key (obtained via the
-   `KeyExchange` RPC or the GDS directory), send via the unary `Transfer` RPC.
+
+The sealing core (`clients/trisa-transport`, a separate pure-stdlib module)
+implements the TRISA `SecureEnvelope` flow and is unit-tested offline:
+
+- `Seal(payload, recipientPub, keyID)` — generate a fresh AES-256 key + HMAC
+  secret, **AES-256-GCM**-encrypt the payload, **HMAC-SHA256** the ciphertext, and
+  **RSA-OAEP/SHA-256**-seal the AES key and HMAC secret to the recipient's key.
+- `Open(env, recipientPriv)` — unseal the keys, verify the HMAC constant-time
+  **before** decrypting, then GCM-decrypt.
 
 Because the SPT-Txn proofs already provide payload-level privacy and non-repudiation,
 running them *inside* a sealed envelope yields defence in depth: ZK for what the counterparty
 may compute, sealing for confidentiality at rest and crypto-erasure.
 
-**Deferred dependencies** (real-network, not POC-blocking): mTLS certificate registration at
-`trisa.directory`, GDS counterparty lookup, protobuf codegen for the TRISA messages, and the
-bech32m Travel Address for full TRP addressing.
+**Deferred (cert-gated, real-network, not POC-blocking):** the gRPC/GDS/mTLS wire
+behind the `Transport` interface — mTLS certificate registration at
+`trisa.directory`, GDS counterparty lookup (`Lookup`/`KeyExchange`), the unary
+`Transfer` RPC + protobuf codegen, and the bech32m Travel Address for full TRP
+addressing.
 
 ## 5. Security notes
 
