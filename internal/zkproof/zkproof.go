@@ -14,6 +14,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"math/big"
 	"os"
@@ -320,6 +321,24 @@ func (a *Artifacts) ProveChain(anchorMaterial, salt []byte, maxDepth uint64, hop
 	}
 	proof, err = a.prove(&full)
 	return proof, bigOf(h0fe), bigOf(cleaffe), err
+}
+
+// CurrencyCode maps a currency string (e.g. "USD") to a stable field code used
+// as the circuit's currency element, so a prover and a verifier agree without a
+// hand-maintained table. FNV-1a 64-bit — collision-resistant enough for the POC.
+func CurrencyCode(s string) uint64 {
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(s))
+	return h.Sum64()
+}
+
+// LeafScopeCommitment is the public CLeaf a chain proof commits to: Poseidon2 of
+// the leaf's (maxAmount, currencyCode), matching the circuit's
+// h.Write(DomainAmount, leafMaxAmt, leafCurrency). A verifier derives this from
+// the presented leaf CT's scope to BIND the proof to that exact leaf — so a proof
+// cannot claim a different (e.g. broader) leaf scope than the one presented.
+func LeafScopeCommitment(maxAmount, currencyCode uint64) *big.Int {
+	return bigOf(hashAmount(feFromUint64(maxAmount), feFromUint64(currencyCode)))
 }
 
 // VerifyChain checks a delegation-chain proof against the human-anchor commitment
