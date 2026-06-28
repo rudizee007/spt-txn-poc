@@ -1,0 +1,20 @@
+# SPT-Txn Attestation Anchor — Sui / Move package.
+# Versions move fast; if `sui move build` complains about the framework API or the
+# edition, bump the Sui dependency `rev` (e.g. framework/mainnet) and/or the
+# `edition` to match your installed Sui CLI (`sui --version`).
+#
+# The named address `spt_txn` is 0x0 here; Sui assigns the real package address at
+# publish (`sui client publish`), and the module initializer creates one shared
+# AnchorBook object whose ID you use when calling `anchor`.
+
+[package]
+name = "spt_attestation_anchor"
+version = "0.1.0"
+edition = "2024.beta"
+authors = ["Violet Sky Security SEZC"]
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/testnet" }
+
+[addresses]
+spt_txn = "0x0"
