@@ -68,6 +68,8 @@ token; blockchain-agnostic (XRPL is the primary integration target).
 
 ## Documentation
 
+- [`docs/REVIEWER-BRIEF.md`](docs/REVIEWER-BRIEF.md) — **start here**: one-page brief leading with what's real (live footprints, on-chain ZK, F1 closed, live Travel Rule) and the honest boundaries.
+- [`docs/DEMO.md`](docs/DEMO.md) — reproduce it in minutes: the suite, ZK metrics, agentic demo, anchoring, the x402 gate, live endpoints + footprints.
 - [`docs/STATUS.md`](docs/STATUS.md) — current-state map: every component, where it lives, live on-chain addresses, ZK metrics, how to build/test.
 - [`docs/RUNBOOK.md`](docs/RUNBOOK.md) — reproducible ops: ZK setup, deploy contracts to a chain, generate + verify an on-chain proof, website deploy.
 - [`docs/BUILD-JOURNAL.md`](docs/BUILD-JOURNAL.md) — chronological build log + the key engineering decisions and their rationale.
@@ -78,7 +80,7 @@ token; blockchain-agnostic (XRPL is the primary integration target).
 - [`docs/GLOSSARY.md`](docs/GLOSSARY.md) — **authoritative** terminology + the
   CAT/attribute model + standards mapping.
 - [`docs/CBOM.md`](docs/CBOM.md) / [`docs/cbom.json`](docs/cbom.json) — Cryptographic Bill of Materials.
-- [`docs/SECURITY-REVIEW.md`](docs/SECURITY-REVIEW.md) — full security review (FAIL=0; roadmap items noted); [`docs/SECURITY-REVIEW-2026-06-28.md`](docs/SECURITY-REVIEW-2026-06-28.md) — review of the new surface (adapters, contracts, ZK chain, verifier seam).
+- [`docs/SECURITY-REVIEW.md`](docs/SECURITY-REVIEW.md) — full security review (FAIL=0; roadmap items noted); [`docs/SECURITY-REVIEW-2026-06-28.md`](docs/SECURITY-REVIEW-2026-06-28.md) — review of the new surface (adapters, contracts, ZK chain, verifier seam); [`docs/SECURITY-REVIEW-2026-06-28-extended.md`](docs/SECURITY-REVIEW-2026-06-28-extended.md) — extended surface (Sui Move anchor, Hedera HCS/DID, more adapters, x402 gate).
 - [`docs/TRP-TRISA-INTEROP.md`](docs/TRP-TRISA-INTEROP.md) — Travel Rule transport + TRISA bridge design.
 - [`docs/V2-TOPICS-CHECKLIST.md`](docs/V2-TOPICS-CHECKLIST.md) / [`docs/V2-RESEARCH-NOTES.md`](docs/V2-RESEARCH-NOTES.md) — v2 coverage + research.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/OPENBSD-SETUP.md`](docs/OPENBSD-SETUP.md) — design + provisioning (some sections predate the current deployment).
