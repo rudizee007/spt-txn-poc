@@ -69,6 +69,21 @@ This is the ESP "verify without revealing" deliverable end-to-end.
 
 ## 2. Agentic ZK chain proof ("prove the chain without revealing it")
 
+> **STATUS: BUILT (2026-06-28).** Implemented as `ChainCircuit` in
+> `internal/zkproof/circuits.go` (Groth16/BN254, `MaxHops=4`) with `ProveChain` /
+> `VerifyChain` + `ChainHop` in `zkproof.go`, registered as `CircuitChain` and in
+> `cmd/zk-setup`. Tests in `chain_test.go`: a valid 3-hop chain proves+verifies;
+> widening (scope escalation), mid-chain currency switch, over-depth, and a wrong
+> declared depth are all rejected. Design choices vs the sketch below: a single
+> human-anchor preimage bound to the public `H0` commitment (the "propagates
+> unchanged" property is inherent to one anchor); attenuation enforced by
+> range-checking `parent - child` to 64 bits (no separate comparator); the
+> inactive tail is padded so a fixed circuit handles chains up to MaxHops; the
+> public leaf-scope commitment `CLeaf = Poseidon2(DomainAmount, leafMaxAmt,
+> leafCurrency)` reveals only the leaf's effective scope. Signatures/issuer-trust
+> stay native (kept out of the circuit), as planned. Pending: `go test` on the Mac
+> + an optional `cmd/zk-bench` entry.
+
 Goal: prove a delegation chain (CAT → CT → … → leaf) is **valid** — each child
 scope is a subset of its parent, delegation depth decremented and never negative,
 and the humanAnchor is consistent across every hop — **without revealing the

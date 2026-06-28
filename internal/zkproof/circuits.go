@@ -110,3 +110,99 @@ func (c *VASPCircuit) Define(api frontend.API) error {
 	api.AssertIsEqual(cur, c.Root)
 	return nil
 }
+
+// MaxHops bounds the delegation-chain length the agentic proof supports (root
+// CAT + up to MaxHops-1 delegations). A fixed size keeps the circuit constant;
+// shorter chains pad the inactive tail so its constraints hold trivially.
+const MaxHops = 4
+
+// ChainCircuit proves a delegation chain (CAT -> CT -> ... -> leaf) is valid
+// WITHOUT revealing the intermediate scopes: each hop's ceiling only narrows,
+// the currency is unchanged, the delegation depth decrements by one and never
+// goes negative, and the whole chain is tied to one accountable human — while
+// only commitments to the leaf scope and to the human-anchor are public.
+//
+//	Public:  H0    = Poseidon2(DomainAnchor, Anchor, Salt)            (human-anchor commitment)
+//	         CLeaf = Poseidon2(DomainAmount, leafMaxAmt, leafCurrency) (leaf scope commitment)
+//	         D     = root (maximum) delegation depth
+//	Private: anchor preimage + salt, and per-hop (Active, MaxAmt, Currency, Depth).
+//
+// Signature/issuer-trust checks stay in the native eight-step engine; this
+// circuit proves only the scope-attenuation + depth + human-anchor invariants,
+// which keeps it small. DomainAmount is reused for the leaf-scope commitment (a
+// 2-input Poseidon2 over (maxAmount, currency)) — it is a distinct public input
+// in a distinct circuit, so no cross-predicate confusion arises.
+type ChainCircuit struct {
+	H0    frontend.Variable `gnark:",public"`
+	CLeaf frontend.Variable `gnark:",public"`
+	D     frontend.Variable `gnark:",public"`
+
+	Anchor   frontend.Variable          `gnark:",secret"`
+	Salt     frontend.Variable          `gnark:",secret"`
+	Active   [MaxHops]frontend.Variable `gnark:",secret"`
+	MaxAmt   [MaxHops]frontend.Variable `gnark:",secret"`
+	Currency [MaxHops]frontend.Variable `gnark:",secret"`
+	Depth    [MaxHops]frontend.Variable `gnark:",secret"`
+}
+
+func (c *ChainCircuit) Define(api frontend.API) error {
+	// 1) Human-anchor: prove knowledge of the preimage behind the public commitment.
+	ha, err := circuitposeidon2.New(api)
+	if err != nil {
+		return err
+	}
+	ha.Write(zkhash.DomainAnchor, c.Anchor, c.Salt)
+	api.AssertIsEqual(c.H0, ha.Sum())
+
+	// 2) Root hop: active, at the full declared depth D, amount range-checked.
+	api.AssertIsEqual(c.Active[0], 1)
+	api.AssertIsEqual(c.Depth[0], c.D)
+	api.ToBinary(c.MaxAmt[0], 64)
+	api.ToBinary(c.Depth[0], 32)
+
+	// 3) Each later hop attenuates. Inactive tail hops fall back to their parent
+	//    so their constraints hold trivially (the active hops form a prefix).
+	for i := 1; i < MaxHops; i++ {
+		api.AssertIsBoolean(c.Active[i])
+		// contiguous active prefix: no 0 -> 1 reactivation.
+		api.AssertIsLessOrEqual(c.Active[i], c.Active[i-1])
+
+		amtEff := api.Select(c.Active[i], c.MaxAmt[i], c.MaxAmt[i-1])
+		curEff := api.Select(c.Active[i], c.Currency[i], c.Currency[i-1])
+		depEff := api.Select(c.Active[i], c.Depth[i], api.Sub(c.Depth[i-1], 1))
+
+		// attenuation: parent - child >= 0 (child also range-checked).
+		api.ToBinary(c.MaxAmt[i], 64)
+		api.ToBinary(api.Sub(c.MaxAmt[i-1], amtEff), 64)
+
+		// currency unchanged along the chain.
+		api.AssertIsEqual(curEff, c.Currency[i-1])
+
+		// depth decrements by one; the active depth stays non-negative.
+		api.AssertIsEqual(depEff, api.Sub(c.Depth[i-1], 1))
+		api.ToBinary(api.Select(c.Active[i], c.Depth[i], 0), 32)
+	}
+
+	// 4) Leaf = last active hop: isLeaf[i] = Active[i] AND NOT Active[i+1].
+	var leafAmt frontend.Variable = 0
+	var leafCur frontend.Variable = 0
+	for i := 0; i < MaxHops; i++ {
+		var nextActive frontend.Variable = 0
+		if i+1 < MaxHops {
+			nextActive = c.Active[i+1]
+		}
+		isLeaf := api.Mul(c.Active[i], api.Sub(1, nextActive))
+		leafAmt = api.Add(leafAmt, api.Mul(isLeaf, c.MaxAmt[i]))
+		leafCur = api.Add(leafCur, api.Mul(isLeaf, c.Currency[i]))
+	}
+
+	// 5) The leaf scope commitment must match the public CLeaf.
+	hs, err := circuitposeidon2.New(api)
+	if err != nil {
+		return err
+	}
+	hs.Write(zkhash.DomainAmount, leafAmt, leafCur)
+	api.AssertIsEqual(c.CLeaf, hs.Sum())
+
+	return nil
+}
