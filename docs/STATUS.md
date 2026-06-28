@@ -19,6 +19,7 @@ and [BUILD-JOURNAL.md](BUILD-JOURNAL.md) (how we got here).
 | Ledger adapters (10 chains) | `internal/ledger` | tested |
 | On-chain anchor contracts | `cairo/attestation_anchor`, `move/attestation_anchor`, `solidity/src/AttestationAnchor.sol` | live on 4 chains |
 | End-to-end anchoring tool | `cmd/anchor` | tested |
+| Hedera HCS anchoring client (A1) | `clients/hcs-anchor` (separate module) | built; keyless mirror-node verify; anchoring is an operator action |
 | Services (verify-role, Travel Rule) | `cmd/agentsvc` (:4446), `cmd/tr-svc` (:4445) | deployed (OpenBSD) |
 | CI | `.github/workflows/ci.yml` | build + vet + test on push/PR |
 | Site | `web/` → foss.violetskysecurity.com | live |

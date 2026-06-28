@@ -129,3 +129,23 @@ doas sh scripts/security-audit.sh        # host-runnable checks; target FAIL=0
 go test ./...                            # full suite, including the ZK + verifier tests
 ```
 See `docs/SECURITY-REVIEW.md` and `docs/SECURITY-REVIEW-2026-06-28.md`.
+
+## 11. Hedera HCS anchoring (milestone A1)
+
+Anchor a real token-derived context hash to a Hedera Consensus Service topic. The
+client is a **separate module** (`clients/hcs-anchor`) so the Hedera SDK never
+enters the core. Design: `docs/HEDERA-HCS-ANCHORING.md`.
+
+```
+# build the client (own module)
+cd clients/hcs-anchor && go get github.com/hiero-ledger/hiero-sdk-go/v2@latest && go mod tidy && go build .
+
+# operator creds in the environment (never flags)
+export HEDERA_OPERATOR_ID=0.0.XXXXX HEDERA_OPERATOR_KEY=302e0201...
+
+./hcs-anchor create-topic -network testnet                       # → topic 0.0.YYYYY
+HASH=$(cd ../.. && go run ./cmd/anchor -chain hedera | awk '/context_hash/{print $3}')
+./hcs-anchor anchor -network testnet -topic 0.0.YYYYY -type ctx -hash "$HASH"
+./hcs-anchor verify -network testnet -topic 0.0.YYYYY -hash "$HASH"   # keyless mirror-node proof
+```
+`verify` (and the equivalent mirror-node `curl`) needs no key and no HBAR.

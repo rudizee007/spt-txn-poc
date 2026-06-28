@@ -144,6 +144,8 @@ func printCalldata(chain, hexHash string) {
 		fmt.Printf("  anchor calldata (Move; anchor takes book_owner + root):\n    aptos move run --function-id <ADDR>::attestation_anchor::anchor --args address:<BOOK_OWNER> hex:0x%s --assume-yes\n", hexHash)
 	case "solana":
 		fmt.Printf("  anchor memo (SPL memo):\n    spt-txn-anchor:%s\n", hexHash)
+	case "hedera":
+		fmt.Printf("  anchor to Hedera Consensus Service (clients/hcs-anchor, milestone A1):\n    hcs-anchor anchor -network testnet -topic 0.0.<TOPIC> -type ctx -hash %s\n", hexHash)
 	default:
 		fmt.Printf("  attestation root (anchor however %s records it): 0x%s\n", chain, hexHash)
 	}
