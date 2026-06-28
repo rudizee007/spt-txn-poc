@@ -34,6 +34,7 @@ const (
 	CircuitCommitment CircuitID = "commitment"
 	CircuitThreshold  CircuitID = "threshold"
 	CircuitVASP       CircuitID = "vasp"
+	CircuitChain      CircuitID = "chain"
 )
 
 // ProofBytes is a serialized Groth16 proof, ready for transport (e.g., embedded
@@ -58,6 +59,8 @@ func newCircuit(id CircuitID) (frontend.Circuit, error) {
 		return &ThresholdCircuit{}, nil
 	case CircuitVASP:
 		return &VASPCircuit{}, nil
+	case CircuitChain:
+		return &ChainCircuit{}, nil
 	default:
 		return nil, fmt.Errorf("zkproof: unknown circuit %q", id)
 	}
@@ -263,4 +266,65 @@ func (a *Artifacts) ProveVASPMembership(leaf *big.Int, sibs []*big.Int, bits []i
 // verifier independently trusts.
 func (a *Artifacts) VerifyVASPMembership(p ProofBytes, root *big.Int) error {
 	return a.verify(p, &VASPCircuit{Root: root})
+}
+
+// ── Delegation-chain predicate (agentic) ─────────────────────────────────────
+
+// ChainHop is one capability in a delegation chain: a spending ceiling and a
+// currency code. hops[0] is the root CAT ceiling; the last hop is the leaf the
+// agent acts under. Each hop must narrow (or equal) its parent's ceiling.
+type ChainHop struct {
+	MaxAmount uint64
+	Currency  uint64
+}
+
+// ProveChain proves a delegation chain is valid — each hop's ceiling only
+// narrows, the currency is unchanged, the delegation depth decrements by one and
+// stays non-negative, and the whole chain is anchored to one accountable human —
+// WITHOUT revealing the intermediate scopes. It returns the proof plus the two
+// public commitments: h0 (human-anchor) and cleaf (the leaf's effective scope).
+// maxDepth is the root delegation depth D.
+func (a *Artifacts) ProveChain(anchorMaterial, salt []byte, maxDepth uint64, hops []ChainHop) (proof ProofBytes, h0, cleaf *big.Int, err error) {
+	n := len(hops)
+	if n < 1 || n > MaxHops {
+		return nil, nil, nil, fmt.Errorf("chain length %d out of range [1,%d]", n, MaxHops)
+	}
+	if maxDepth+1 < uint64(n) {
+		return nil, nil, nil, fmt.Errorf("maxDepth %d too small for a %d-hop chain", maxDepth, n)
+	}
+	anc := feFromWide(anchorMaterial)
+	slt := feFromWide(salt)
+	h0fe := hashAnchor(anc, slt)
+	leafAmt := feFromUint64(hops[n-1].MaxAmount)
+	leafCur := feFromUint64(hops[n-1].Currency)
+	cleaffe := hashAmount(leafAmt, leafCur)
+
+	var full ChainCircuit
+	full.H0 = bigOf(h0fe)
+	full.CLeaf = bigOf(cleaffe)
+	full.D = new(big.Int).SetUint64(maxDepth)
+	full.Anchor = bigOf(anc)
+	full.Salt = bigOf(slt)
+	for i := 0; i < MaxHops; i++ {
+		if i < n {
+			full.Active[i] = 1
+			full.MaxAmt[i] = new(big.Int).SetUint64(hops[i].MaxAmount)
+			full.Currency[i] = new(big.Int).SetUint64(hops[i].Currency)
+			full.Depth[i] = new(big.Int).SetUint64(maxDepth - uint64(i))
+		} else {
+			full.Active[i] = 0
+			full.MaxAmt[i] = 0
+			full.Currency[i] = 0
+			full.Depth[i] = 0
+		}
+	}
+	proof, err = a.prove(&full)
+	return proof, bigOf(h0fe), bigOf(cleaffe), err
+}
+
+// VerifyChain checks a delegation-chain proof against the human-anchor commitment
+// (e.g. the human_anchor token claim), the leaf-scope commitment, and the
+// declared maximum delegation depth the verifier independently knows.
+func (a *Artifacts) VerifyChain(p ProofBytes, h0, cleaf *big.Int, maxDepth uint64) error {
+	return a.verify(p, &ChainCircuit{H0: h0, CLeaf: cleaf, D: new(big.Int).SetUint64(maxDepth)})
 }

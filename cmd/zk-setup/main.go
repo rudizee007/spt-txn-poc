@@ -31,6 +31,7 @@ func main() {
 		zkproof.CircuitCommitment,
 		zkproof.CircuitThreshold,
 		zkproof.CircuitVASP,
+		zkproof.CircuitChain,
 	}
 	for _, id := range circuits {
 		t0 := time.Now()
