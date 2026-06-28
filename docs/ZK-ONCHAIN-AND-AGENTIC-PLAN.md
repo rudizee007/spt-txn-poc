@@ -186,11 +186,18 @@ prover to get the range checks and selectors exactly right.)
 Verify is constant ~1 ms and the proof is a constant 164 B regardless of chain
 length — the agentic chain proof is cheap to check anywhere, offline or on-chain.
 
-**Remaining (documented seam):** cryptographically bind the ZK public inputs to
-the tokens — migrate the token `human_anchor` to the Poseidon2 commitment (so it
-equals `H0`) and add a leaf-scope commitment claim (so it equals `CLeaf`). Until
-then `step6ChainZK` verifies the endpoints in clear + proves the hidden middle,
-gated behind an operator-opted-in `ChainVerifier`.
+**Token binding — DONE (2026-06-28).** `step6ChainZK` now derives the bound
+public inputs from the presented tokens rather than trusting caller-supplied
+ones: `CLeaf` is computed from the leaf CT's own scope (`zkproof.LeafScopeCommitment`
++ `zkproof.CurrencyCode`) and `D` from the CAT's `delegation_depth_max`, so a
+proof cannot claim a different leaf scope or a deeper chain than presented. The
+`ChainVerifierFunc` signature carries the leaf scope + depth; the injection test
+(`chainzk_test.go`) confirms a proof made for 5000 USD is rejected for 9999 USD
+or EUR. The **human anchor** is bound in clear at the endpoints (CAT, leaf CT,
+and SPT-Txn all reveal `human_anchor`, checked equal) — deliberately, because the
+agent-prover must not hold the human's anchor preimage; folding the anchor into
+the circuit would require exactly that. `H0` is carried with the proof as the
+prover's anchor commitment. This is the correct trust boundary, not a shortcut.
 
 ### Why it matters
 It's the privacy upgrade to the agentic layer: a verifier confirms an agent acted

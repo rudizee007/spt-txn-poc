@@ -70,16 +70,17 @@ type Input struct {
 	// (CT field) are still presented so the SPT-Txn binds to the leaf. Active only
 	// when ChainProof != nil AND Engine.ChainVerifier is set.
 	ChainProof []byte   // serialized ChainCircuit Groth16 proof
-	ChainH0    *big.Int // human-anchor commitment the proof was made against
-	ChainCLeaf *big.Int // leaf-scope commitment the proof was made against
-	ChainDepth uint64   // declared maximum delegation depth (D)
+	ChainH0    *big.Int // anchor commitment the proof was made against (carried with the proof)
 }
 
-// ChainVerifierFunc plugs a ZK delegation-chain verifier (e.g.
+// ChainVerifierFunc plugs a ZK delegation-chain verifier (e.g. one wrapping
 // zkproof.Artifacts.VerifyChain) into the engine WITHOUT this package importing
-// gnark — the caller injects it. The lightweight offline verifier stays
-// gnark-free; ZK chain verification is strictly opt-in.
-type ChainVerifierFunc func(proof []byte, h0, cleaf *big.Int, maxDepth uint64) error
+// gnark — the caller injects it. The engine passes the leaf scope (maxAmount +
+// currency) and max depth taken from the PRESENTED tokens; the injected verifier
+// derives the leaf-scope commitment (CLeaf) from them and verifies, so the proof
+// is bound to the leaf CT actually presented. The lightweight offline verifier
+// stays gnark-free; ZK chain verification is strictly opt-in.
+type ChainVerifierFunc func(proof []byte, h0 *big.Int, leafMaxAmount uint64, leafCurrency string, maxDepth uint64) error
 
 // Engine runs the eight-step enforcement using a Trust Registry for key
 // resolution and revocation.
@@ -409,8 +410,8 @@ func (e *Engine) step6ChainZK(ctx context.Context, txClaims map[string]any, in I
 	if e.ChainVerifier == nil {
 		return nil, fmt.Errorf("a ZK chain proof was presented but no ChainVerifier is configured")
 	}
-	if in.ChainH0 == nil || in.ChainCLeaf == nil {
-		return nil, fmt.Errorf("ZK chain mode requires the H0 and CLeaf public inputs")
+	if in.ChainH0 == nil {
+		return nil, fmt.Errorf("ZK chain mode requires the H0 public input")
 	}
 	if in.CAT == "" || in.CT == "" {
 		return nil, fmt.Errorf("ZK chain mode still requires the root CAT and the leaf CT to be presented")
@@ -430,8 +431,28 @@ func (e *Engine) step6ChainZK(ctx context.Context, txClaims map[string]any, in I
 		return nil, fmt.Errorf("leaf CT: %w", err)
 	}
 
-	// ZK proof: a valid attenuating, depth-bounded chain links CAT -> leaf.
-	if err := e.ChainVerifier(in.ChainProof, in.ChainH0, in.ChainCLeaf, in.ChainDepth); err != nil {
+	// Bind the proof to the PRESENTED tokens: the leaf-scope commitment (CLeaf) is
+	// derived (by the injected verifier) from the leaf CT's own scope, and the max
+	// depth (D) from the CAT — so the proof cannot claim a different leaf scope or
+	// a deeper chain than what is presented. H0 is carried with the proof; the
+	// human binding is the cleartext endpoint equality checked below.
+	scope, ok := leaf["capability_scope"].(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("leaf CT missing capability_scope")
+	}
+	maxAmt, ok := scope["max_amount"].(float64)
+	if !ok {
+		return nil, fmt.Errorf("leaf CT scope missing max_amount")
+	}
+	currency, ok := scope["currency"].(string)
+	if !ok {
+		return nil, fmt.Errorf("leaf CT scope missing currency")
+	}
+	catMax, ok := intClaim(catClaims, "delegation_depth_max")
+	if !ok {
+		return nil, fmt.Errorf("CAT missing delegation_depth_max")
+	}
+	if err := e.ChainVerifier(in.ChainProof, in.ChainH0, uint64(maxAmt), currency, uint64(catMax)); err != nil {
 		return nil, fmt.Errorf("ZK chain proof invalid: %w", err)
 	}
 
