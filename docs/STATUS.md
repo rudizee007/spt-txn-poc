@@ -17,7 +17,7 @@ and [BUILD-JOURNAL.md](BUILD-JOURNAL.md) (how we got here).
 | Scoped-disclosure SDK + schema | `internal/disclosure`, `docs/DISCLOSURE-SCHEMA.md` | built + tested |
 | Travel Rule (IVMS101 + SD-JWT + ZK) | `internal/travelrule`, `internal/sdjwt`, `internal/trp`, `internal/ivms101`, `cmd/tr-svc` | live (2-party) |
 | Ledger adapters (12 chains) | `internal/ledger` | tested |
-| On-chain anchor contracts | `cairo/attestation_anchor`, `move/attestation_anchor`, `solidity/src/AttestationAnchor.sol` | live on 4 chains |
+| On-chain anchor contracts | `cairo/attestation_anchor`, `move/attestation_anchor`, `solidity/src/AttestationAnchor.sol`, `sui/attestation_anchor` | live on 5 chains (ETH, Arbitrum, Starknet, Aptos, Sui) |
 | End-to-end anchoring tool | `cmd/anchor` | tested |
 | Hedera HCS anchoring client (A1) | `clients/hcs-anchor` (separate module) | built; keyless mirror-node verify; anchoring is an operator action |
 | Services (verify-role, Travel Rule) | `cmd/agentsvc` (:4446), `cmd/tr-svc` (:4445) | deployed (OpenBSD) |
@@ -48,6 +48,7 @@ EVM L2.
 | Solana devnet | SPL-memo anchor wallet | `BeWdnfiJ52LpaGudU6ZhGLVcpeBEYxHYewZC4DZopVi4` | memo anchor |
 | Hedera testnet | HCS topic (attestation anchor) | `0.0.9357269` (seq 1) | real token-derived ctx hash `9448…7581`; keyless mirror-node verify; milestone A1 |
 | Hedera testnet | `did:hedera` DID document (HCS) | `0.0.9357387` | issuer DID + bound humanAnchor; keyless mirror-node resolve; milestone A2 |
+| Sui testnet | attestation_anchor (Move) | pkg `0xb816f6…e4ec`, shared AnchorBook `0xa21fa5…6c8c` | real token-derived ctx hash `624ee0…97da` anchored (tx `3PW4WA…b3RY`); append-only shared-object anchor |
 
 The on-chain ZK verifier (Ethereum + Arbitrum Sepolia) verifies a threshold
 selective-disclosure proof on-chain and records the root only if it checks out; a
@@ -56,7 +57,9 @@ tampered proof reverts.
 The Hedera HCS footprint is **live on testnet** (topic `0.0.9357269`, sequence 1,
 consensus timestamp `1782658058.681753330`) — a real `cmd/anchor -chain hedera`
 context hash anchored via `clients/hcs-anchor` and confirmed keyless on the public
-mirror node. All footprints are **testnet**. A first **mainnet** footprint
+mirror node. The Sui footprint (Move attestation anchor, pkg `0xb816f6…e4ec`) is
+also live — a real context hash anchored into a shared `AnchorBook` object. All
+footprints are **testnet**. A first **mainnet** footprint
 (Arbitrum One or Base, same bytecode) is runbook-ready in [RUNBOOK.md](RUNBOOK.md)
 §12, pending a funded deploy (an operator action — needs a dedicated, funded
 mainnet key).
