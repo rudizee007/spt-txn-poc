@@ -81,6 +81,7 @@ type Decision struct {
 type Gate struct {
 	reg        *trustregistry.MockRegistry
 	l          ledger.Ledger
+	chain      string
 	agentAddr  string
 	orgPub     ed25519.PublicKey
 	ttsPub     ed25519.PublicKey
@@ -94,10 +95,10 @@ type Gate struct {
 
 // New provisions an agent: registers issuer keys and mints the standing
 // CAT -> CT capability bounded by ceiling (max spend) in the given currency.
-func New(agentAddr string, ceiling float64, currency string) (*Gate, error) {
-	l, err := ledger.Get("xrpl")
+func New(chain, agentAddr string, ceiling float64, currency string) (*Gate, error) {
+	l, err := ledger.Get(chain)
 	if err != nil {
-		return nil, fmt.Errorf("xrpl adapter: %w", err)
+		return nil, fmt.Errorf("%s adapter: %w", chain, err)
 	}
 	reg, err := trustregistry.NewMockRegistry("")
 	if err != nil {
@@ -131,7 +132,7 @@ func New(agentAddr string, ceiling float64, currency string) (*Gate, error) {
 	}
 
 	return &Gate{
-		reg: reg, l: l, agentAddr: agentAddr,
+		reg: reg, l: l, chain: chain, agentAddr: agentAddr,
 		orgPub: orgPub, ttsPub: ttsPub, ttsPriv: ttsPriv,
 		holderPub: holderPub, holderPriv: holderPriv,
 		catToken: cat.Token, ctToken: ct.Token, anchor: cat.HumanAnchor.String(),
@@ -173,7 +174,7 @@ func (g *Gate) AgentAddress() string { return g.agentAddr }
 // yields ALLOW plus the stamp fields the payer must apply.
 func (g *Gate) Authorize(req Request) (Decision, error) {
 	tc := ledger.TxnContext{
-		Chain: "xrpl", Originator: g.agentAddr, Beneficiary: req.PayTo,
+		Chain: g.chain, Originator: g.agentAddr, Beneficiary: req.PayTo,
 		Amount: req.Price, Currency: req.Currency, Timestamp: time.Now().Unix(),
 		Extra: map[string]string{"DestinationTag": req.SourceTag, "Memo": g.anchor},
 	}

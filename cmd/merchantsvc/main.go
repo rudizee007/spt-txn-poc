@@ -40,6 +40,7 @@ func main() {
 	currency := flag.String("currency", "XRP", "currency")
 	payto := flag.String("payto", "rsA2LpzuawewSBQXkiju3YQTMzW13pAAdW", "merchant XRPL pay-to address")
 	sourceTag := flag.String("sourcetag", "402", "x402 SourceTag the payer should stamp")
+	network := flag.String("network", "xrpl", "ledger label advertised in the 402 requirements (xrpl, hedera, …)")
 	gateURL := flag.String("gate", "http://127.0.0.1:8401", "gate base URL (for the trusted issuer registry)")
 	flag.Parse()
 
@@ -70,7 +71,7 @@ func main() {
 		w.WriteHeader(http.StatusPaymentRequired) // 402
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"error": "payment required", "price": *price, "currency": *currency,
-			"payto": *payto, "sourcetag": *sourceTag, "network": "xrpl",
+			"payto": *payto, "sourcetag": *sourceTag, "network": *network,
 		})
 	})
 

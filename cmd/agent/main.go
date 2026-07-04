@@ -85,20 +85,20 @@ func main() {
 	}
 	log.Printf("GATE ALLOW — settling %s %s to %s, humanAnchor %s", d.Amount, d.Currency, d.Destination, d.Memo)
 
-	// 3b. Settle on XRPL via xrpl-pay (unless -dry-pay).
+	// 3b. Settle on the ledger via the pay backend (unless -dry-pay).
 	if *dryPay {
-		fmt.Printf("\n[dry-pay] would run:\n  xrpl-pay -to %s -amount %s -currency %s -sourcetag %s -memo %s -context-hash %s\n",
-			d.Destination, d.Amount, d.Currency, d.SourceTag, d.Memo, d.ContextHash)
+		fmt.Printf("\n[dry-pay] would settle on %s:\n  -to %s -amount %s -currency %s -memo %s\n",
+			req.Network, d.Destination, d.Amount, d.Currency, d.Memo)
 		return
 	}
 	if *payBin == "" {
-		log.Fatal("-pay-bin is required (path to the built xrpl-pay binary), or use -dry-pay")
+		log.Fatal("-pay-bin is required (path to the pay backend binary), or use -dry-pay")
 	}
 	txHash, err := settle(*payBin, *payEndpoint, d)
 	if err != nil {
 		log.Fatalf("settle: %v", err)
 	}
-	log.Printf("settled on XRPL: tx %s", txHash)
+	log.Printf("settled on %s: tx %s", req.Network, txHash)
 
 	// 4. Redeem: hand the merchant the tx hash + the verification bundle. The
 	// merchant re-runs the eight-step verifier before delivering (P2).

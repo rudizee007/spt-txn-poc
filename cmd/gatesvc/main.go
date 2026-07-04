@@ -29,13 +29,14 @@ import (
 
 func main() {
 	addr := flag.String("addr", "127.0.0.1:8401", "loopback listen address (gate is the authority; do not expose)")
-	agent := flag.String("agent", "rPdvC6ccq8hCdPKSPJkPmyZ4Mi1oG2FFkT", "payer agent XRPL classic address")
+	chain := flag.String("chain", "xrpl", "ledger the gate binds to (xrpl, hedera, …)")
+	agent := flag.String("agent", "rPdvC6ccq8hCdPKSPJkPmyZ4Mi1oG2FFkT", "payer agent address (chain-specific: XRPL r-address, Hedera 0.0.x, …)")
 	ceiling := flag.Float64("ceiling", 5000, "agent capability ceiling (max spend under its CT)")
 	currency := flag.String("currency", "XRP", "capability currency")
 	flag.Parse()
 
 	log.SetPrefix("gatesvc: ")
-	g, err := gate.New(*agent, *ceiling, *currency)
+	g, err := gate.New(*chain, *agent, *ceiling, *currency)
 	if err != nil {
 		log.Fatalf("provision gate: %v", err)
 	}
