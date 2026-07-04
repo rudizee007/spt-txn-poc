@@ -81,7 +81,20 @@ echo
 if [ "$MODE" = "real" ]; then
   : "${SPT_XRPL_SEED:?set SPT_XRPL_SEED to the payer seed (s… secret for $AGENT_ADDR) for a real settle}"
   [ -x clients/xrpl-pay/xrpl-pay ] || ( cd clients/xrpl-pay && go build -o xrpl-pay . )
-  "$BIN/agent" -pay-bin clients/xrpl-pay/xrpl-pay
+  # ENDPOINT (env) overrides the ledger. Empty = xrpl-pay's TESTNET default.
+  # For P4 (mainnet, REAL money): ENDPOINT=https://s1.ripple.com:51234/
+  if [ -n "${ENDPOINT:-}" ]; then
+    # Real-money confirmation for a non-testnet endpoint.
+    if ! echo "$ENDPOINT" | grep -qE 'altnet|rippletest|devnet'; then
+      printf "\n⚠  REAL MAINNET settle: %s drops from %s on %s\n   type 'yes' to proceed: " "$PRICE" "$AGENT_ADDR" "$ENDPOINT"
+      read -r confirm
+      [ "$confirm" = "yes" ] || { echo "aborted."; exit 1; }
+    fi
+    echo "== settling on: $ENDPOINT =="
+    "$BIN/agent" -pay-bin clients/xrpl-pay/xrpl-pay -pay-endpoint "$ENDPOINT"
+  else
+    "$BIN/agent" -pay-bin clients/xrpl-pay/xrpl-pay
+  fi
 else
   "$BIN/agent" -dry-pay
 fi

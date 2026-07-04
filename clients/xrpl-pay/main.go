@@ -40,6 +40,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Peersyst/xrpl-go/pkg/crypto"
 	"github.com/Peersyst/xrpl-go/xrpl/rpc"
 	"github.com/Peersyst/xrpl-go/xrpl/transaction"
 	"github.com/Peersyst/xrpl-go/xrpl/wallet"
@@ -63,7 +64,22 @@ func main() {
 	dryRun := flag.Bool("dry-run", false, "build and print the transaction without connecting or submitting")
 	jsonOut := flag.Bool("json", false, "print only a machine-readable JSON result to stdout (for cmd/agent)")
 	whoami := flag.Bool("whoami", false, "print the classic r-address derived from $SPT_XRPL_SEED and exit")
+	genAccount := flag.Bool("genaccount", false, "generate a NEW XRPL account (address + seed) for a dedicated low-value demo wallet, then exit")
+	yes := flag.Bool("yes", false, "skip the mainnet confirmation prompt (for non-interactive use)")
 	flag.Parse()
+
+	if *genAccount {
+		w, err := wallet.New(crypto.ED25519())
+		if err != nil {
+			log.Fatalf("generate account: %v", err)
+		}
+		fmt.Printf("address: %s\n", w.GetAddress())
+		fmt.Printf("seed:    %s\n", w.Seed)
+		fmt.Println()
+		fmt.Println("SAVE THE SEED SECURELY. Never commit it, never paste it anywhere shared.")
+		fmt.Println("Fund the ADDRESS with a small amount from your wallet, then:  export SPT_XRPL_SEED='<seed>'")
+		return
+	}
 
 	if *whoami {
 		seed := os.Getenv(seedEnv)
@@ -148,6 +164,17 @@ func main() {
 		return
 	}
 
+	// Real-money guardrail: on a non-testnet endpoint, require explicit
+	// confirmation. Skipped in -json mode (driven by cmd/agent) or with -yes.
+	if isMainnet(*endpoint) && !*jsonOut && !*yes {
+		fmt.Printf("\n⚠  REAL payment on a non-testnet ledger: %s drops to %s via %s\n   type 'yes' to proceed: ", *amount, *to, *endpoint)
+		var resp string
+		_, _ = fmt.Scanln(&resp)
+		if strings.TrimSpace(resp) != "yes" {
+			log.Fatal("aborted (not confirmed)")
+		}
+	}
+
 	// Connect, autofill (Fee/Sequence/LastLedgerSequence), sign, submit-and-wait.
 	cfg, err := rpc.NewClientConfig(*endpoint)
 	if err != nil {
@@ -205,6 +232,11 @@ func checkSeed(seed string) {
 		}
 		log.Fatalf("%s looks like an r-ADDRESS (%s…), not a secret seed. Use the account's SECRET (starts with 's', e.g. sEd…) — the faucet's \"Secret\" field, not \"Address\".", seedEnv, short)
 	}
+}
+
+// isMainnet is true for any endpoint that is not a known test network.
+func isMainnet(ep string) bool {
+	return !strings.Contains(ep, "altnet") && !strings.Contains(ep, "rippletest") && !strings.Contains(ep, "devnet")
 }
 
 func endpointLabel(ep string) string {
