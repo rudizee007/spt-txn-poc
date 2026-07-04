@@ -44,7 +44,13 @@ case "$CHAIN" in
     AGENT_ADDR="${AGENT_ADDR:-0x1}"
     MERCHANT_ADDR="${MERCHANT_ADDR:-0x1}"
     CRED="${APTOS_OPERATOR_KEY:-}"; CRED_NAME="APTOS_OPERATOR_KEY" ;;
-  *) echo "unknown CHAIN '$CHAIN' (want xrpl|hedera|aptos)"; exit 1 ;;
+  ethereum)
+    PAY_DIR="clients/eth-pay"; PAY_BIN="clients/eth-pay/eth-pay"
+    CURRENCY="${CURRENCY:-ETH}"
+    AGENT_ADDR="${AGENT_ADDR:-0x0000000000000000000000000000000000000000}"
+    MERCHANT_ADDR="${MERCHANT_ADDR:-0x0000000000000000000000000000000000000000}"
+    CRED="${ETH_OPERATOR_KEY:-}"; CRED_NAME="ETH_OPERATOR_KEY" ;;
+  *) echo "unknown CHAIN '$CHAIN' (want xrpl|hedera|aptos|ethereum)"; exit 1 ;;
 esac
 
 case "$MODE" in
@@ -100,14 +106,17 @@ echo
 if [ "$MODE" = "real" ]; then
   [ -n "$CRED" ] || { echo "set $CRED_NAME for a real settle"; exit 1; }
   ( cd "$PAY_DIR" && go build -o "$(basename "$PAY_BIN")" . )
-  # XRPL only: ENDPOINT selects the ledger; a non-testnet URL is REAL money (P4).
-  if [ "$CHAIN" = "xrpl" ] && [ -n "${ENDPOINT:-}" ]; then
-    if ! echo "$ENDPOINT" | grep -qE 'altnet|rippletest|devnet'; then
-      printf "\n⚠  REAL MAINNET settle: %s drops from %s on %s\n   type 'yes' to proceed: " "$PRICE" "$AGENT_ADDR" "$ENDPOINT"
+  # ENDPOINT (env) overrides the ledger endpoint for any chain. For XRPL a
+  # non-testnet URL is real money → confirm here; other chains' pay backends do
+  # their own mainnet confirmation (eth-pay by chain id, etc). Ethereum defaults
+  # to Sepolia when ENDPOINT is unset.
+  if [ -n "${ENDPOINT:-}" ]; then
+    if [ "$CHAIN" = "xrpl" ] && ! echo "$ENDPOINT" | grep -qE 'altnet|rippletest|devnet'; then
+      printf "\n⚠  REAL MAINNET settle: %s from %s on %s\n   type 'yes' to proceed: " "$PRICE" "$AGENT_ADDR" "$ENDPOINT"
       read -r confirm
       [ "$confirm" = "yes" ] || { echo "aborted."; exit 1; }
     fi
-    echo "== settling on: $ENDPOINT =="
+    echo "== settling via: $ENDPOINT =="
     "$BIN/agent" -pay-bin "$PAY_BIN" -pay-endpoint "$ENDPOINT"
   else
     "$BIN/agent" -pay-bin "$PAY_BIN"
