@@ -27,7 +27,7 @@ explicit.
 | H1 | High | DPoP / token replay | `[OPEN]` → ✅ **FIXED** |
 | H2 | High | Revocation decided on unverified issuer | `[OPEN]` → ✅ **FIXED** |
 | H3 | High | Verifier trusted issuance (scope/depth/holder) | `[OPEN]` → ✅ **FIXED** |
-| H4 | High | Signing keys unencrypted at rest | `[OPEN]` → ⚠️ **MITIGATED** · encryption-at-rest `[DEFERRED]` |
+| H4 | High | Signing keys unencrypted at rest | `[OPEN]` → ⚠️ **MITIGATED** (perms + pledge/unveil) · **PKCS#11/HSM signing path implemented & validated** (SoftHSM2, non-extractable Ed25519) — wiring to live services + disk-FDE `[DEFERRED]` |
 | H5 | High | Signify loader didn't validate KDF/checksum | `[OPEN]` → ✅ **FIXED** |
 | M1 | Medium | JWT `alg`/`typ` unvalidated | `[OPEN]` → ✅ **FIXED** |
 | M2 | Medium | Amount precision (float64) | `[PARTIAL]` → ✅ **FIXED** |
@@ -98,6 +98,14 @@ negative amounts, and cross-domain audience.
   encryption (one passphrase/keydisk at boot — best ROI; Linux equivalent: LUKS +
   TPM2); HSM/TPM-sealed key wrapping; or threshold (FROST) so no single host holds a
   whole signing key. Tied to the production-OS decision.
+  **UPDATE 2026-07-02:** a PKCS#11/HSM signing path is now implemented and validated on
+  OpenBSD — `internal/hsm/pkcs11signer.go` (crypto.Signer over miekg/pkcs11, build tag
+  `pkcs11`), SoftHSM2 token with a **non-extractable Ed25519** key, and the four token
+  issuers refactored to `crypto.Signer` (backward-compatible, `go test ./...` green). It
+  is available as a build option; the remaining steps are wiring it into the running
+  services (env + `unveil` + `hsm.Open`), generating fresh in-token issuer keys, and
+  rotating the Trust Registry. AWS/GCP KMS (both sign Ed25519) is then a config swap. See
+  `docs/KEY-CUSTODY-PLAN.md`.
 - **M7 — Trust Registry persistence. FIXED.** Previously the in-memory mock registry
   seeded revoked placeholders on start and did not persist real registrations, so a
   `trsvc` restart silently reverted issuers to "revoked" and fail-closed services

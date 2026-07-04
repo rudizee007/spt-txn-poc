@@ -109,7 +109,7 @@ Status legend: ✅ BUILT · ✳️ DESIGNED · 🗺️ PLANNED
 - Security model & assumptions (trusted setup, key custody, PQ horizon).
 - Privacy model (what each party learns; disclosure minimisation).
 - Interoperability (IVMS101, TRP, TRISA, DNSSEC bridge).
-- Key management (perms + pledge today; FDE / HSM / threshold roadmap — see the
+- Key management (perms + pledge in the live deployment; **PKCS#11/HSM signing implemented & validated** — SoftHSM2/non-extractable Ed25519/`crypto.Signer`; FDE / threshold roadmap — see the
   key-management discussion; PQ key formats).
 - Glossary (CAT/CAP/SPT-Txn, zkDID, zkDNS, Poseidon, ML-DSA/ML-KEM, IVMS101…).
 

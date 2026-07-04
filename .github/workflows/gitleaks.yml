@@ -1,0 +1,27 @@
+name: gitleaks
+
+# Enforce "no secrets in the repo" on every push and PR — the CI backstop to the
+# local pre-commit hook (.githooks/pre-commit). Scans the full history on push.
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so a secret in any past commit is caught
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_CONFIG: .gitleaks.toml
+          # gitleaks-action is free for personal + public repos. For a GitHub
+          # Organization repo it requires GITLEAKS_LICENSE (free from gitleaks.io);
+          # set it as a repo secret and uncomment:
+          # GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}

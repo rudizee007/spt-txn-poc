@@ -111,5 +111,7 @@ preserves the OpenBSD security narrative (small, pledged, single-purpose daemons
   touches verification latency).
 - Threshold/HSM signing for issuers and the escrow t-of-n custody across
   jurisdictions — the real operational scaling constraint (security, not throughput).
+  (Update: PKCS#11/HSM signing is now implemented & validated — SoftHSM2, non-extractable
+  Ed25519, issuer signing via `crypto.Signer`; threshold/escrow t-of-n custody still ahead.)
 - Whether to publish a reference verifier library (Go) as the primary "stateless"
   artifact, with any hosted endpoint as a secondary convenience.

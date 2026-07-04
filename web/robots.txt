@@ -1,0 +1,42 @@
+# foss.violetskysecurity.com — SPT-Txn (Sovereign Policy Token Transactions)
+# Open-source, privacy-preserving FATF Travel Rule + agentic-authorization framework.
+# This is a public-goods research project: search crawlers and AI/LLM agents are welcome.
+
+User-agent: *
+Allow: /
+
+# AI / LLM crawlers are explicitly permitted (public research + reference implementation).
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+Sitemap: https://foss.violetskysecurity.com/sitemap.xml
+
+# LLM-friendly site summary (llmstxt.org convention):
+#   https://foss.violetskysecurity.com/llms.txt
