@@ -14,7 +14,7 @@
 #     MERCHANT_ADDR=0.0.y ./scripts/x402-demo.sh real                # Hedera testnet settle
 #
 # Config via env (with defaults):
-#   CHAIN          xrpl | hedera                          (default xrpl)
+#   CHAIN          xrpl | hedera | aptos | ethereum | solana   (default xrpl)
 #   AGENT_ADDR     payer address (auto-derived from creds when a key is set)
 #   MERCHANT_ADDR  destination address
 #   CEILING        agent spend ceiling (drops / tinybars) (default 5000)
@@ -50,7 +50,15 @@ case "$CHAIN" in
     AGENT_ADDR="${AGENT_ADDR:-0x0000000000000000000000000000000000000000}"
     MERCHANT_ADDR="${MERCHANT_ADDR:-0x0000000000000000000000000000000000000000}"
     CRED="${ETH_OPERATOR_KEY:-}"; CRED_NAME="ETH_OPERATOR_KEY" ;;
-  *) echo "unknown CHAIN '$CHAIN' (want xrpl|hedera|aptos|ethereum)"; exit 1 ;;
+  solana)
+    PAY_DIR="clients/sol-pay"; PAY_BIN="clients/sol-pay/sol-pay"
+    CURRENCY="${CURRENCY:-SOL}"
+    # System program ID is a valid base58 placeholder that passes the adapter's
+    # shape check when no credential is set (allow/deny modes).
+    AGENT_ADDR="${AGENT_ADDR:-11111111111111111111111111111111}"
+    MERCHANT_ADDR="${MERCHANT_ADDR:-11111111111111111111111111111111}"
+    CRED="${SOL_OPERATOR_KEY:-}"; CRED_NAME="SOL_OPERATOR_KEY" ;;
+  *) echo "unknown CHAIN '$CHAIN' (want xrpl|hedera|aptos|ethereum|solana)"; exit 1 ;;
 esac
 
 case "$MODE" in
