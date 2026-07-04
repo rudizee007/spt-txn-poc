@@ -148,13 +148,13 @@ the verify throughput will not be the bottleneck.
 | `web5-go` / DWN parts (Apache-2.0) | DID/VC interop; capability-pattern study | Maintenance + threat model; Go-only; not in trust core |
 | IPFS (kubo, Go) | Public availability of non-sensitive blobs | Threat model; use content-addressing only, not networking, in trust path |
 | On-chain Merkle anchor | Audit-trail / registry-root tamper-evidence | Anchor cadence + chain choice (cost/finality) |
-| HSM/KMS (PKCS#11, e.g. SoftHSM → cloud HSM) | Issuer + escrow key custody | The production key-management milestone |
+| HSM/KMS (PKCS#11, e.g. SoftHSM → cloud HSM) | Issuer + escrow key custody | **Implemented & validated 2026-07-02** (SoftHSM2/PKCS#11 on OpenBSD, non-extractable Ed25519, issuer signing → `crypto.Signer`); cloud HSM (AWS/GCP KMS, both sign Ed25519) is a config swap; live-service wiring + escrow/threshold pending |
 | FIPS Linux (Rocky/Alma/RHEL) + Go FIPS mode | Regulated-buyer deployment profile | Deployment-profile doc + CI matrix |
 
 ## Honest open items
 
 Research is preliminary. Undecided: FIPS-Linux profile timing; whether to publish
-the verifier as a standalone Go library now; HSM vendor; whether to invest in a
+the verifier as a standalone Go library now; HSM vendor (SoftHSM validated now → AWS/GCP KMS or hardware HSM next); whether to invest in a
 DWN/`web5-go` subproject at all (currently: study patterns, don't depend). None of
 these blocks the current POC; they shape the production/scale roadmap. Next
 concrete step from SCALING-AND-SUBSTRATE remains: split verifier / issuer /

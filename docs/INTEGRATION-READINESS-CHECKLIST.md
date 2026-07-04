@@ -18,7 +18,7 @@ Status legend: **✅ have** · **◐ partial** · **○ planned / gap**.
 | Secure SDLC | ◐ | CI, tests, code + security reviews, threat model — not a documented, certified process. |
 | SBOM / CBOM | ✅ / ◐ | CycloneDX **CBOM** published (`docs/cbom.json`); a full SBOM is trivial from Go modules (generate on request). |
 | Incident response / BCP / DR | ○ | Not formalized (solo, one host) — tied to the scaling/multi-host roadmap. |
-| Key management | ◐ | signify keys, perms-controlled; **HSM/KMS + threshold/MPC is the production milestone** (see PLATFORM doc). |
+| Key management | ◐ | signify keys perms-controlled in the live deployment; **PKCS#11/HSM signing implemented & validated** (SoftHSM2, non-extractable Ed25519, issuer signing → `crypto.Signer`); live-service wiring + threshold/MPC pending (see `KEY-CUSTODY-PLAN.md`). |
 | Encryption / FIPS 140-3 | ◐ | App crypto validated-capable via Go FIPS module; full-OS FIPS is a per-buyer Linux profile (see FIPS boundary §2a). |
 | Data protection (GDPR / MiCA / DORA) | ◐ | **Strong by design** — no PII on-ledger, ZK disclosure, data-minimisation — but no formal DPA / privacy program yet. |
 

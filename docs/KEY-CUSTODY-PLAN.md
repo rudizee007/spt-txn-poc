@@ -181,9 +181,17 @@ Proven working on the `foss` OpenBSD host:
   SoftHSM → real HSM is a config swap, not an algorithm change.
 
 **Remaining work (code, on the Mac):**
-1. Wire a `crypto.Signer` over PKCS#11 in the issuer/signing code (`github.com/miekg/pkcs11`,
-   `C_SignInit(CKM_EDDSA)` → `C_Sign`), replacing the on-disk `.sec` load. Set
-   `SOFTHSM2_CONF` + the module path in the service env; add both to the `unveil` allow-list.
+1. ✅ **DONE 2026-07-02.** `internal/hsm/pkcs11signer.go` (build tag `pkcs11`) implements a
+   `crypto.Signer` over PKCS#11 (`C_SignInit(ckmEDDSA=0x1057)` → `C_Sign`; miekg/pkcs11
+   v1.1.2 lacks the CKM_EDDSA const, defined locally). The four token issuers
+   (`cattoken`/`cttoken`/`txntoken`/`sdjwt` `Issue`/`Delegate`/`signJWT`) now take
+   `crypto.Signer` instead of `ed25519.PrivateKey` — backward-compatible (ed25519.PrivateKey
+   satisfies crypto.Signer), full `go test ./...` GREEN, and `CGO_ENABLED=1 go build -tags
+   pkcs11 ./...` compiles. NOTE: the HSM binary needs cgo → build ON the OpenBSD host (won't
+   cross-compile from Mac); default non-HSM binaries still cross-compile. Still to wire:
+   `SOFTHSM2_CONF` + module path in the service env, `unveil` allow-list, and construct
+   `hsm.Open(...)` at startup to pass the signer. Deferred (return-sig changes needed):
+   `audit.PublishRoot`, `vaspregistry.Publish`, `escrow.Sign`.
 2. **Generate fresh issuer keys IN the token** (non-extractable) rather than importing the
    old on-disk keys, and **rotate the Trust Registry** to the new public keys — so no issuer
    key ever exists outside an HSM boundary.

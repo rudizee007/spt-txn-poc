@@ -5,6 +5,70 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SPT-Txn Framework · foss.violetskysecurity.com</title>
 <meta name="description" content="Sovereign Policy Token Transactions — policy-bound, tamper-evident authorization across trust boundaries in agentic and multi-organizational systems.">
+
+<!-- SEO / discovery -->
+<meta name="keywords" content="SPT-Txn, Sovereign Policy Token Transactions, FATF Travel Rule, FATF Recommendation 16, crypto travel rule, VASP compliance, CASP, MiCA, zero-knowledge proof, privacy-preserving compliance, selective disclosure, agentic payments, AI agent authorization, x402, HTTP 402, post-quantum cryptography, ML-KEM, X25519MLKEM768, transaction tokens, OAuth, capability tokens, blockchain-agnostic, decentralized identity, zkDID, zkDNS, Violet Sky Security">
+<meta name="author" content="Rudolf J. Coetzee, Violet Sky Security SEZC">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://foss.violetskysecurity.com/">
+<link rel="alternate" type="text/plain" href="/llms.txt" title="LLM-friendly summary (llms.txt)">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Violet Sky Security · SPT-Txn">
+<meta property="og:title" content="SPT-Txn — Privacy-Preserving FATF Travel Rule & Agentic Authorization Framework">
+<meta property="og:description" content="Open-source, blockchain-agnostic framework for the FATF Travel Rule (Recommendation 16) and accountable AI-agent payments. Zero-knowledge scoped disclosure, human-anchor escrow with lawful recovery, post-quantum hybrid (X25519 + ML-KEM-768) cryptography.">
+<meta property="og:url" content="https://foss.violetskysecurity.com/">
+<meta property="og:image" content="https://foss.violetskysecurity.com/logo_lion.png">
+
+<!-- Twitter / X card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="SPT-Txn — Privacy-Preserving FATF Travel Rule & Agentic Authorization">
+<meta name="twitter:description" content="Zero-knowledge Travel Rule compliance and accountable AI-agent payments. Blockchain-agnostic, post-quantum hybrid, open source.">
+<meta name="twitter:image" content="https://foss.violetskysecurity.com/logo_lion.png">
+
+<!-- Structured data (schema.org) -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://foss.violetskysecurity.com/#org",
+      "name": "Violet Sky Security SEZC",
+      "url": "https://foss.violetskysecurity.com/",
+      "logo": "https://foss.violetskysecurity.com/logo_lion.png",
+      "location": { "@type": "Place", "address": { "@type": "PostalAddress", "addressCountry": "KY" } },
+      "founder": { "@type": "Person", "name": "Rudolf J. Coetzee", "identifier": "https://orcid.org/0009-0009-6557-8843" }
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://foss.violetskysecurity.com/#website",
+      "url": "https://foss.violetskysecurity.com/",
+      "name": "SPT-Txn — Sovereign Policy Token Transactions",
+      "publisher": { "@id": "https://foss.violetskysecurity.com/#org" }
+    },
+    {
+      "@type": "SoftwareSourceCode",
+      "name": "SPT-Txn (Sovereign Policy Token Transactions)",
+      "description": "Open-source, privacy-preserving, blockchain-agnostic authorization framework for the FATF Travel Rule (Recommendation 16) and accountable AI-agent payments. Zero-knowledge scoped disclosure, a token-based authorization chain, human-anchor escrow with lawful deanonymization, and post-quantum hybrid (X25519 + ML-KEM-768) cryptography.",
+      "url": "https://foss.violetskysecurity.com/",
+      "programmingLanguage": "Go",
+      "runtimePlatform": "OpenBSD",
+      "author": { "@type": "Person", "name": "Rudolf J. Coetzee", "identifier": "https://orcid.org/0009-0009-6557-8843" },
+      "keywords": "FATF Travel Rule, Recommendation 16, VASP compliance, zero-knowledge proof, agentic payments, x402, post-quantum cryptography, ML-KEM, transaction tokens, OAuth, blockchain-agnostic"
+    },
+    {
+      "@type": "ScholarlyArticle",
+      "name": "Sovereign Policy Token Transactions (SPT-Txn): A Privacy-Preserving, Crypto-Agile Authorization Framework for Regulated and Agentic Systems",
+      "author": { "@type": "Person", "name": "Rudolf J. Coetzee", "identifier": "https://orcid.org/0009-0009-6557-8843" },
+      "sameAs": "https://doi.org/10.5281/zenodo.20870193",
+      "url": "https://foss.violetskysecurity.com/papers/spt-txn-framework-expanded-v2.pdf"
+    }
+  ]
+}
+</script>
+
 <!-- Self-hosted fonts (no third-party requests). Generate web/fonts.css + web/fonts/ with scripts/fetch-fonts.sh. -->
 <link rel="stylesheet" href="/fonts.css">
 <style>
@@ -513,7 +577,7 @@
     <span class="hero-tag">Zero-Knowledge</span>
     <span class="hero-tag">FATF Travel Rule</span>
     <span class="hero-tag">Offline Verification</span>
-    <span class="hero-tag">Post-Quantum Migration</span>
+    <span class="hero-tag">Post-Quantum Hybrid</span>
     <span class="hero-tag">OpenBSD POC</span>
   </div>
 
@@ -530,7 +594,7 @@
   <div class="section-inner">
     <div class="section-eyebrow">The Big Picture</div>
     <h2 class="section-title">Where SPT-Txn sits: an independent layer.</h2>
-    <p class="section-body">SPT-Txn is not part of any chain, and not bolted onto any single Travel Rule transport. It is an <strong>independent authorization layer</strong>: a KYC provider or platform issues a compliance attestation <strong>once</strong>, and any VASP, wallet, or AI agent verifies it <strong>anywhere, offline</strong>, with no issuer contact and nothing to join. It binds into any Layer 1 or Layer 2 through a single adapter interface, yet depends on none. That independence is the deliberate design choice. It sidesteps the lock-in of building inside one chain, and the two-sided-adoption stall of bolting onto one transport.</p>
+    <p class="section-body">Sovereign Policy Token Transactions <strong>(SPT-Txn)</strong> is not part of any chain, and not bolted onto any single Travel Rule transport. It is an <strong>independent authorization layer</strong>: a KYC provider or platform issues a compliance attestation <strong>once</strong>, and any VASP, wallet, or AI agent verifies it <strong>anywhere, offline</strong>, with no issuer contact and nothing to join. It binds into any Layer 1 or Layer 2 through a single adapter interface, yet depends on none. That independence is the deliberate design choice. It sidesteps the lock-in of building inside one chain, and the two-sided-adoption stall of bolting onto one transport.</p>
 
     <div style="max-width:860px; margin:1.8rem auto 0; width:100%;">
       <svg viewBox="0 0 790 470" xmlns="http://www.w3.org/2000/svg" role="img" font-family="Inter, sans-serif" style="width:100%; height:auto;">
@@ -1111,7 +1175,7 @@
       <div class="arch-layer">
         <div class="arch-label">Cryptographic Root</div>
         <div class="arch-content">
-          <strong>ZK circuits, key generation, randomness.</strong> Groth16 over BN254 for proof generation, with ZK-friendly hashing on Poseidon2 (migrated from MiMC). Ed25519 for signing (ML-DSA / Dilithium migration path defined). X25519/ECIES for escrow encapsulation (ML-KEM / Kyber migration path defined). Key generation per NIST SP 800-133. Identity anchored via zkDID commitments; policy bound as a representation-agnostic policy object, instantiable on-chain. Naming and discovery move to <strong>zkDNS</strong>, a capture-resistant, decentralised name→key root (no ICANN dependency, no single seizure point) with private resolution.
+          <strong>ZK circuits, key generation, randomness.</strong> Groth16 over BN254 for proof generation, with ZK-friendly hashing on Poseidon2 (migrated from MiMC). Ed25519 for signing (ML-DSA / Dilithium migration path defined), with issuer signing PKCS#11/HSM-capable — keys can be held non-extractable in a token (validated with SoftHSM2 on the reference host; a hardware or cloud HSM such as AWS/GCP KMS is a config swap). X25519 + ML-KEM-768 hybrid KEM for escrow encapsulation (implemented and tested), so stored human-anchor envelopes resist harvest-now-decrypt-later attacks and stay secure if either primitive holds. Transport TLS 1.3 at the network edge negotiates the X25519MLKEM768 post-quantum hybrid group (LibreSSL 4.3.0 on OpenBSD 7.9), with classical X25519 fallback so pre-quantum clients are never blocked. Key generation per NIST SP 800-133. Identity anchored via zkDID commitments; policy bound as a representation-agnostic policy object, instantiable on-chain. Naming and discovery move to <strong>zkDNS</strong>, a capture-resistant, decentralised name→key root (no ICANN dependency, no single seizure point) with private resolution.
         </div>
       </div>
     </div>
@@ -1224,7 +1288,7 @@
       <div class="milestone">
         <div class="ms-id">M7</div>
         <div class="ms-body">
-          <strong>Escrow Envelope</strong> — ECIES humanAnchor envelope · t-of-n threshold custody stub · deanonymization interface.<br>
+          <strong>Escrow Envelope</strong> — X25519+ML-KEM-768 hybrid envelope · t-of-n threshold custody stub · deanonymization interface.<br>
           <span class="ms-status done">Complete</span>
         </div>
       </div>
@@ -1391,7 +1455,7 @@
 </section>
 
 <div style="max-width:760px; margin:3.4rem auto 0; text-align:center;">
-  <p style="font-family:'Space Mono',monospace; font-size:1.02rem; letter-spacing:0.5px; color:#C77DFF; margin:0;">Build the general primitive. Sell the specific painkiller.</p>
+  <p style="font-family:'Space Mono',monospace; font-size:1.2rem; letter-spacing:0.5px; color:#C77DFF; margin:0;">Build the general primitive. Sell the specific painkiller.</p>
 </div>
 
 <div class="divider"></div>
@@ -1413,7 +1477,7 @@
       <a href="/terms.html">Terms</a>
     </div>
     <div class="footer-copy">
-      Rudolf Jacobus Coetzee · Violet Sky Security SEZC · Cayman Islands Special Economic Zone ·
+      Rudolf J. Coetzee · Violet Sky Security SEZC · Cayman Islands Special Economic Zone ·
       draft-coetzee-oauth-spt-txn-tokens is an individual IETF Internet-Draft, not endorsed by the IETF. ·
       © 2026 Violet Sky Security SEZC
     </div>

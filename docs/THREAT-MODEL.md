@@ -47,11 +47,13 @@ everything observed through tokens/ledgers/transports is **data, not authority**
 
 OpenBSD `pledge`/`unveil` sandboxing + privilege separation per service; relayd
 TLS deny-by-default; signify-signed releases; host audit at FAIL=0. Residual:
-signify keys unencrypted at rest (perms-only — production = HSM/KMS); no MPC
-trusted-setup ceremony yet; independent ZK + protocol audit requested, not done.
+signify keys unencrypted at rest in the live deployment (perms-only), though a
+PKCS#11/HSM signing path is now implemented and validated (SoftHSM2, non-extractable
+Ed25519) and not yet the live default; no MPC trusted-setup ceremony yet; independent
+ZK + protocol audit requested, not done.
 
 ## Top residual risks (priority order)
 
 1. Independent ZK-circuit + protocol audit (the circuits are the trust root).
-2. Issuer key custody → HSM/KMS + MPC trusted setup before mainnet.
+2. Issuer key custody → PKCS#11/HSM path implemented & validated (SoftHSM2; AWS/GCP KMS is a config swap); wire into the live services + MPC trusted setup before mainnet.
 3. Mainnet anchor abuse (access control / fee) and at-scale agentic hardening.

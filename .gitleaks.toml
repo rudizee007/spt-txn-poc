@@ -1,0 +1,52 @@
+# gitleaks config for SPT-Txn — enforce "no secrets in the repo".
+# Extends the built-in ruleset (AWS/GCP/Azure creds, tokens, PEM keys, JWTs, …)
+# and adds rules for the key material this project handles. Public test vectors
+# and on-chain identifiers are allow-listed so they don't trip the scanner.
+
+title = "SPT-Txn gitleaks"
+
+[extend]
+useDefault = true
+
+# ── Custom rules ────────────────────────────────────────────────────────────
+
+[[rules]]
+id = "spt-pem-private-key"
+description = "PEM private-key block"
+regex = '''-----BEGIN (?:RSA |EC |OPENSSH |PGP |DSA |ENCRYPTED )?PRIVATE KEY-----'''
+keywords = ["PRIVATE KEY"]
+
+[[rules]]
+id = "spt-hex-private-key-assignment"
+description = "Raw hex private key (Ed25519 / secp256k1) assigned to a key-like name"
+# 64 hex = 32-byte key (EVM/secp256k1), 128 hex = 64-byte Ed25519 private key.
+# Keyword-gated to avoid flagging public 32-byte context hashes / tx hashes.
+regex = '''(?i)\b(priv(ate)?[_-]?key|secret[_-]?key|signing[_-]?key|seckey|\bsk\b)\b\s*[:=]\s*['"]?(0x)?[0-9a-fA-F]{64}(?:[0-9a-fA-F]{64})?['"]?'''
+keywords = ["privkey", "private_key", "secret_key", "signingkey", "seckey"]
+
+[[rules]]
+id = "spt-signify-secret"
+description = "OpenBSD signify secret key body"
+regex = '''RWRCSwAAAA[A-Za-z0-9+/=]{20,}'''
+keywords = ["RWRCSwAAAA"]
+
+[[rules]]
+id = "spt-softhsm-pin"
+description = "Hardcoded PKCS#11 / SoftHSM user PIN"
+regex = '''(?i)(pkcs11[_-]?pin|softhsm[_-]?pin|user[_-]?pin|token[_-]?pin)\s*[:=]\s*['"][^'"]{4,}['"]'''
+keywords = ["pkcs11_pin", "softhsm_pin", "user_pin", "token_pin"]
+
+# ── Allowlist (public, not secrets) ─────────────────────────────────────────
+
+[allowlist]
+description = "Public conformance vectors, on-chain addresses/tx hashes, ORCID/DOI — not secrets"
+paths = [
+  '''docs/conformance-vectors\.json''',
+  '''(^|/)go\.sum$''',
+]
+# Public identifiers that are safe by construction.
+regexes = [
+  '''spt_txn_context_hash''',
+  '''0009-0009-6557-8843''',          # ORCID (public)
+  '''10\.5281/zenodo\.''',            # DOI (public)
+]

@@ -608,8 +608,10 @@ the production-Linux equivalents are seccomp-bpf (≈ pledge) and Landlock
 
 Per the full review (`docs/SECURITY-REVIEW.md`), all Critical and High
 findings are fixed and verified. Deferred, bounded items: **key
-encryption-at-rest** (keys are `0400 `/ unveil-confined but
-unencrypted, fix via softraid / LUKS+TPM, HSM, or FROST); **Trust
+encryption-at-rest** (keys are `0400 `/ unveil-confined but unencrypted on
+disk; a PKCS#11/HSM signing path is now implemented and validated — SoftHSM2
+with a non-extractable Ed25519 key, issuer signing via `crypto.Signer` — with
+disk FDE via softraid / LUKS+TPM and threshold FROST as further options); **Trust
 Registry persistence** (the mock registry reverts to revoked
 placeholders on restart, an interim re-registration script is in place);
 and the **trusted-setup risk** inherent to Groth16 (mitigated by PLONK /

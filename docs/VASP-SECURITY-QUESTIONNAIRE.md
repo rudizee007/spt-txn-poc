@@ -56,8 +56,11 @@ below assume the embedded model and flag where a *hosted* option would change th
   whole OS is FIPS unless deployed on the FIPS Linux profile.
 - **Post-quantum readiness?** ✅ Lifetime-triaged hybrid-PQ migration plan +
   CycloneDX CBOM (EO-14409-aligned).
-- **Key management?** ◐ Signing keys are file-perm-protected today; production
-  HSM/KMS (PKCS#11) + threshold/MPC is the documented hardening milestone.
+- **Key management?** ◐ Signing keys are file-perm-protected in the running
+  deployment; a **PKCS#11/HSM signing path is implemented and validated** (SoftHSM2 on
+  OpenBSD, non-extractable Ed25519; issuer signing uses `crypto.Signer`, so AWS/GCP KMS
+  is a config swap). Wiring HSM into the live services + threshold/MPC is the remaining
+  hardening step.
 
 ## 4. Application security & SDLC
 

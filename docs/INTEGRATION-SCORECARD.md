@@ -24,7 +24,7 @@ questionnaire answers in [VASP-SECURITY-QUESTIONNAIRE.md](VASP-SECURITY-QUESTION
 | SOC 2 Type II / ISO 27001 | 🔴 | Not yet (funded maturity step; N/A scope in embedded model) |
 | Third-party pen test | 🔴 | Not yet (internal hardening strong; external test pending) |
 | SLA / uptime / BCP-DR | 🔴 | One host; scaling model defined, not operated |
-| Key custody (HSM/threshold) | 🟡 | File-perm today; HSM/KMS is the production milestone |
+| Key custody (HSM/threshold) | 🟡 | PKCS#11/HSM signing implemented & validated (SoftHSM2, non-extractable Ed25519, crypto.Signer); file-perm in the live deployment; wiring HSM into services + threshold pending |
 | Commercial (MSA / DPA / liability) | 🔴 | No formal terms yet (first-engagement step) |
 
 ## Read

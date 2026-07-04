@@ -1,0 +1,19 @@
+#!/bin/sh
+# SPT-Txn pre-commit secret scan. Blocks a commit that would introduce a secret.
+# Enable once per clone:  git config core.hooksPath .githooks
+# Requires gitleaks:      pkg_add gitleaks   (OpenBSD)  /  brew install gitleaks  (macOS)
+
+if command -v gitleaks >/dev/null 2>&1; then
+    gitleaks protect --staged --redact --config .gitleaks.toml
+    if [ $? -ne 0 ]; then
+        echo "" >&2
+        echo "✗ gitleaks: potential secret in staged changes — commit blocked." >&2
+        echo "  If it is a genuine false positive, add an allowlist entry in .gitleaks.toml." >&2
+        echo "  To bypass intentionally (rare): git commit --no-verify" >&2
+        exit 1
+    fi
+else
+    echo "⚠ gitleaks not installed — secret scan SKIPPED." >&2
+    echo "  Install to enforce: pkg_add gitleaks / brew install gitleaks" >&2
+fi
+exit 0
