@@ -38,7 +38,13 @@ case "$CHAIN" in
     AGENT_ADDR="${AGENT_ADDR:-0.0.0}"
     MERCHANT_ADDR="${MERCHANT_ADDR:-0.0.0}"
     CRED="${HEDERA_OPERATOR_ID:-}"; CRED_NAME="HEDERA_OPERATOR_ID (+ HEDERA_OPERATOR_KEY)" ;;
-  *) echo "unknown CHAIN '$CHAIN' (want xrpl|hedera)"; exit 1 ;;
+  aptos)
+    PAY_DIR="clients/aptos-pay"; PAY_BIN="clients/aptos-pay/aptos-pay"
+    CURRENCY="${CURRENCY:-APT}"
+    AGENT_ADDR="${AGENT_ADDR:-0x1}"
+    MERCHANT_ADDR="${MERCHANT_ADDR:-0x1}"
+    CRED="${APTOS_OPERATOR_KEY:-}"; CRED_NAME="APTOS_OPERATOR_KEY" ;;
+  *) echo "unknown CHAIN '$CHAIN' (want xrpl|hedera|aptos)"; exit 1 ;;
 esac
 
 case "$MODE" in

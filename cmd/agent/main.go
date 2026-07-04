@@ -159,7 +159,7 @@ func settle(payBin, endpoint string, d decision) (string, error) {
 	cmd.Stderr = os.Stderr
 	out, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("xrpl-pay: %w", err)
+		return "", fmt.Errorf("pay backend: %w", err)
 	}
 	var res struct {
 		TxHash   string `json:"tx_hash"`
