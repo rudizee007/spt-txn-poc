@@ -92,3 +92,6 @@ spt_anchor/
 
 # built binary (rebuild with: cd clients/xrpl-pay && go build -o xrpl-pay .)
 clients/xrpl-pay/xrpl-pay
+
+# built binary (rebuild: cd clients/hedera-pay && go build -o hedera-pay .)
+clients/hedera-pay/hedera-pay
