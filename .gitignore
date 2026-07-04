@@ -98,3 +98,4 @@ clients/hedera-pay/hedera-pay
 
 # built binary (rebuild: cd clients/aptos-pay && go build -o aptos-pay .)
 clients/aptos-pay/aptos-pay
+clients/eth-pay/eth-pay
