@@ -89,3 +89,6 @@ solidity/broadcast/
 solidity/lib/
 node_modules/
 spt_anchor/
+
+# built binary (rebuild with: cd clients/xrpl-pay && go build -o xrpl-pay .)
+clients/xrpl-pay/xrpl-pay
