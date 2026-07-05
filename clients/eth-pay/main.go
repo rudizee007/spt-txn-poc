@@ -114,8 +114,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("chain id: %v", err)
 	}
-	if chainID.Cmp(big.NewInt(1)) == 0 && !*jsonOut && !*yes {
-		fmt.Printf("\n⚠  REAL payment on Ethereum MAINNET: %s wei to %s\n   type 'yes' to proceed: ", value.String(), toAddr.Hex())
+	if isEVMMainnet(chainID) && !*jsonOut && !*yes {
+		fmt.Printf("\n⚠  REAL payment on an EVM MAINNET (chain id %s): %s wei to %s\n   type 'yes' to proceed: ", chainID.String(), value.String(), toAddr.Hex())
 		var resp string
 		_, _ = fmt.Scanln(&resp)
 		if strings.TrimSpace(resp) != "yes" {
@@ -178,8 +178,30 @@ func explorerURL(chainID *big.Int, hash string) string {
 		return "https://etherscan.io/tx/" + hash
 	case 11155111:
 		return "https://sepolia.etherscan.io/tx/" + hash
+	case 8453:
+		return "https://basescan.org/tx/" + hash
+	case 84532:
+		return "https://sepolia.basescan.org/tx/" + hash
 	default:
 		return fmt.Sprintf("(chain id %s) tx %s", chainID.String(), hash)
+	}
+}
+
+// isEVMMainnet reports whether a chain id is a real-money mainnet, so the payer
+// gets a confirmation prompt. One EVM submitter serves many chains, so this must
+// cover more than Ethereum L1 — Base and the common L2s all move real value.
+func isEVMMainnet(chainID *big.Int) bool {
+	switch chainID.Int64() {
+	case 1, // Ethereum
+		8453,  // Base
+		42161, // Arbitrum One
+		10,    // Optimism
+		137,   // Polygon PoS
+		56,    // BNB Smart Chain
+		43114: // Avalanche C-Chain
+		return true
+	default:
+		return false
 	}
 }
 

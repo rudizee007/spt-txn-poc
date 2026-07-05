@@ -100,3 +100,4 @@ clients/hedera-pay/hedera-pay
 clients/aptos-pay/aptos-pay
 clients/eth-pay/eth-pay
 clients/sol-pay/sol-pay
+clients/near-pay/near-pay
