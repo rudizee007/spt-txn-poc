@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SPT-Txn — Scaling & Deployment</title>
+<style>
+  :root{
+    --bg:#0A0612; --bg2:#16102A; --card:#1D1436; --card2:#241a41;
+    --violet:#7B2FBE; --violet-m:#9D4EDD; --violet-l:#C77DFF; --violet-xl:#E0AAFF;
+    --white:#F5F3FA; --muted:#A79FB8; --line:#3A2A55;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--bg); color:var(--white); font-family:Calibri,'Segoe UI',Arial,sans-serif; line-height:1.5; padding:32px;}
+  .wrap{max-width:900px; margin:0 auto;}
+  .eyebrow{font-size:11px; letter-spacing:3px; text-transform:uppercase; color:var(--violet-l); font-weight:700;}
+  h1{font-size:27px; margin:6px 0 4px; letter-spacing:-0.01em;}
+  h1 .accent{color:var(--violet-xl);}
+  .lede{color:var(--muted); font-size:14px; max-width:760px; margin-top:6px;}
+  .lede strong{color:var(--white); font-weight:600;}
+  .diagram{margin:22px 0 8px;}
+  .stats{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:18px 0;}
+  .stat{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px;}
+  .stat .lbl{font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--violet-m); font-weight:700;}
+  .stat .num{font-size:26px; font-weight:700; color:var(--violet-xl); margin:4px 0 2px;}
+  .stat .desc{font-size:11px; color:var(--muted); line-height:1.35;}
+  .cols{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:8px;}
+  .col h3{font-size:13px; color:var(--violet-l); margin-bottom:6px; letter-spacing:0.02em;}
+  .col ul{list-style:none;}
+  .col li{font-size:12.5px; color:var(--muted); margin-bottom:5px; padding-left:14px; position:relative;}
+  .col li::before{content:''; position:absolute; left:0; top:7px; width:6px; height:6px; border-radius:50%; background:var(--violet-m);}
+  .col li strong{color:var(--white); font-weight:600;}
+  .foot{margin-top:16px; padding-top:12px; border-top:1px solid var(--line); font-size:11px; color:var(--muted);}
+  .foot strong{color:var(--violet-l);}
+  a{color:var(--violet-l); text-decoration:none;}
+  @page{size:A4; margin:12mm;}
+  @media print{body{padding:0; background:var(--bg); -webkit-print-color-adjust:exact; print-color-adjust:exact;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">SPT-Txn · Scaling &amp; Deployment · Violet Sky Security SEZC</div>
+  <h1>No central runtime. It scales like <span class="accent">JWT verification</span>.</h1>
+  <p class="lede">SPT-Txn verifies <strong>offline, inside the adopter's own infrastructure</strong> — the presented tokens plus a locally-cached Trust Registry snapshot, and nothing else. There is <strong>no call back to any SPT-Txn server</strong> and nothing of ours in the transaction path. The reference OpenBSD host is an issuer and a demo, not the runtime. Each verification is a stateless pure function, so throughput scales horizontally with cores — the profile large platforms already run for JWTs.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 900 250" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;" role="img" aria-label="Who runs what: Violet Sky publishes the library and signed registry off the hot path; the adopter runs issuers and stateless verifier replicas in its own infrastructure where the whole transaction path lives; the ledger optionally holds a periodic registry-root anchor.">
+      <!-- Violet Sky (off hot path) -->
+      <rect x="10" y="60" width="210" height="130" rx="12" fill="rgba(123,47,190,0.10)" stroke="#7B2FBE" stroke-width="1.5"/>
+      <text x="115" y="50" text-anchor="middle" font-family="Calibri,Arial" font-size="12" font-weight="700" fill="#C77DFF">VIOLET SKY — off the hot path</text>
+      <text x="115" y="90" text-anchor="middle" font-family="Calibri,Arial" font-size="12.5" fill="#F5F3FA">Open-source verifier library</text>
+      <text x="115" y="112" text-anchor="middle" font-family="Calibri,Arial" font-size="12.5" fill="#F5F3FA">Signed registry snapshot</text>
+      <text x="115" y="134" text-anchor="middle" font-family="Calibri,Arial" font-size="12.5" fill="#F5F3FA">Spec / IETF draft</text>
+      <text x="115" y="162" text-anchor="middle" font-family="Calibri,Arial" font-size="10.5" fill="#A79FB8">(distributed like JWKS)</text>
+
+      <!-- Adopter infra (hot path) -->
+      <rect x="300" y="26" width="360" height="198" rx="12" fill="rgba(157,78,221,0.10)" stroke="#9D4EDD" stroke-width="2"/>
+      <text x="480" y="16" text-anchor="middle" font-family="Calibri,Arial" font-size="12" font-weight="700" fill="#E0AAFF">ADOPTER INFRASTRUCTURE — the transaction path lives here</text>
+      <!-- issuer -->
+      <rect x="320" y="44" width="150" height="60" rx="8" fill="#1D1436" stroke="#3A2A55"/>
+      <text x="395" y="68" text-anchor="middle" font-family="Calibri,Arial" font-size="12" font-weight="700" fill="#C77DFF">Issuer service</text>
+      <text x="395" y="86" text-anchor="middle" font-family="Calibri,Arial" font-size="10.5" fill="#A79FB8">mints CAT / CT (if they issue)</text>
+      <!-- verifier replicas -->
+      <rect x="330" y="132" width="300" height="72" rx="8" fill="#241a41" stroke="#9D4EDD"/>
+      <text x="480" y="120" text-anchor="middle" font-family="Calibri,Arial" font-size="11" font-weight="700" fill="#E0AAFF">Stateless verifier replicas · ×N</text>
+      <rect x="345" y="150" width="80" height="38" rx="6" fill="#1D1436" stroke="#3A2A55"/>
+      <rect x="440" y="150" width="80" height="38" rx="6" fill="#1D1436" stroke="#3A2A55"/>
+      <rect x="535" y="150" width="80" height="38" rx="6" fill="#1D1436" stroke="#3A2A55"/>
+      <text x="385" y="173" text-anchor="middle" font-family="Calibri,Arial" font-size="10.5" fill="#F5F3FA">verify</text>
+      <text x="480" y="173" text-anchor="middle" font-family="Calibri,Arial" font-size="10.5" fill="#F5F3FA">verify</text>
+      <text x="575" y="173" text-anchor="middle" font-family="Calibri,Arial" font-size="10.5" fill="#F5F3FA">verify</text>
+
+      <!-- Ledger optional -->
+      <rect x="700" y="80" width="190" height="90" rx="12" fill="rgba(255,255,255,0.03)" stroke="#3A2A55"/>
+      <text x="795" y="70" text-anchor="middle" font-family="Calibri,Arial" font-size="12" font-weight="700" fill="#A79FB8">LEDGER — optional</text>
+      <text x="795" y="120" text-anchor="middle" font-family="Calibri,Arial" font-size="12" fill="#F5F3FA">Registry-root anchor</text>
+      <text x="795" y="140" text-anchor="middle" font-family="Calibri,Arial" font-size="10.5" fill="#A79FB8">periodic write · never</text>
+      <text x="795" y="155" text-anchor="middle" font-family="Calibri,Arial" font-size="10.5" fill="#A79FB8">read in the hot path</text>
+
+      <!-- arrows -->
+      <defs>
+        <marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#9D4EDD"/></marker>
+      </defs>
+      <line x1="222" y1="120" x2="298" y2="120" stroke="#9D4EDD" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#ah)"/>
+      <text x="260" y="112" text-anchor="middle" font-family="Calibri,Arial" font-size="9.5" fill="#A79FB8">snapshot</text>
+      <text x="260" y="136" text-anchor="middle" font-family="Calibri,Arial" font-size="9.5" fill="#A79FB8">cached, periodic</text>
+      <line x1="662" y1="125" x2="698" y2="125" stroke="#9D4EDD" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#ah)"/>
+    </svg>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="lbl">Cleartext verify</div><div class="num">~62k/s</div><div class="desc">Full 3-hop chain verifications/sec on a 10-core laptop; scales linearly with cores. Signature + hash, fails closed.</div></div>
+    <div class="stat"><div class="lbl">Token minting</div><div class="num">~394k/s</div><div class="desc">Ed25519 action-token issuance/sec (10 cores). Per-participant — each adopter mints from its own infra.</div></div>
+    <div class="stat"><div class="lbl">Privacy path · ZK</div><div class="num">~1.5 ms</div><div class="desc">Per Groth16 N-hop verify (~6.7k/s, 10 cores). Proving (~159 ms) is once per chain, amortized over every action.</div></div>
+  </div>
+
+  <div class="cols">
+    <div class="col">
+      <h3>What an adopter integrates</h3>
+      <ul>
+        <li><strong>Verifier library</strong> — embedded in-process; the whole eight-step check runs locally.</li>
+        <li><strong>Registry snapshot feed</strong> — a signed JSON pulled and cached periodically (like JWKS/CRL).</li>
+        <li><strong>Their own issuer</strong> — only if they mint tokens; otherwise nothing to run.</li>
+        <li><strong>Optional on-chain anchor</strong> — a periodic registry-root write for tamper-evidence.</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h3>Why there is no bottleneck</h3>
+      <ul>
+        <li><strong>Stateless verify</strong> — a pure function of (tokens, snapshot); add replicas, add throughput.</li>
+        <li><strong>No live issuer/chain call</strong> in the hot path; registry &amp; revocation are cached snapshots.</li>
+        <li><strong>ZK proving is off the hot path</strong> — once per delegation chain, parallelizable.</li>
+        <li><strong>One small stateful piece</strong> — the DPoP anti-replay cache, TTL-bounded and shardable by holder.</li>
+      </ul>
+    </div>
+  </div>
+
+  <p style="font-size:12px; color:var(--muted); margin-top:16px; line-height:1.45;"><strong style="color:var(--violet-l);">Portable &amp; FIPS-ready.</strong> The reference host is hardened OpenBSD (pledge/unveil) — a security choice, not a requirement. The same Go binary runs in a <strong style="color:var(--white);">FIPS 140-3</strong> environment: enable Go's native FIPS mode on a FIPS-validated Linux (RHEL / AlmaLinux / Rocky) so classical crypto runs through the CMVP-validated Go Cryptographic Module (cert&nbsp;#5247), or route issuer keys to a FIPS 140-3 HSM over PKCS#11 (signing already uses <span style="font-family:Consolas,monospace;">crypto.Signer</span> — a config swap). The zero-knowledge layer is outside FIPS by nature — a distinct, opt-in component.</p>
+
+  <div class="foot">
+    <strong>Honest scope:</strong> benchmarked and live across many chains is not the same as production load at a single adopter — that is what a design-partner pilot establishes. What is de-risked by design is the architecture: stateless, offline, horizontal, with no central runtime — the same shape as the JWKS / CRL / JWT verification the industry already runs at scale. Measured on a 10-core Apple-silicon laptop, no hardware acceleration. · foss.violetskysecurity.com
+  </div>
+</div>
+</body>
+</html>
