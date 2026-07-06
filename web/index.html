@@ -254,7 +254,7 @@
     font-size: clamp(1.6rem, 3.5vw, 2.4rem);
     font-weight: 700; line-height: 1.2;
     letter-spacing: -0.015em;
-    max-width: 680px; margin-bottom: 1.2rem;
+    max-width: none; margin-bottom: 1.2rem; text-wrap: balance;
   }
   .section-body {
     font-size: 1rem; color: var(--muted);
@@ -593,7 +593,7 @@
 <section id="positioning">
   <div class="section-inner">
     <div class="section-eyebrow">The Big Picture</div>
-    <h2 class="section-title">Where SPT-Txn sits: an independent layer.</h2>
+    <h2 class="section-title" style="max-width:none;">Where SPT-Txn sits: an independent layer.</h2>
     <p class="section-body">Sovereign Policy Token Transactions <strong>(SPT-Txn)</strong> is not part of any chain, and not bolted onto any single Travel Rule transport. It is an <strong>independent authorization layer</strong>: a KYC provider or platform issues a compliance attestation <strong>once</strong>, and any VASP, wallet, or AI agent verifies it <strong>anywhere, offline</strong>, with no issuer contact and nothing to join. It binds into any Layer 1 or Layer 2 through a single adapter interface, yet depends on none. That independence is the deliberate design choice. It sidesteps the lock-in of building inside one chain, and the two-sided-adoption stall of bolting onto one transport.</p>
 
     <div style="max-width:860px; margin:1.8rem auto 0; width:100%;">
@@ -893,7 +893,7 @@
     </style>
     <div id="tryEngine">
       <div class="section-eyebrow">Try it · runs entirely in your browser</div>
-      <p class="section-body" style="margin-top:.5rem;margin-bottom:1rem;">Run the eight-step engine against a sample token chain (CAT &rarr; CT &rarr; SPT-Txn). Pick a tamper and watch it <strong>fail closed</strong> at the exact step. No backend, no data leaves your browser. It's the same logic the offline verifier runs.</p>
+      <p class="section-body" style="margin-top:.5rem;margin-bottom:1rem;">Run the eight-step engine against a sample chain (CAT &rarr; CT &rarr; SPT-Txn) &mdash; the same check whether the holder is a VASP or an <strong>AI agent</strong>. Pick a tamper &mdash; a widened scope, an over-depth re-delegation, a broken human anchor &mdash; and watch it <strong>fail closed</strong> at the exact step. It's the containment guarantee for agents too: a compromised or prompt-injected agent cannot exceed or re-widen what it was granted. No backend, no data leaves your browser.</p>
       <div id="teScenarios" style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:1.1rem;"></div>
       <button id="teRun">Run verification</button>
       <div id="teSteps" style="margin-top:1.2rem;display:grid;gap:.1rem;"></div>
@@ -1135,6 +1135,11 @@
       <div class="section-eyebrow" style="color:var(--violet-l);">Live · gates x402 agent payments on any chain</div>
       <p class="tk-body" style="margin-top:0.5rem; margin-bottom:0;"><strong>x402</strong> is the HTTP-native agent-payment standard (Coinbase, and Google's AP2, build on it). x402 settles the payment; <strong>SPT-Txn gates it</strong>: before the agent pays, the gate checks it holds a human-anchored capability whose scope covers the spend, stamps a privacy-preserving <strong>humanAnchor</strong> into the on-ledger transaction, and the merchant re-runs the full eight-step verifier <em>offline</em> before delivering — trusting the authorization, not just that money arrived. No PII on-ledger; for regulated transfers it is Travel-Rule compliant. The complete loop — authorize → settle → verify → deliver, with an over-scope payment cryptographically <strong>DENied</strong> before anything is signed — runs end-to-end live on <strong>seven chains</strong> across three address families: XRPL <em>(through mainnet)</em>, plus Hedera, Aptos, Ethereum, Base, Solana, and NEAR on their test networks. Same gate, same verifier, same attestation; only a ~200-line ledger submitter differs per chain.</p>
     </div>
+    <div style="margin-top:1.4rem; border:1px solid var(--border); border-radius:10px; padding:1rem 1.2rem;">
+      <div class="section-eyebrow" style="color:var(--violet-l);">Composes with the standards you already use</div>
+      <p class="tk-body" style="margin-top:0.5rem; margin-bottom:0.7rem;">SPT-Txn extends the IETF <a href="https://datatracker.ietf.org/doc/draft-ietf-oauth-transaction-tokens/" target="_blank" style="color:var(--violet-l);">OAuth Transaction Tokens</a> line and fills the gap its own authorization spec admits: OAuth&nbsp;2.1 bearer tokens carry <strong>no delegation chain, no holder-side scope attenuation, and no provenance binding</strong> — and <a href="https://modelcontextprotocol.io/" target="_blank" style="color:var(--violet-l);">MCP</a> prohibits token passthrough, so multi-hop agent delegation either breaks or leaks.</p>
+      <p class="tk-body" style="margin:0;">SPT-Txn is the drop-in layer that adds <strong>verifiable, attenuating, human-anchored delegation across MCP and A2A hops</strong> — offline-verifiable, with no central authorization server. It reuses SD-JWT, DPoP and Token Exchange where they exist, and adds what they don&rsquo;t: zero-knowledge selective disclosure, holder-side attenuation, a propagating human anchor, and cross-ledger binding.</p>
+    </div>
   </div>
 </section>
 
@@ -1179,6 +1184,54 @@
         </div>
       </div>
     </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SCALE & DEPLOYMENT -->
+<section id="scale" style="background:var(--bg2);">
+  <div class="section-inner">
+    <div class="section-eyebrow">Scale &amp; Deployment</div>
+    <h2 class="section-title">No central runtime. It scales like JWT verification.</h2>
+    <p class="section-body" style="max-width:780px;">SPT-Txn verifies <strong>offline, in the adopter's own infrastructure</strong>. A VASP, wallet, chain, or agent embeds the open-source verifier library plus a locally-cached Trust Registry snapshot, and verifies in-process — no call back to any SPT-Txn server, and nothing of ours in the transaction path. The reference host on this domain is an issuer and a demo, not the runtime. Because each verification is a stateless pure function, throughput scales horizontally with cores — the same profile as the JWT checks large platforms already run at scale.</p>
+
+    <div class="token-cards" style="margin-top:3rem;">
+      <div class="token-card cat">
+        <div class="tk-label">Cleartext verify</div>
+        <div class="tk-name">~62k / sec</div>
+        <p class="tk-body">Full three-hop delegation-chain verifications per second on a 10-core laptop, scaling linearly with cores. Each check is signature + hash, and fails closed.</p>
+      </div>
+      <div class="token-card cap">
+        <div class="tk-label">Token minting</div>
+        <div class="tk-name">~394k / sec</div>
+        <p class="tk-body">Ed25519 action-token issuance per second (10 cores). Minting is per-participant — each adopter issues from its own infrastructure, never through ours.</p>
+      </div>
+      <div class="token-card txn">
+        <div class="tk-label">Privacy path · ZK</div>
+        <div class="tk-name">~1.5 ms / verify</div>
+        <p class="tk-body">Groth16 N-hop proof verification (~6.7k/sec on 10 cores). Proof generation (~159 ms) happens once per delegation chain and amortizes over every action — never a per-action cost.</p>
+      </div>
+    </div>
+
+    <div class="arch-stack" style="margin-top:2.6rem;">
+      <div class="arch-layer">
+        <div class="arch-label">You run</div>
+        <div class="arch-content"><strong>Violet Sky — off the hot path.</strong> Publish the open-source verifier library, a signed Trust Registry snapshot (distributed like JWKS), and the spec. Nothing here is called during a transaction.</div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-label">Issuers run</div>
+        <div class="arch-content"><strong>KYC provider &amp; platform — per participant.</strong> Each mints its own Compliance Attestation and Capability Tokens from its own infrastructure. There is no central issuer to bottleneck.</div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-label">Verifiers run</div>
+        <div class="arch-content"><strong>VASP, wallet, chain, or agent — the transaction path lives entirely here.</strong> Embed the library, cache the registry snapshot, verify offline and in-process across N stateless replicas. Optionally anchor the registry root on-chain for tamper-evidence — a periodic write, never read in the hot path.</div>
+      </div>
+    </div>
+
+    <p class="section-body" style="max-width:820px; margin-top:2rem;"><strong>Deployment is portable, and FIPS-ready.</strong> The reference host is hardened OpenBSD (pledge/unveil, privilege separation) — a security-by-design choice, not a requirement. The same Go binary runs in a <strong>FIPS 140-3</strong> environment for regulated buyers: enable Go's native FIPS mode on a FIPS-validated Linux (RHEL / AlmaLinux / Rocky) so the classical cryptography runs through the CMVP-validated Go Cryptographic Module (certificate #5247), or route issuer keys to a FIPS 140-3 HSM over PKCS#11 — signing already goes through a standard crypto.Signer interface, so it is a configuration swap. The zero-knowledge predicate layer sits outside FIPS by nature and stays a distinct, opt-in component.</p>
+
+    <p class="section-body" style="margin-top:1.8rem; font-size:0.9rem;">Measured on a 10-core Apple-silicon laptop, no hardware acceleration. These are per-core costs; production throughput is those costs × horizontal replicas, because verification holds no shared state. Method and full table are in the <a href="https://github.com/rudizee007/SPT-TXN-POC" target="_blank" class="pub-link">open-source repository</a>.</p>
   </div>
 </section>
 
@@ -1434,23 +1487,62 @@
 
 <div class="divider"></div>
 
-<!-- STANDARDS STRIP -->
-<section id="standards" style="padding-top:4rem; padding-bottom:4rem;">
+<!-- STANDARDS ALIGNMENT -->
+<section id="standards" style="padding-top:5rem; padding-bottom:5rem;">
   <div class="section-inner">
-    <div class="section-eyebrow">Built on Open Standards</div>
-    <p class="section-body" style="max-width:700px;">SPT-Txn extends recognised standards rather than replacing them. Each component anchors to its base specification: a profile and binding layer, not a new silo.</p>
-    <div class="hero-tags" style="justify-content:flex-start; margin-top:2rem; max-width:920px;">
+    <div class="section-eyebrow">Standards Alignment</div>
+    <h2 class="section-title">An extension of IETF OAuth Transaction Tokens — not a competing framework.</h2>
+    <p class="section-body" style="max-width:760px;">OAuth Transaction Tokens preserve authorization context across hops; Identity Chaining carries it across domains; SD-JWT minimizes disclosure. SPT-Txn is the profile that adds the three things none of them do — zero-knowledge predicates, offline decentralized verification, and cross-ledger context binding — with a human anchor threaded through all of it. It reuses roughly ten OAuth primitives unchanged, and innovates only in the gaps.</p>
+
+    <div class="token-cards" style="margin-top:3rem;">
+      <div class="token-card cat">
+        <div class="tk-label">Reuse · credibility bought for free</div>
+        <div class="tk-name">~10 OAuth primitives, unchanged</div>
+        <div class="tk-body" style="margin-top:0.2rem;">
+          <div style="margin-bottom:0.55rem;"><strong style="color:var(--white);">Transaction Tokens</strong> — the base context model we extend <span style="color:var(--violet-m);">· draft-ietf-oauth-transaction-tokens</span></div>
+          <div style="margin-bottom:0.55rem;"><strong style="color:var(--white);">SD-JWT &amp; SD-JWT VC</strong> — the selective-disclosure format, kept as-is</div>
+          <div style="margin-bottom:0.55rem;"><strong style="color:var(--white);">DPoP</strong> — sender-constraining / key binding <span style="color:var(--violet-m);">· RFC 9449</span></div>
+          <div style="margin-bottom:0.55rem;"><strong style="color:var(--white);">Token Exchange</strong> — mint / exchange mechanic <span style="color:var(--violet-m);">· RFC 8693</span></div>
+          <div style="margin-bottom:0.55rem;"><strong style="color:var(--white);">Identity Chaining</strong> — the cross-trust-domain path</div>
+          <div style="margin-bottom:0.55rem;"><strong style="color:var(--white);">Token Status List</strong> — revocation snapshots</div>
+          <div style="margin-bottom:0.55rem;"><strong style="color:var(--white);">Rich Authorization Requests</strong> — fine-grained scope <span style="color:var(--violet-m);">· RFC 9396</span></div>
+          <div><strong style="color:var(--white);">Security BCP / OAuth 2.1</strong> — conformance posture <span style="color:var(--violet-m);">· RFC 9700</span></div>
+        </div>
+        <div class="tk-meta">A profile &amp; binding layer — not a new silo</div>
+      </div>
+      <div class="token-card txn">
+        <div class="tk-label">Extend · the defensible moat</div>
+        <div class="tk-name">5 gaps the WG doesn't fill</div>
+        <div class="tk-body" style="margin-top:0.2rem;">
+          <div style="margin-bottom:0.6rem;"><strong style="color:var(--violet-xl);">Zero-knowledge predicate proofs</strong> — prove "amount ≥ threshold" or "VASP registered" over <em>hidden</em> claims. SD-JWT reveals subsets; it cannot prove computation over hidden values.</div>
+          <div style="margin-bottom:0.6rem;"><strong style="color:var(--violet-xl);">Holder-side attenuation across N hops</strong> — capability narrowing with no round-trip to an authority.</div>
+          <div style="margin-bottom:0.6rem;"><strong style="color:var(--violet-xl);">Offline verification</strong> — an eight-step engine against a cached trust registry, no live authorization server; edge, cross-org, air-gapped.</div>
+          <div style="margin-bottom:0.6rem;"><strong style="color:var(--violet-xl);">Human anchor as a ZK commitment</strong> — privacy-preserving proof-of-human-origin, propagated unchanged across hops.</div>
+          <div><strong style="color:var(--violet-xl);">Cross-ledger context binding</strong> — bind the authorization to a transaction-context hash across heterogeneous chains.</div>
+        </div>
+        <div class="tk-meta">Where OAuth's charter &amp; expertise point away</div>
+      </div>
+    </div>
+
+    <p class="section-body" style="max-width:820px; margin-top:2.4rem;">SPT-Txn extends the Transaction Tokens line (Tulshibagwale et al., 2023) and is contemporaneous with the 2025–26 agent-context drafts, but is the first to add zero-knowledge selective disclosure, offline capability attenuation, a human anchor, and cross-ledger binding to that line. It does not claim to have originated transaction tokens, agent context, or selective disclosure — it <strong>extends an established line of work and contributes a specific new layer back as open source.</strong> That is the honest position, and it is security-by-design in practice: peer-reviewed primitives, verifiable claims, no proprietary black boxes.</p>
+
+    <div class="hero-tags" style="justify-content:flex-start; margin-top:2.4rem; max-width:920px;">
       <span class="hero-tag">W3C Verifiable Credentials</span>
       <span class="hero-tag">W3C DID Core</span>
       <span class="hero-tag">SD-JWT VC</span>
       <span class="hero-tag">OAuth Transaction Tokens</span>
       <span class="hero-tag">DPoP · RFC 9449</span>
+      <span class="hero-tag">Token Exchange · RFC 8693</span>
+      <span class="hero-tag">RAR · RFC 9396</span>
       <span class="hero-tag">OAuth 2.0 Security BCP · RFC 9700</span>
       <span class="hero-tag">NIST SP 800-207</span>
       <span class="hero-tag">NIST SP 800-162 ABAC</span>
       <span class="hero-tag">FIPS 203 · 204</span>
       <span class="hero-tag">FATF R.16 · IVMS101</span>
     </div>
+    <p style="margin-top:1.6rem;">
+      <a href="https://datatracker.ietf.org/doc/draft-coetzee-oauth-spt-txn-tokens/" target="_blank" class="pub-link">Read the SPT-Txn Internet-Draft ↗</a>
+    </p>
   </div>
 </section>
 

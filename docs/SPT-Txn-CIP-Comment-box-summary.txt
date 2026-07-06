@@ -1,0 +1,25 @@
+Re: Docket FINCEN-2026-0101 (also OCC-2026-0331; RIN 1506-AB24), Permitted Payment Stablecoin Issuer Customer Identification Program NPRM.
+
+Submitted by Rudolf J. Coetzee, Violet Sky Security SEZC (Cayman Islands), maintainer of SPT-Txn, an open-source, blockchain-agnostic identity-attestation and authorization framework. A full comment is attached as a PDF; this is a summary.
+
+POSITION. We support the rule's objective that permitted payment stablecoin issuers (PPSIs) identify and verify their account holders. We ask that the final rule be technology-neutral and outcome-based, and that it expressly recognize that a PPSI can meet the identification-and-verification obligation through cryptographically verifiable, reusable identity attestations, zero-knowledge predicate verification, and data-minimizing selective disclosure. Reliable identification and lawful access do not require every issuer to re-collect and warehouse raw identity documents. Requiring each PPSI to collect and retain name, date of birth, address, and TIN for every account holder for five years multiplies high-value personal-data repositories across the ecosystem; each is a breach target and a data-protection liability (interacting with the GDPR and comparable regimes). The identification objective can be met while minimizing how many parties hold raw identity data and how much of it moves between them.
+
+RECOMMENDATIONS.
+
+1. Recognize reliance on cryptographically verifiable third-party attestations. Existing customer-identification rules already permit a financial institution, under conditions, to rely on another institution's program. Confirm that a PPSI may satisfy identification and verification by relying on a verifiable attestation that a qualified party performed equivalent identification, issued once and cryptographically checkable by any relying issuer, instead of independently re-collecting the same documents.
+
+2. Permit zero-knowledge verification and selective disclosure. A PPSI can verify that an account holder was identified to the required standard, and prove attributes such as age or jurisdiction, without every party re-viewing the underlying documents. The mandated data elements (name, date of birth, address, and TIN) should be disclosed, encrypted, only to the party required to hold them, not transmitted across the payment path.
+
+3. Encourage data minimization and encryption at rest, with cryptographic agility. Five-year retention of identity records is a "harvest now, decrypt later" target. Consistent with U.S. post-quantum policy and NIST FIPS 203 and 204, encourage encryption of retained records and a migration path to post-quantum algorithms.
+
+4. Preserve lawful access through a recoverable human anchor. Privacy is not anonymity. Bind each account and transaction to a zero-knowledge commitment to the identified person that is producible to authorized authorities under lawful process and never exposed to intermediaries or the public. This serves the CIP purpose, reliable identity available to supervisors and law enforcement, without normalizing broad exposure of identity data.
+
+5. Address the "identify at issuance, not at payment" gap. A portable, cryptographically verifiable identity attestation lets a relying party confirm a counterparty was identified without re-collecting personal data, closing the gap the proposal acknowledges between primary- and secondary-market activity.
+
+6. Adopt a technology-neutral, outcome-based standard, defined by result: the issuer can demonstrate that each account holder was identified and verified to the required standard, and can produce the required identity data to authorized parties on lawful request, rather than mandating raw-document re-collection or a specific architecture. Favor open, interoperable credentials such as SD-JWT, the IETF OAuth Transaction Tokens line, and W3C Verifiable Credentials to reduce vendor lock-in.
+
+Effective customer identification and strong data protection are not in tension. We would welcome the opportunity to provide technical detail or a working reference implementation. The full comment is attached as a PDF.
+
+Respectfully submitted,
+Rudolf J. Coetzee, Violet Sky Security SEZC (Cayman Islands).
+foss.violetskysecurity.com | www.violetskysecurity.com | draft-coetzee-oauth-spt-txn-tokens (IETF)
