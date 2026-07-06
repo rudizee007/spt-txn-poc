@@ -1,0 +1,71 @@
+cff-version: 1.2.0
+message: "If you use SPT-Txn (software or specification), please cite the software and, for the framework, the working paper below."
+title: "SPT-Txn: Sovereign Policy Token Transactions"
+abstract: >-
+  SPT-Txn (Sovereign Policy Token Transactions) is an open-source,
+  blockchain-agnostic authorization and FATF Travel Rule framework. It extends
+  the IETF OAuth Transaction Tokens line with cryptographically scoped,
+  attenuating capability tokens that propagate a human anchor across delegation
+  chains without exposing PII, using zero-knowledge selective disclosure, an
+  offline eight-step verifier, and post-quantum-hybrid key escrow.
+type: software
+authors:
+  - family-names: Coetzee
+    given-names: "Rudolf J."
+    orcid: "https://orcid.org/0009-0009-6557-8843"
+    affiliation: "Violet Sky Security SEZC (Cayman Islands)"
+repository-code: "https://github.com/rudizee007/SPT-TXN-POC"
+url: "https://foss.violetskysecurity.com"
+license: Apache-2.0
+keywords:
+  - authorization
+  - FATF Travel Rule
+  - zero-knowledge proofs
+  - selective disclosure
+  - OAuth Transaction Tokens
+  - capability tokens
+  - agentic authorization
+  - post-quantum cryptography
+  - privacy-preserving compliance
+  - blockchain-agnostic
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.20870193
+    description: >-
+      Working paper (v2, Zenodo): Sovereign Policy Token Transactions (SPT-Txn):
+      A Privacy-Preserving, Crypto-Agile Authorization Framework for Regulated
+      and Agentic Systems.
+  - type: url
+    value: "https://ssrn.com/abstract=6379940"
+    description: >-
+      SSRN working paper: Sovereign Policy Token Transactions: A Framework for
+      Policy-Bound, Tamper-Evident Authorization Across Trust Boundaries.
+  - type: doi
+    value: 10.5281/zenodo.19299787
+    description: >-
+      Formal theory (Zenodo): Transaction Binding Security for Policy-Bound
+      Authorization Tokens.
+  - type: url
+    value: "https://ssrn.com/abstract=6486738"
+    description: >-
+      SSRN: Transaction Binding Security for Policy-Bound Authorization Tokens:
+      Formal Definitions, Tight Reductions, Zero-Knowledge Compliance, and
+      Concrete Instantiation.
+  - type: url
+    value: "https://datatracker.ietf.org/doc/draft-coetzee-oauth-spt-txn-tokens/"
+    description: "IETF Internet-Draft: draft-coetzee-oauth-spt-txn-tokens"
+preferred-citation:
+  type: report
+  title: >-
+    Sovereign Policy Token Transactions (SPT-Txn): A Privacy-Preserving,
+    Crypto-Agile Authorization Framework for Regulated and Agentic Systems
+  authors:
+    - family-names: Coetzee
+      given-names: "Rudolf J."
+      orcid: "https://orcid.org/0009-0009-6557-8843"
+      affiliation: "Violet Sky Security SEZC (Cayman Islands)"
+  year: 2026
+  doi: 10.5281/zenodo.20870193
+  url: "https://doi.org/10.5281/zenodo.20870193"
+  institution:
+    name: "Violet Sky Security SEZC"
