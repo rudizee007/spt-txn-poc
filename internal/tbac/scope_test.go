@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/tbac"
+	"github.com/rudizee007/spt-txn-poc/internal/tbac"
 )
 
 func TestContains_EqualScope(t *testing.T) {

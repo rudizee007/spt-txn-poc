@@ -7,7 +7,7 @@
 //   cd clients/sol-pay
 //   go get github.com/gagliardetto/solana-go@latest
 //   go mod tidy && go build -o sol-pay .
-module github.com/violetskysecurity/spt-txn-poc/clients/sol-pay
+module github.com/rudizee007/spt-txn-poc/clients/sol-pay
 
 go 1.24.0
 

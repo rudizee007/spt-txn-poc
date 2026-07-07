@@ -6,7 +6,7 @@
 //   cd clients/aptos-pay
 //   go get github.com/aptos-labs/aptos-go-sdk@latest
 //   go mod tidy && go build -o aptos-pay .
-module github.com/violetskysecurity/spt-txn-poc/clients/aptos-pay
+module github.com/rudizee007/spt-txn-poc/clients/aptos-pay
 
 go 1.24.0
 

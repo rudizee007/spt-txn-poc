@@ -25,7 +25,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/travelrule"
+	"github.com/rudizee007/spt-txn-poc/internal/travelrule"
 )
 
 // ExtensionID identifies the SPT-Txn proof extension carried in a TRISA payload.

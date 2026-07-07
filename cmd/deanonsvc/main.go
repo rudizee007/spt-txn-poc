@@ -52,8 +52,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/escrow"
-	"github.com/violetskysecurity/spt-txn-poc/internal/trustregistry"
+	"github.com/rudizee007/spt-txn-poc/internal/escrow"
+	"github.com/rudizee007/spt-txn-poc/internal/trustregistry"
 )
 
 const (

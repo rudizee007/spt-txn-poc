@@ -8,7 +8,7 @@
 //   cd clients/cardano-anchor
 //   go get github.com/echovl/cardano-go@latest
 //   go mod tidy && go build -o cardano-anchor .
-module github.com/violetskysecurity/spt-txn-poc/clients/cardano-anchor
+module github.com/rudizee007/spt-txn-poc/clients/cardano-anchor
 
 go 1.24.0
 

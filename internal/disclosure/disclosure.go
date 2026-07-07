@@ -31,7 +31,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/sdjwt"
+	"github.com/rudizee007/spt-txn-poc/internal/sdjwt"
 )
 
 // Request is what a requester asks a holder to disclose.

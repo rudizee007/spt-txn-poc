@@ -14,7 +14,7 @@ authors:
     given-names: "Rudolf J."
     orcid: "https://orcid.org/0009-0009-6557-8843"
     affiliation: "Violet Sky Security SEZC (Cayman Islands)"
-repository-code: "https://github.com/rudizee007/SPT-TXN-POC"
+repository-code: "https://github.com/rudizee007/spt-txn-poc"
 url: "https://foss.violetskysecurity.com"
 license: Apache-2.0
 keywords:

@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/escrow"
+	"github.com/rudizee007/spt-txn-poc/internal/escrow"
 )
 
 // testSetup wires an in-memory vault + handler with one authorized escrow_req

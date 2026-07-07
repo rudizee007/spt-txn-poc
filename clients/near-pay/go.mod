@@ -8,7 +8,7 @@
 //   cd clients/near-pay
 //   go get github.com/eteu-technologies/near-api-go@latest
 //   go mod tidy && go build -o near-pay .
-module github.com/violetskysecurity/spt-txn-poc/clients/near-pay
+module github.com/rudizee007/spt-txn-poc/clients/near-pay
 
 go 1.24.0
 

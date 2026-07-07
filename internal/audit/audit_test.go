@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/audit"
+	"github.com/rudizee007/spt-txn-poc/internal/audit"
 )
 
 func TestLog_AppendReloadVerify(t *testing.T) {

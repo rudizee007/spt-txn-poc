@@ -8,8 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/travelrule"
-	"github.com/violetskysecurity/spt-txn-poc/internal/trp"
+	"github.com/rudizee007/spt-txn-poc/internal/travelrule"
+	"github.com/rudizee007/spt-txn-poc/internal/trp"
 )
 
 func TestTravelAddressRoundTrip(t *testing.T) {

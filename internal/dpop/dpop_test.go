@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/dpop"
+	"github.com/rudizee007/spt-txn-poc/internal/dpop"
 )
 
 const verifyURL = "https://foss.violetskysecurity.com/b/verify"

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/escrow"
+	"github.com/rudizee007/spt-txn-poc/internal/escrow"
 )
 
 func TestEnvelope_SealOpenRoundtrip(t *testing.T) {

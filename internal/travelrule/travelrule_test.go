@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/ivms101"
-	"github.com/violetskysecurity/spt-txn-poc/internal/travelrule"
-	"github.com/violetskysecurity/spt-txn-poc/internal/zkproof"
+	"github.com/rudizee007/spt-txn-poc/internal/ivms101"
+	"github.com/rudizee007/spt-txn-poc/internal/travelrule"
+	"github.com/rudizee007/spt-txn-poc/internal/zkproof"
 )
 
 // Trusted setup is expensive, so run it once for the whole test binary and

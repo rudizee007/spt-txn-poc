@@ -12,7 +12,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark/test"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/zkhash"
+	"github.com/rudizee007/spt-txn-poc/internal/zkhash"
 )
 
 var bn254 = ecc.BN254.ScalarField()

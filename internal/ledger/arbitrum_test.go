@@ -3,7 +3,7 @@ package ledger_test
 import (
 	"testing"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/ledger"
+	"github.com/rudizee007/spt-txn-poc/internal/ledger"
 )
 
 func TestArbitrum_RegistersBindsAndIsDistinct(t *testing.T) {

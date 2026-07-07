@@ -9,7 +9,7 @@ import (
 	eddsabn254 "github.com/consensys/gnark-crypto/ecc/bn254/twistededwards/eddsa"
 	gchash "github.com/consensys/gnark-crypto/hash"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/zkproof"
+	"github.com/rudizee007/spt-txn-poc/internal/zkproof"
 )
 
 // testIssuer is a registered CT-issuer holding a Baby Jubjub signing key.

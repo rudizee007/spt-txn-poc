@@ -5,8 +5,8 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/zkdid"
-	"github.com/violetskysecurity/spt-txn-poc/internal/zkproof"
+	"github.com/rudizee007/spt-txn-poc/internal/zkdid"
+	"github.com/rudizee007/spt-txn-poc/internal/zkproof"
 )
 
 // TestUnifiedAnchor: the token's humanAnchor (zkdid.Compute) is exactly the

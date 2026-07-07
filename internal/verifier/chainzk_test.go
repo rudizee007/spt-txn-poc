@@ -10,8 +10,8 @@ import (
 	eddsabn254 "github.com/consensys/gnark-crypto/ecc/bn254/twistededwards/eddsa"
 	gchash "github.com/consensys/gnark-crypto/hash"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/verifier"
-	"github.com/violetskysecurity/spt-txn-poc/internal/zkproof"
+	"github.com/rudizee007/spt-txn-poc/internal/verifier"
+	"github.com/rudizee007/spt-txn-poc/internal/zkproof"
 )
 
 // The optional ZK N-hop seam is gnark-free in the verifier package and accepts a

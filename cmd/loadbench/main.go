@@ -40,7 +40,7 @@ import (
 	"github.com/consensys/gnark/logger"
 	"github.com/rs/zerolog"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/zkproof"
+	"github.com/rudizee007/spt-txn-poc/internal/zkproof"
 )
 
 func main() {

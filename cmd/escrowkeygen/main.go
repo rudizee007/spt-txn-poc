@@ -29,7 +29,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/escrow"
+	"github.com/rudizee007/spt-txn-poc/internal/escrow"
 )
 
 func main() {

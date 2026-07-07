@@ -6,7 +6,7 @@
 //   cd clients/eth-pay
 //   go get github.com/ethereum/go-ethereum@latest
 //   go mod tidy && go build -o eth-pay .
-module github.com/violetskysecurity/spt-txn-poc/clients/eth-pay
+module github.com/rudizee007/spt-txn-poc/clients/eth-pay
 
 go 1.24.0
 

@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/escrow"
-	"github.com/violetskysecurity/spt-txn-poc/internal/trustregistry"
-	"github.com/violetskysecurity/spt-txn-poc/internal/verifier"
+	"github.com/rudizee007/spt-txn-poc/internal/escrow"
+	"github.com/rudizee007/spt-txn-poc/internal/trustregistry"
+	"github.com/rudizee007/spt-txn-poc/internal/verifier"
 )
 
 // Real-format testnet-style XRPL addresses so the ledger adapter's address

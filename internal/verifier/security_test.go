@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/cattoken"
-	"github.com/violetskysecurity/spt-txn-poc/internal/dpop"
-	"github.com/violetskysecurity/spt-txn-poc/internal/trustregistry"
+	"github.com/rudizee007/spt-txn-poc/internal/cattoken"
+	"github.com/rudizee007/spt-txn-poc/internal/dpop"
+	"github.com/rudizee007/spt-txn-poc/internal/trustregistry"
 )
 
 func b64u(b []byte) string { return base64.RawURLEncoding.EncodeToString(b) }

@@ -35,7 +35,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/zkdid"
+	"github.com/rudizee007/spt-txn-poc/internal/zkdid"
 )
 
 // CapabilityScope defines the maximum scope for the CAT.

@@ -23,7 +23,7 @@ import (
 	"encoding/hex"
 	"math/big"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/zkhash"
+	"github.com/rudizee007/spt-txn-poc/internal/zkhash"
 )
 
 // Commitment is a 32-byte zkDID commitment (the humanAnchor) — the canonical

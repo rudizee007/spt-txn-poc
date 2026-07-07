@@ -33,7 +33,7 @@ import (
 	circuitposeidon2 "github.com/consensys/gnark/std/hash/poseidon2"
 	"github.com/consensys/gnark/std/signature/eddsa"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/zkhash"
+	"github.com/rudizee007/spt-txn-poc/internal/zkhash"
 )
 
 // VASPTreeDepth fixes the registered-VASP Merkle tree depth (2^depth members).

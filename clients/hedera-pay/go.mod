@@ -4,7 +4,7 @@
 //
 // First build on the Mac:
 //   cd clients/hedera-pay && go mod tidy && go build -o hedera-pay .
-module github.com/violetskysecurity/spt-txn-poc/clients/hedera-pay
+module github.com/rudizee007/spt-txn-poc/clients/hedera-pay
 
 go 1.25.7
 

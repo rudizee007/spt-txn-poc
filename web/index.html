@@ -1231,7 +1231,7 @@
 
     <p class="section-body" style="max-width:820px; margin-top:2rem;"><strong>Deployment is portable, and FIPS-ready.</strong> The reference host is hardened OpenBSD (pledge/unveil, privilege separation) — a security-by-design choice, not a requirement. The same Go binary runs in a <strong>FIPS 140-3</strong> environment for regulated buyers: enable Go's native FIPS mode on a FIPS-validated Linux (RHEL / AlmaLinux / Rocky) so the classical cryptography runs through the CMVP-validated Go Cryptographic Module (certificate #5247), or route issuer keys to a FIPS 140-3 HSM over PKCS#11 — signing already goes through a standard crypto.Signer interface, so it is a configuration swap. The zero-knowledge predicate layer sits outside FIPS by nature and stays a distinct, opt-in component.</p>
 
-    <p class="section-body" style="margin-top:1.8rem; font-size:0.9rem;">Measured on a 10-core Apple-silicon laptop, no hardware acceleration. These are per-core costs; production throughput is those costs × horizontal replicas, because verification holds no shared state. Method and full table are in the <a href="https://github.com/rudizee007/SPT-TXN-POC" target="_blank" class="pub-link">open-source repository</a>.</p>
+    <p class="section-body" style="margin-top:1.8rem; font-size:0.9rem;">Measured on a 10-core Apple-silicon laptop, no hardware acceleration. These are per-core costs; production throughput is those costs × horizontal replicas, because verification holds no shared state. Method and full table are in the <a href="https://github.com/rudizee007/spt-txn-poc" target="_blank" class="pub-link">open-source repository</a>.</p>
   </div>
 </section>
 
@@ -1273,7 +1273,7 @@
         <div class="pub-type">Reference Implementation · Source</div>
         <div class="pub-title">SPT-Txn Proof of Concept (Go / OpenBSD)</div>
         <p class="pub-body">The reference implementation in Go on a hardened OpenBSD host: the token chain, eight-step verifier, ZK circuits, and the live privacy-preserving Travel Rule services.</p>
-        <a href="https://github.com/rudizee007/SPT-TXN-POC" target="_blank" class="pub-link">GitHub ↗</a>
+        <a href="https://github.com/rudizee007/spt-txn-poc" target="_blank" class="pub-link">GitHub ↗</a>
       </div>
     </div>
   </div>
@@ -1564,7 +1564,7 @@
       <a href="https://doi.org/10.5281/zenodo.20870193" target="_blank">Working Paper (v2)</a>
       <a href="https://orcid.org/0009-0009-6557-8843" target="_blank">ORCID</a>
       <a href="https://www.violetskysecurity.com" target="_blank">Violet Sky Security</a>
-      <a href="https://github.com/rudizee007/SPT-TXN-POC" target="_blank">GitHub Source Code</a>
+      <a href="https://github.com/rudizee007/spt-txn-poc" target="_blank">GitHub Source Code</a>
       <a href="/privacy.html">Privacy</a>
       <a href="/terms.html">Terms</a>
     </div>

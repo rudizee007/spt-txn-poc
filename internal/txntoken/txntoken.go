@@ -48,10 +48,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/cttoken"
-	"github.com/violetskysecurity/spt-txn-poc/internal/dpop"
-	"github.com/violetskysecurity/spt-txn-poc/internal/ledger"
-	"github.com/violetskysecurity/spt-txn-poc/internal/tbac"
+	"github.com/rudizee007/spt-txn-poc/internal/cttoken"
+	"github.com/rudizee007/spt-txn-poc/internal/dpop"
+	"github.com/rudizee007/spt-txn-poc/internal/ledger"
+	"github.com/rudizee007/spt-txn-poc/internal/tbac"
 )
 
 // DefaultTTL is the SPT-Txn Token lifetime: deliberately short (30 seconds) to
