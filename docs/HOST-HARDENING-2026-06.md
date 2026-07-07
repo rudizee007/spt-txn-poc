@@ -138,7 +138,7 @@ timeout. Password auth + the pf throttle is also what keeps locking you out duri
 
 **Fix (`/etc/ssh/sshd_config`, then `rcctl reload sshd`):**
 ```
-AllowUsers tarzan
+AllowUsers <user>
 AllowTcpForwarding no
 AllowAgentForwarding no
 MaxAuthTries 3
@@ -148,7 +148,7 @@ ClientAliveCountMax 2
 KbdInteractiveAuthentication no
 MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com
 ```
-Best paired with adding an **SSH key** for `tarzan` (you can keep `PasswordAuthentication
+Best paired with adding an **SSH key** for `<user>` (you can keep `PasswordAuthentication
 yes` per your constraint — the key just stops the repeated password attempts that trip the
 pf `<bruteforce>` table during deploys). `ssh-keygen -t ed25519` on the Mac →
 `ssh-copy-id`, then test before relying on it.
@@ -174,7 +174,7 @@ antispoof quick for { lo0 vio0 }
 - **HL1 — doas `permit nopass keepenv root as root`.** Root→root is low risk, but `keepenv`
   is discouraged (env-passing) and the rule looks vestigial. Remove it unless a specific
   root-run script needs passwordless doas; if it does, scope it to that command without
-  `keepenv`. Keep `permit tarzan` (password-gated).
+  `keepenv`. Keep `permit <user>` (password-gated).
 - **HL2 — trim enabled daemons.** `sndiod` (audio — pointless on a server), `slowcgi`
   (httpd.conf defines no CGI), and `slaacd` (IPv6 autoconf — disable if you don't use v6;
   also drop the `tcp6`/v6 listeners then) are unnecessary surface. `doas rcctl disable

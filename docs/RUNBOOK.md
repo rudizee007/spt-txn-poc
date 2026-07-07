@@ -108,9 +108,11 @@ regenerate keys: `go run ./cmd/zk-setup -dir ./zk`.
 
 ## 8. Website deploy (OpenBSD host)
 
+Set your host login locally (never commit it): `export DEPLOY_USER=<ssh-user>`
+
 ```
-scp web/index.html tarzan@foss.violetskysecurity.com:/tmp/index.html
-ssh tarzan@foss.violetskysecurity.com 'doas cp /tmp/index.html /var/www/htdocs/foss.violetskysecurity.com/index.html && doas chown root:wheel /var/www/htdocs/foss.violetskysecurity.com/index.html && doas chmod 644 /var/www/htdocs/foss.violetskysecurity.com/index.html && rm /tmp/index.html'
+scp web/index.html "$DEPLOY_USER"@foss.violetskysecurity.com:/tmp/index.html
+ssh "$DEPLOY_USER"@foss.violetskysecurity.com 'doas cp /tmp/index.html /var/www/htdocs/foss.violetskysecurity.com/index.html && doas chown root:wheel /var/www/htdocs/foss.violetskysecurity.com/index.html && doas chmod 644 /var/www/htdocs/foss.violetskysecurity.com/index.html && rm /tmp/index.html'
 ```
 relayd changes: `scp configs/relayd.conf …`, then `doas relayd -n -f /etc/relayd.conf && doas rcctl reload relayd`.
 
@@ -118,7 +120,7 @@ relayd changes: `scp configs/relayd.conf …`, then `doas relayd -n -f /etc/rela
 
 httpd `log style forwarded` (so XFF carries the real IP), then:
 ```
-ssh -t tarzan@foss.violetskysecurity.com 'doas goaccess /var/www/logs/foss.access.log \
+ssh -t "$DEPLOY_USER"@foss.violetskysecurity.com 'doas goaccess /var/www/logs/foss.access.log \
   --log-format="%v %h %^[%d:%t %^] \"%r\" %s %b \"%R\" \"%u\""'
 ```
 

@@ -7,7 +7,7 @@
 #   doas sh scripts/security-audit.sh
 #
 # Environment overrides:
-#   REPO=/home/tarzan/spt-poc           source tree (for pledge-source checks)
+#   REPO=$HOME/spt-poc           source tree (for pledge-source checks)
 #   PUBHOST=foss.violetskysecurity.com  public hostname (for edge-exposure checks)
 #   TR_TCP=127.0.0.1:8081               trust-registry read listener
 #
@@ -18,7 +18,7 @@
 # applied (pledge failure is fatal). Anything we cannot directly prove is marked
 # INFO, not PASS.
 
-REPO="${REPO:-/home/tarzan/spt-poc}"
+REPO="${REPO:-$HOME/spt-poc}"
 PUBHOST="${PUBHOST:-foss.violetskysecurity.com}"
 TR_TCP="${TR_TCP:-127.0.0.1:8081}"
 RELAY_TR_PORT="${RELAY_TR_PORT:-4443}"   # relayd public port → trust registry
