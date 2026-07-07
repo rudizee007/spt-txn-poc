@@ -38,7 +38,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/travelrule"
+	"github.com/rudizee007/spt-txn-poc/internal/travelrule"
 )
 
 const (

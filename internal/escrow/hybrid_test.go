@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/escrow"
+	"github.com/rudizee007/spt-txn-poc/internal/escrow"
 )
 
 // TestHybrid_DefaultSchemeIsV2: NewEscrowKey + Seal produce a hybrid (Scheme 2)

@@ -1,10 +1,12 @@
-module github.com/violetskysecurity/spt-txn-poc
+module github.com/rudizee007/spt-txn-poc
 
 go 1.25.7
 
 require (
 	github.com/consensys/gnark v0.15.0
 	github.com/consensys/gnark-crypto v0.20.1
+	github.com/miekg/pkcs11 v1.1.2
+	github.com/rs/zerolog v1.34.0
 	golang.org/x/crypto v0.48.0
 	golang.org/x/sys v0.41.0
 )
@@ -18,13 +20,13 @@ require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/miekg/pkcs11 v1.1.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rogpeppe/go-internal v1.15.0 // indirect
 	github.com/ronanh/intcomp v1.1.1 // indirect
-	github.com/rs/zerolog v1.34.0 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/eteu-technologies/golang-uint128 v1.1.1 => lukechampine.com/uint128 v1.3.0

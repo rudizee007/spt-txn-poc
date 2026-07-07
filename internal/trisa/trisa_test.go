@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/travelrule"
-	"github.com/violetskysecurity/spt-txn-poc/internal/trisa"
+	"github.com/rudizee007/spt-txn-poc/internal/travelrule"
+	"github.com/rudizee007/spt-txn-poc/internal/trisa"
 )
 
 func sampleAttestation() travelrule.Attestation {

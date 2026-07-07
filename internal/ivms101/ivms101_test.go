@@ -3,7 +3,7 @@ package ivms101_test
 import (
 	"testing"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/ivms101"
+	"github.com/rudizee007/spt-txn-poc/internal/ivms101"
 )
 
 func sample() ivms101.IdentityPayload {

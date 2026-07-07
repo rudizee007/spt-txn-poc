@@ -3,7 +3,7 @@
 Built fresh against the M2 (`internal/cattoken`) patterns: pure Go standard
 library, EdDSA/Ed25519 compact JWTs, `txn_token_type` discriminator,
 `human_anchor` propagated unchanged down the chain. Module path
-`github.com/violetskysecurity/spt-txn-poc`.
+`github.com/rudizee007/spt-txn-poc`.
 
 ## What was added
 

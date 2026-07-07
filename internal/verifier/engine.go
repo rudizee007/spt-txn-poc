@@ -25,13 +25,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/cttoken"
-	"github.com/violetskysecurity/spt-txn-poc/internal/cattoken"
-	"github.com/violetskysecurity/spt-txn-poc/internal/dpop"
-	"github.com/violetskysecurity/spt-txn-poc/internal/ledger"
-	"github.com/violetskysecurity/spt-txn-poc/internal/tbac"
-	"github.com/violetskysecurity/spt-txn-poc/internal/trustregistry"
-	"github.com/violetskysecurity/spt-txn-poc/internal/txntoken"
+	"github.com/rudizee007/spt-txn-poc/internal/cttoken"
+	"github.com/rudizee007/spt-txn-poc/internal/cattoken"
+	"github.com/rudizee007/spt-txn-poc/internal/dpop"
+	"github.com/rudizee007/spt-txn-poc/internal/ledger"
+	"github.com/rudizee007/spt-txn-poc/internal/tbac"
+	"github.com/rudizee007/spt-txn-poc/internal/trustregistry"
+	"github.com/rudizee007/spt-txn-poc/internal/txntoken"
 )
 
 // Decision is the engine's verdict. On deny, Step (1-8) and StepName identify

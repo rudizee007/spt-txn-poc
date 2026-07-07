@@ -107,3 +107,12 @@ docs/SPT-Txn-Positioning-One-Pagers.md
 docs/SPT-Txn-Insurable-Agent-Actions-Thesis.md
 docs/SPT-Txn-Insurer-Outreach.md
 clients/cardano-anchor/cardano-anchor
+docs/SPT-Txn-FinCEN-OFAC-GENIUS-Comment.md
+docs/SPT-Txn-Midnight-Outreach.md
+docs/SPT-Txn-etherfi-Outreach.md
+docs/SPT-Txn-x-etherfi-Deck.pdf
+docs/SPT-Txn-x-etherfi-Deck.pptx
+
+# compiled client binaries
+clients/hcs-anchor/hcs-anchor
+clients/hcs-anchor/spt-txn-hcs-anchor

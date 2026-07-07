@@ -29,9 +29,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/gate"
-	"github.com/violetskysecurity/spt-txn-poc/internal/trustregistry"
-	"github.com/violetskysecurity/spt-txn-poc/internal/verifier"
+	"github.com/rudizee007/spt-txn-poc/internal/gate"
+	"github.com/rudizee007/spt-txn-poc/internal/trustregistry"
+	"github.com/rudizee007/spt-txn-poc/internal/verifier"
 )
 
 func main() {

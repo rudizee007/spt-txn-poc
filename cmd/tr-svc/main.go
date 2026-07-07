@@ -36,11 +36,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/ivms101"
-	"github.com/violetskysecurity/spt-txn-poc/internal/travelrule"
-	"github.com/violetskysecurity/spt-txn-poc/internal/trp"
-	"github.com/violetskysecurity/spt-txn-poc/internal/vaspregistry"
-	"github.com/violetskysecurity/spt-txn-poc/internal/zkproof"
+	"github.com/rudizee007/spt-txn-poc/internal/ivms101"
+	"github.com/rudizee007/spt-txn-poc/internal/travelrule"
+	"github.com/rudizee007/spt-txn-poc/internal/trp"
+	"github.com/rudizee007/spt-txn-poc/internal/vaspregistry"
+	"github.com/rudizee007/spt-txn-poc/internal/zkproof"
 )
 
 const beneficiaryVASP = "vasp:beneficiary-bank"

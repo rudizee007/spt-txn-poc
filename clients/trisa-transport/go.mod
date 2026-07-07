@@ -5,6 +5,6 @@
 // pollute the dependency-light core module.
 //
 //	go test ./...   # sealing core, fully offline
-module github.com/violetskysecurity/spt-txn-trisa-transport
+module github.com/rudizee007/spt-txn-poc/clients/trisa-transport
 
 go 1.25.7

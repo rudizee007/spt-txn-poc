@@ -16,7 +16,7 @@ import (
 	"math/big"
 	"os"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/zkproof"
+	"github.com/rudizee007/spt-txn-poc/internal/zkproof"
 )
 
 // Config is the on-disk registry file: a list of VASP identifiers.

@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/audit"
-	"github.com/violetskysecurity/spt-txn-poc/internal/sdjwt"
+	"github.com/rudizee007/spt-txn-poc/internal/audit"
+	"github.com/rudizee007/spt-txn-poc/internal/sdjwt"
 )
 
 // Request is a competent authority's scoped ask.

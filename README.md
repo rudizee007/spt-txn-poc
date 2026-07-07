@@ -1,6 +1,6 @@
 # SPT-Txn — Privacy-Preserving Compliance & Travel Rule Authorization (Reference POC)
 
-[![CI](https://github.com/rudizee007/SPT-TXN-POC/actions/workflows/ci.yml/badge.svg)](https://github.com/rudizee007/SPT-TXN-POC/actions/workflows/ci.yml)
+[![CI](https://github.com/rudizee007/spt-txn-poc/actions/workflows/ci.yml/badge.svg)](https://github.com/rudizee007/spt-txn-poc/actions/workflows/ci.yml)
 &nbsp;Apache-2.0 · Go 1.25 / gnark v0.15 · OpenBSD · live demo: <https://foss.violetskysecurity.com>
 
 SPT-Txn verifies compliance **once** and proves it **everywhere**, in zero

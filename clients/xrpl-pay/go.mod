@@ -3,7 +3,7 @@
 //
 // First build on the Mac:
 //   cd clients/xrpl-pay && go mod tidy && go build ./...
-module github.com/violetskysecurity/spt-txn-poc/clients/xrpl-pay
+module github.com/rudizee007/spt-txn-poc/clients/xrpl-pay
 
 go 1.24
 

@@ -34,7 +34,7 @@ import (
 	"github.com/consensys/gnark/std/hash/mimc"
 	"github.com/consensys/gnark/std/hash/poseidon2"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/zkproof"
+	"github.com/rudizee007/spt-txn-poc/internal/zkproof"
 )
 
 // hashBench computes a chain of Iters two-input hashes and constrains the result

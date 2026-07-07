@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/disclosure"
-	"github.com/violetskysecurity/spt-txn-poc/internal/sdjwt"
+	"github.com/rudizee007/spt-txn-poc/internal/disclosure"
+	"github.com/rudizee007/spt-txn-poc/internal/sdjwt"
 )
 
 func credential(t *testing.T) (string, ed25519.PublicKey) {

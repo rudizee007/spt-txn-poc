@@ -5,7 +5,7 @@
 // Registry snapshot. This is the literal form of the "embed, don't depend on our
 // server" model.
 //
-//	import "github.com/violetskysecurity/spt-txn-poc/pkg/verify"
+//	import "github.com/rudizee007/spt-txn-poc/pkg/verify"
 //
 // The types here are public mirrors, so embedders never import SPT-Txn internal
 // packages. The optional zero-knowledge N-hop chain mode is intentionally not
@@ -16,9 +16,9 @@ package verify
 import (
 	"context"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/ledger"
-	"github.com/violetskysecurity/spt-txn-poc/internal/trustregistry"
-	"github.com/violetskysecurity/spt-txn-poc/internal/verifier"
+	"github.com/rudizee007/spt-txn-poc/internal/ledger"
+	"github.com/rudizee007/spt-txn-poc/internal/trustregistry"
+	"github.com/rudizee007/spt-txn-poc/internal/verifier"
 )
 
 // TxnContext is the concrete transaction the authorization is bound to.

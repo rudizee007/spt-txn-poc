@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/sdjwt"
+	"github.com/rudizee007/spt-txn-poc/internal/sdjwt"
 )
 
 func issuerKey(t *testing.T) (ed25519.PublicKey, ed25519.PrivateKey) {

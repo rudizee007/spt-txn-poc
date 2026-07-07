@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/cattoken"
+	"github.com/rudizee007/spt-txn-poc/internal/cattoken"
 )
 
 // forgeCAT mints a compact JWT with caller-chosen claims, signed by key, for

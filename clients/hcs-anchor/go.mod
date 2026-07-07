@@ -10,7 +10,7 @@
 //
 // The `verify` subcommand uses only the standard library (public mirror-node
 // REST); only `create-topic` and `anchor` pull in the SDK.
-module github.com/violetskysecurity/spt-txn-hcs-anchor
+module github.com/rudizee007/spt-txn-poc/clients/hcs-anchor
 
 go 1.25.7
 

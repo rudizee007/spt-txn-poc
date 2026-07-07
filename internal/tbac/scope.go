@@ -32,7 +32,7 @@ import (
 	"math/big"
 	"reflect"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/ledger"
+	"github.com/rudizee007/spt-txn-poc/internal/ledger"
 )
 
 // Scope is a set of capability dimensions. Values are produced either from Go

@@ -14,7 +14,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	eddsabn254 "github.com/consensys/gnark-crypto/ecc/bn254/twistededwards/eddsa"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/zkhash"
+	"github.com/rudizee007/spt-txn-poc/internal/zkhash"
 )
 
 func feFromBytes(b []byte) fr.Element  { return zkhash.FeFromBytes(b) }

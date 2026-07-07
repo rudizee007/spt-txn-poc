@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/ivms101"
+	"github.com/rudizee007/spt-txn-poc/internal/ivms101"
 )
 
 // fullReq is a FATF-complete attestation request: originator with full name,

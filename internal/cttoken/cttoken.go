@@ -45,8 +45,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/cattoken"
-	"github.com/violetskysecurity/spt-txn-poc/internal/tbac"
+	"github.com/rudizee007/spt-txn-poc/internal/cattoken"
+	"github.com/rudizee007/spt-txn-poc/internal/tbac"
 )
 
 // DefaultTTL is the Capability Token lifetime when IssueRequest.TTL is zero.

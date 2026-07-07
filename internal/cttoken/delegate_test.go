@@ -3,9 +3,9 @@ package cttoken_test
 import (
 	"testing"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/cattoken"
-	"github.com/violetskysecurity/spt-txn-poc/internal/cttoken"
-	"github.com/violetskysecurity/spt-txn-poc/internal/tbac"
+	"github.com/rudizee007/spt-txn-poc/internal/cattoken"
+	"github.com/rudizee007/spt-txn-poc/internal/cttoken"
+	"github.com/rudizee007/spt-txn-poc/internal/tbac"
 )
 
 // TestDelegate_NarrowsAndDecrements is the core CT->CT case: agent A delegates a

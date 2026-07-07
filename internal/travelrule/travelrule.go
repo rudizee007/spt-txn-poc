@@ -26,9 +26,9 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/ivms101"
-	"github.com/violetskysecurity/spt-txn-poc/internal/sdjwt"
-	"github.com/violetskysecurity/spt-txn-poc/internal/zkproof"
+	"github.com/rudizee007/spt-txn-poc/internal/ivms101"
+	"github.com/rudizee007/spt-txn-poc/internal/sdjwt"
+	"github.com/rudizee007/spt-txn-poc/internal/zkproof"
 )
 
 // DefaultReportingThreshold is the FATF ~1000-unit reporting threshold. Real

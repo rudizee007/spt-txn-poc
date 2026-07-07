@@ -65,7 +65,7 @@ zero-knowledge proofs, verifiable credentials, FATF Travel Rule, ABAC, TBAC, aut
 | is new version of | `10.5281/zenodo.18917439` (SPT-Txn framework preprint) |
 | references | `10.5281/zenodo.19299787` (transaction-binding security theory) |
 | is supplement to | `https://datatracker.ietf.org/doc/draft-coetzee-oauth-spt-txn-tokens/` (IETF I-D) |
-| is supplemented by | `https://github.com/rudizee007/SPT-TXN-POC` (reference implementation) |
+| is supplemented by | `https://github.com/rudizee007/spt-txn-poc` (reference implementation) |
 | references | `https://foss.violetskysecurity.com` (live demo / project site) |
 
 **Funding (optional):** leave blank, or note an applied-for XRPL Grant once submitted.

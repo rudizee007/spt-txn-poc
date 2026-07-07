@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/cttoken"
-	"github.com/violetskysecurity/spt-txn-poc/internal/cattoken"
-	"github.com/violetskysecurity/spt-txn-poc/internal/dpop"
-	"github.com/violetskysecurity/spt-txn-poc/internal/ledger"
-	"github.com/violetskysecurity/spt-txn-poc/internal/tbac"
-	"github.com/violetskysecurity/spt-txn-poc/internal/txntoken"
+	"github.com/rudizee007/spt-txn-poc/internal/cttoken"
+	"github.com/rudizee007/spt-txn-poc/internal/cattoken"
+	"github.com/rudizee007/spt-txn-poc/internal/dpop"
+	"github.com/rudizee007/spt-txn-poc/internal/ledger"
+	"github.com/rudizee007/spt-txn-poc/internal/tbac"
+	"github.com/rudizee007/spt-txn-poc/internal/txntoken"
 )
 
 func kp(t *testing.T) (ed25519.PublicKey, ed25519.PrivateKey) {

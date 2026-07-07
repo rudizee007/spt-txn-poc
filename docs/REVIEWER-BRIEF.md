@@ -58,7 +58,7 @@ token chain + the 8-step ALLOW + context hash) · `go run ./cmd/x402gate`
 
 ## Links
 
-- Code: https://github.com/rudizee007/SPT-TXN-POC · Live: https://foss.violetskysecurity.com
+- Code: https://github.com/rudizee007/spt-txn-poc · Live: https://foss.violetskysecurity.com
 - `docs/STATUS.md` (current-state map, live addresses, ZK metrics) ·
   `docs/RUNBOOK.md` (reproduce everything) · `docs/BUILD-JOURNAL.md` (decisions) ·
   `docs/SECURITY-REVIEW*.md` (FAIL=0 + honest findings).

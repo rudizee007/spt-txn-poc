@@ -33,7 +33,7 @@ github.com/rs/zerolog : MIT License
 github.com/spf13/cobra : (not downloaded)
 github.com/spf13/pflag : (not downloaded)
 github.com/stretchr/testify : MIT License
-github.com/violetskysecurity/spt-txn-poc : NO-LICENSE-FILE
+github.com/rudizee007/spt-txn-poc : NO-LICENSE-FILE
 github.com/x448/float16 : MIT License
 golang.org/x/crypto : see LICENSE
 golang.org/x/mod : (not downloaded)

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/violetskysecurity/spt-txn-poc/pkg/verify"
+	"github.com/rudizee007/spt-txn-poc/pkg/verify"
 )
 
 // Example shows the whole embed surface: load a registry snapshot once, then

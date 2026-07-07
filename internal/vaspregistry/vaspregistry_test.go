@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/violetskysecurity/spt-txn-poc/internal/vaspregistry"
+	"github.com/rudizee007/spt-txn-poc/internal/vaspregistry"
 )
 
 func TestRegistry_MembershipRootSign(t *testing.T) {
