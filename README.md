@@ -122,11 +122,10 @@ keys via `cmd/zk-setup`.
 
 Not production-ready. Agentic AI authorization is now **POC-built and tested**
 (multi-hop delegation, offline N-hop verification, granular revocation cascade)
-and **provable in zero knowledge** (the `ChainCircuit`), but not battle-tested at
-scale. Honest gaps that remain: in the **opt-in ZK chain mode**, intermediate-hop
-issuer **signatures are not verified in-circuit** (only scope/depth are — the
-cleartext mode verifies every hop's signature, so it remains the stronger default;
-see the security review); **on-chain footprints are testnet** (mainnet anchoring +
+and **provable in zero knowledge**: the `ChainCircuit` verifies each active hop's
+registered-issuer signature **in-circuit** (Baby Jubjub EdDSA), alongside
+attenuation, depth, and the human anchor — though not yet battle-tested at scale.
+Honest gaps that remain: **on-chain footprints are testnet** (mainnet anchoring +
 the on-chain ZK verifier on mainnet are the next step); the open append-only
 anchor contracts would want access control or a fee on mainnet; biometric
 uniqueness is a placeholder; the `.zkdid`/`.zkdns` production identity/naming layer

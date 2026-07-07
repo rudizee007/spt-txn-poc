@@ -7,7 +7,7 @@
 <meta name="description" content="Sovereign Policy Token Transactions — policy-bound, tamper-evident authorization across trust boundaries in agentic and multi-organizational systems.">
 
 <!-- SEO / discovery -->
-<meta name="keywords" content="SPT-Txn, Sovereign Policy Token Transactions, FATF Travel Rule, FATF Recommendation 16, crypto travel rule, VASP compliance, CASP, MiCA, zero-knowledge proof, privacy-preserving compliance, selective disclosure, agentic payments, AI agent authorization, x402, HTTP 402, post-quantum cryptography, ML-KEM, X25519MLKEM768, transaction tokens, OAuth, capability tokens, blockchain-agnostic, decentralized identity, zkDID, zkDNS, Violet Sky Security">
+<meta name="keywords" content="SPT-Txn, Sovereign Policy Token Transactions, FATF Travel Rule, FATF Recommendation 16, crypto travel rule, VASP compliance, CASP, MiCA, zero-knowledge proof, privacy-preserving compliance, selective disclosure, agentic payments, AI agent authorization, MCP, Model Context Protocol, A2A, agent delegation, x402, HTTP 402, post-quantum cryptography, ML-KEM, X25519MLKEM768, transaction tokens, OAuth, capability tokens, blockchain-agnostic, decentralized identity, zkDID, zkDNS, Violet Sky Security">
 <meta name="author" content="Rudolf J. Coetzee, Violet Sky Security SEZC">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <link rel="canonical" href="https://foss.violetskysecurity.com/">
@@ -56,7 +56,7 @@
       "programmingLanguage": "Go",
       "runtimePlatform": "OpenBSD",
       "author": { "@type": "Person", "name": "Rudolf J. Coetzee", "identifier": "https://orcid.org/0009-0009-6557-8843" },
-      "keywords": "FATF Travel Rule, Recommendation 16, VASP compliance, zero-knowledge proof, agentic payments, x402, post-quantum cryptography, ML-KEM, transaction tokens, OAuth, blockchain-agnostic"
+      "keywords": "FATF Travel Rule, Recommendation 16, VASP compliance, zero-knowledge proof, agentic payments, AI agent authorization, MCP, Model Context Protocol, x402, post-quantum cryptography, ML-KEM, transaction tokens, OAuth, blockchain-agnostic"
     },
     {
       "@type": "ScholarlyArticle",
@@ -638,8 +638,8 @@
 
         <rect x="70" y="198" width="650" height="84" rx="10" fill="rgba(255,255,255,0.02)" stroke="rgba(157,78,221,0.20)"/>
         <text x="90" y="220" font-family="Space Mono, monospace" font-size="10" letter-spacing="1" fill="#A09AB8">LEDGERS — integration targets, not dependencies</text>
-        <text x="90" y="246" font-size="11" fill="#A09AB8"><tspan fill="#E0AAFF" font-family="Space Mono, monospace">L1 ·</tspan> XRPL · Hedera · Ethereum · Solana · Sui · Aptos · Stellar · Algorand · XDC · Polkadot</text>
-        <text x="90" y="269" font-size="11" fill="#A09AB8"><tspan fill="#E0AAFF" font-family="Space Mono, monospace">L2 ·</tspan> Arbitrum · Optimism · Base · Starknet</text>
+        <text x="90" y="246" font-size="11" fill="#A09AB8"><tspan fill="#E0AAFF" font-family="Space Mono, monospace">L1 ·</tspan> XRPL · Hedera · Ethereum · Solana · Sui · Aptos · Cardano · NEAR · Polkadot · + more</text>
+        <text x="90" y="269" font-size="11" fill="#A09AB8"><tspan fill="#E0AAFF" font-family="Space Mono, monospace">L2 ·</tspan> Arbitrum · Optimism · Base · Starknet · Morph · xLayer</text>
 
         <line x1="34" y1="312" x2="756" y2="312" stroke="rgba(157,78,221,0.20)"/>
         <text x="34" y="334" font-family="Space Mono, monospace" font-size="10" letter-spacing="1" fill="#A09AB8">HOW WE POSITION IT</text>
@@ -1136,8 +1136,12 @@
       <p class="tk-body" style="margin-top:0.5rem; margin-bottom:0;"><strong>x402</strong> is the HTTP-native agent-payment standard (Coinbase, and Google's AP2, build on it). x402 settles the payment; <strong>SPT-Txn gates it</strong>: before the agent pays, the gate checks it holds a human-anchored capability whose scope covers the spend, stamps a privacy-preserving <strong>humanAnchor</strong> into the on-ledger transaction, and the merchant re-runs the full eight-step verifier <em>offline</em> before delivering — trusting the authorization, not just that money arrived. No PII on-ledger; for regulated transfers it is Travel-Rule compliant. The complete loop — authorize → settle → verify → deliver, with an over-scope payment cryptographically <strong>DENied</strong> before anything is signed — runs end-to-end live on <strong>seven chains</strong> across three address families: XRPL <em>(through mainnet)</em>, plus Hedera, Aptos, Ethereum, Base, Solana, and NEAR on their test networks. Same gate, same verifier, same attestation; only a ~200-line ledger submitter differs per chain.</p>
     </div>
     <div style="margin-top:1.4rem; border:1px solid var(--border); border-radius:10px; padding:1rem 1.2rem;">
+      <div class="section-eyebrow" style="color:var(--muted);">Designed &middot; SPT-Txn as the enforcement point inside an MCP server</div>
+      <p class="tk-body" style="margin-top:0.5rem; margin-bottom:0;">Because <a href="https://modelcontextprotocol.io/" target="_blank" style="color:var(--violet-l);">MCP</a> requires each server to drop the caller&rsquo;s token and mint its own upstream &mdash; passthrough is forbidden to prevent confused-deputy attacks &mdash; the human-origin signal is lost at exactly the hop that matters. SPT-Txn restores it: an <strong>MCP server becomes the policy-enforcement point</strong>, running the full <strong>eight-step verifier offline</strong> before it executes any <code>tools/call</code> that moves value or touches a regulated action &mdash; checking that the caller holds a human-anchored capability whose scope covers the request, and that the immutable <strong>humanAnchor</strong> survives the very hop MCP&rsquo;s own rules would otherwise sever. This is a <strong>proposed binding</strong>, not a standardized slot: the SPT-Txn token rides in the request <code>_meta</code>, an auth header on the Streamable HTTP transport, or tool arguments &mdash; none blessed by the spec today. It is distinct from agent-identity and agent-authorization work (OAuth&nbsp;2.1 MCP auth, AAuth): SPT-Txn is the transaction- and jurisdiction-binding layer governing <em>what a delegated agent may do and who stays accountable</em> &mdash; which those layers structurally do not carry.</p>
+    </div>
+    <div style="margin-top:1.4rem; border:1px solid var(--border); border-radius:10px; padding:1rem 1.2rem;">
       <div class="section-eyebrow" style="color:var(--violet-l);">Composes with the standards you already use</div>
-      <p class="tk-body" style="margin-top:0.5rem; margin-bottom:0.7rem;">SPT-Txn extends the IETF <a href="https://datatracker.ietf.org/doc/draft-ietf-oauth-transaction-tokens/" target="_blank" style="color:var(--violet-l);">OAuth Transaction Tokens</a> line and fills the gap its own authorization spec admits: OAuth&nbsp;2.1 bearer tokens carry <strong>no delegation chain, no holder-side scope attenuation, and no provenance binding</strong> — and <a href="https://modelcontextprotocol.io/" target="_blank" style="color:var(--violet-l);">MCP</a> prohibits token passthrough, so multi-hop agent delegation either breaks or leaks.</p>
+      <p class="tk-body" style="margin-top:0.5rem; margin-bottom:0.7rem;">SPT-Txn extends the IETF <a href="https://datatracker.ietf.org/doc/draft-ietf-oauth-transaction-tokens/" target="_blank" style="color:var(--violet-l);">OAuth Transaction Tokens</a> line and fills the gap its own authorization spec admits: OAuth&nbsp;2.1 bearer tokens carry <strong>no delegation chain, no holder-side scope attenuation, and no provenance binding</strong> — and <a href="https://modelcontextprotocol.io/" target="_blank" style="color:var(--violet-l);">MCP</a> requires every server to <strong>drop the caller&rsquo;s token and mint its own upstream</strong> (passthrough is forbidden by design, to prevent confused-deputy attacks) &mdash; a sound audience boundary that also <strong>severs the human-origin chain</strong> at every server hop.</p>
       <p class="tk-body" style="margin:0;">SPT-Txn is the drop-in layer that adds <strong>verifiable, attenuating, human-anchored delegation across MCP and A2A hops</strong> — offline-verifiable, with no central authorization server. It reuses SD-JWT, DPoP and Token Exchange where they exist, and adds what they don&rsquo;t: zero-knowledge selective disclosure, holder-side attenuation, a propagating human anchor, and cross-ledger binding.</p>
     </div>
   </div>
@@ -1286,7 +1290,7 @@
   <div class="section-inner">
     <div class="section-eyebrow">Proof of Concept</div>
     <h2 class="section-title">Reference implementation. OpenBSD. Go. Security by design.</h2>
-    <p class="section-body">The POC validates the protocol architecture end-to-end. Classical cryptography with algorithm-agility dispatch. Pledge and unveil sandbox. File-backed persistent Trust Registry. Two-domain cross-organizational demo. A single ledger-adapter interface binds the authorization to a transaction across fifteen chains, and the agentic layer adds multi-hop CT→CT delegation with an offline N-hop verifier, now also provable in zero-knowledge.</p>
+    <p class="section-body">The POC validates the protocol architecture end-to-end. Classical cryptography with algorithm-agility dispatch. Pledge and unveil sandbox. File-backed persistent Trust Registry. Two-domain cross-organizational demo. A single ledger-adapter interface binds the authorization to a transaction across twenty ledgers, and the agentic layer adds multi-hop CT→CT delegation with an offline N-hop verifier, now also provable in zero-knowledge.</p>
 
     <div class="milestone-list">
       <div class="milestone">
@@ -1386,7 +1390,7 @@
 </div>
 <div style="margin-top:3rem; border-top:1px solid var(--border); padding-top:2rem;">
   <div class="section-eyebrow">Ledger-agnostic · demonstrated across chains</div>
-  <p class="section-body" style="margin-top:1rem; max-width:760px;">SPT-Txn binds an authorization to a specific transaction without depending on any chain. The binding is implemented and tested behind one Go adapter interface for fifteen ledgers, and the attestation-anchor footprint is live on six public testnets. Chains are integration targets, never dependencies; the authorization verifies offline with no chain at all.</p>
+  <p class="section-body" style="margin-top:1rem; max-width:760px;">SPT-Txn binds an authorization to a specific transaction without depending on any chain. The binding is implemented and tested behind one Go adapter interface for twenty ledgers (a single EVM adapter serves the EVM chains), and the attestation-anchor footprint is live on six public testnets. Chains are integration targets, never dependencies; the authorization verifies offline with no chain at all.</p>
   <p id="anchorLive" style="margin-top:0.9rem; font-family:'Space Mono',monospace; font-size:0.8rem; color:var(--muted);">Reading the live on-chain anchor…</p>
   <div style="margin-top:1.4rem; max-width:920px;">
     <div style="font-family:'Space Mono',monospace; font-size:0.68rem; letter-spacing:1.5px; color:var(--muted); margin-bottom:0.5rem;">LAYER 1</div>
@@ -1402,6 +1406,9 @@
       <span class="hero-tag">Algorand</span>
       <span class="hero-tag">XDC</span>
       <span class="hero-tag">Polkadot</span>
+      <span class="hero-tag">Cardano</span>
+      <span class="hero-tag">NEAR</span>
+      <span class="hero-tag">BSC</span>
     </div>
     <div style="font-family:'Space Mono',monospace; font-size:0.68rem; letter-spacing:1.5px; color:var(--muted); margin:1rem 0 0.5rem;">LAYER 2 · Ethereum rollups</div>
     <div class="hero-tags" style="justify-content:flex-start;">
@@ -1409,6 +1416,8 @@
       <span class="hero-tag">Optimism</span>
       <span class="hero-tag">Base</span>
       <span class="hero-tag">Starknet</span>
+      <span class="hero-tag">Morph</span>
+      <span class="hero-tag">xLayer</span>
     </div>
   </div>
   <p style="font-family:'Space Mono',monospace; font-size:0.72rem; letter-spacing:1px; color:var(--muted); margin-top:0.7rem;">transaction-binding implemented &amp; tested · one adapter interface</p>
