@@ -26,8 +26,13 @@ zk/
 # ── Go build output ──────────────────────────────────────────────────────
 /tr-svc
 /spt-poc
+/x402gate
 /bin/
 *.test
+
+# ── Compiled command/client binaries — never commit (embed build paths) ───
+clients/hcs-anchor/hcs-anchor
+clients/hcs-anchor/spt-txn-hcs-anchor
 *.out
 docs/XRPL-GRANT-PROPOSAL.md
 docs/XRPL-GRANT-PROPOSAL.md
@@ -112,7 +117,3 @@ docs/SPT-Txn-Midnight-Outreach.md
 docs/SPT-Txn-etherfi-Outreach.md
 docs/SPT-Txn-x-etherfi-Deck.pdf
 docs/SPT-Txn-x-etherfi-Deck.pptx
-
-# compiled client binaries
-clients/hcs-anchor/hcs-anchor
-clients/hcs-anchor/spt-txn-hcs-anchor
