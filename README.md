@@ -16,7 +16,7 @@ token; blockchain-agnostic (XRPL is the primary integration target).
 > **Status: working, security-audited reference implementation** — not a skeleton,
 > and not yet production. Deployed and running on a hardened OpenBSD host with a
 > live two-party Travel Rule demo. Twenty chain adapters; attestation-anchor contracts
-> live on four public testnets; an **on-chain ZK verifier** live on two L2s; the
+> live on four public testnets, plus an **on-chain ZK verifier live on Ethereum mainnet** (and two L2 testnets); the
 > agentic delegation layer is **POC-built, tested, and now provable in zero
 > knowledge**. See [`docs/STATUS`](docs/STATUS.md) for the current-state map,
 > [`docs/RUNBOOK.md`](docs/RUNBOOK.md) to reproduce the deployments, and the roadmap
@@ -52,12 +52,13 @@ token; blockchain-agnostic (XRPL is the primary integration target).
   `internal/ledger`. Chains are integration targets, never dependencies.
 - **Live on-chain footprints** — attestation-anchor contracts on Ethereum Sepolia,
   Starknet Sepolia, Aptos testnet, and Arbitrum Sepolia (plus a Solana devnet memo
-  anchor), each holding a genuine token-derived `ContextHash`. `cairo/`, `move/`,
-  `solidity/`, `cmd/anchor`.
+  anchor), each holding a genuine token-derived `ContextHash` — plus a **ZK-verified
+  anchor on Ethereum mainnet**. `cairo/`, `move/`, `solidity/`, `cmd/anchor`.
 - **On-chain ZK verification** — a gnark Groth16 verifier + `AttestationVerifier`
   wrapper verify a selective-disclosure proof (amount ≥ threshold, amount hidden)
-  **on-chain** and anchor only if it checks out — live on Ethereum and Arbitrum
-  Sepolia. `cmd/zk-export-solidity`, `cmd/zk-solcalldata`, `solidity/src/`.
+  **on-chain** and anchor only if it checks out — **live on Ethereum mainnet**
+  (`AttestationVerifier` `0xb64e2483…46Ab01`), plus Ethereum and Arbitrum Sepolia
+  testnets. `cmd/zk-export-solidity`, `cmd/zk-solcalldata`, `solidity/src/`.
 - **Agentic authorization (POC-tested) + ZK chain proof** — multi-hop CT→CT
   delegation, an offline N-hop verifier, a granular revocation cascade, and a
   Groth16 `ChainCircuit` that proves a delegation chain valid (attenuation, depth,
@@ -127,8 +128,8 @@ Not production-ready. Agentic AI authorization is now **POC-built and tested**
 and **provable in zero knowledge**: the `ChainCircuit` verifies each active hop's
 registered-issuer signature **in-circuit** (Baby Jubjub EdDSA), alongside
 attenuation, depth, and the human anchor — though not yet battle-tested at scale.
-Honest gaps that remain: **on-chain footprints are testnet** (mainnet anchoring +
-the on-chain ZK verifier on mainnet are the next step); the open append-only
+Honest gaps that remain: **most on-chain footprints are testnet** — an on-chain ZK
+verification is now **live on Ethereum mainnet**; broader mainnet anchoring across chains is next; the open append-only
 anchor contracts would want access control or a fee on mainnet; biometric
 uniqueness is a placeholder; the `.zkdid`/`.zkdns` production identity/naming layer
 is an integration (interim works today); the escrow's post-quantum-hybrid KEM (X25519 + ML-KEM-768) is implemented, while broader PQ migration of TLS and signatures is designed, not yet implemented; and an **independent ZK-circuit + protocol audit** is wanted (the
