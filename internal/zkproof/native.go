@@ -13,6 +13,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	eddsabn254 "github.com/consensys/gnark-crypto/ecc/bn254/twistededwards/eddsa"
+	gchash "github.com/consensys/gnark-crypto/hash"
 
 	"github.com/rudizee007/spt-txn-poc/internal/zkhash"
 )
@@ -52,6 +53,45 @@ func IssuerLeaf(pubBytes []byte) (*big.Int, error) {
 	}
 	return bigOf(zkhash.HashCommit(zkhash.DomainIssuer, pk.A.X, pk.A.Y)), nil
 }
+
+// ── RWA eligibility: issuer attestation (Tier 2) ─────────────────────────────
+
+// AttestEligibility is the TRUSTED ISSUER side of the Tier-2 RWA eligibility
+// gate. Off-chain, after vetting the holder, the issuer signs an attestation
+// bound to the holder's exact on-chain address:
+//
+//	commitment = H(DomainAmount, amount, blinding)
+//	message    = H(DomainHolder, holderAddr, commitment)
+//	sig        = EdDSA_BabyJubjub(issuerPriv, message)   (MiMC_BN254 challenge)
+//
+// It returns the signature and the amount commitment. The holder later feeds
+// these to ProveEligibility to produce the ZK proof the RWA contract verifies.
+// Because the address is inside the signed message, the attestation is
+// non-transferable: it authorises exactly one address and no other.
+func AttestEligibility(issuerPriv *eddsabn254.PrivateKey, holderAddr []byte, amount uint64, blinding []byte) (sig []byte, commitment *big.Int, err error) {
+	commit := hashAmount(feFromUint64(amount), feFromWide(blinding))
+	msg := zkhash.HashHolder(feFromBytes(holderAddr), commit)
+	sig, err = issuerPriv.Sign(msg.Marshal(), gchash.MIMC_BN254.New())
+	if err != nil {
+		return nil, nil, fmt.Errorf("zkproof: issuer sign eligibility attestation: %w", err)
+	}
+	return sig, bigOf(commit), nil
+}
+
+// issuerXY parses a marshaled Baby Jubjub public key into its affine (X, Y)
+// field-element coordinates as *big.Int — the values the EligibilityCircuit takes
+// as its public issuer-key inputs and that the RWA token pins on-chain.
+func issuerXY(pubBytes []byte) (x, y *big.Int, err error) {
+	var pk eddsabn254.PublicKey
+	if _, err := pk.SetBytes(pubBytes); err != nil {
+		return nil, nil, fmt.Errorf("zkproof: parse issuer public key: %w", err)
+	}
+	return bigOf(pk.A.X), bigOf(pk.A.Y), nil
+}
+
+// IssuerPubXY exposes the issuer public key's (X, Y) coordinates for tooling that
+// must pin the trusted issuer on-chain (the RWA token constructor / setIssuer).
+func IssuerPubXY(pubBytes []byte) (x, y *big.Int, err error) { return issuerXY(pubBytes) }
 
 // ── registered-VASP Merkle tree ──────────────────────────────────────────────
 

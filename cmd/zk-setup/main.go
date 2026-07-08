@@ -15,6 +15,7 @@ package main
 import (
 	"flag"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/rudizee007/spt-txn-poc/internal/zkproof"
@@ -22,17 +23,39 @@ import (
 
 func main() {
 	dir := flag.String("dir", "/var/spt-txn/zk", "output directory for circuit keys")
+	only := flag.String("only", "", "comma-separated subset to (re)generate, e.g. addrthreshold,eligibility; empty = all. Use this to add the RWA circuits WITHOUT regenerating already-pinned/deployed keys.")
 	flag.Parse()
 
 	log.SetPrefix("zk-setup: ")
 	log.SetFlags(log.Ltime)
 
-	circuits := []zkproof.CircuitID{
+	all := []zkproof.CircuitID{
 		zkproof.CircuitCommitment,
 		zkproof.CircuitThreshold,
 		zkproof.CircuitVASP,
 		zkproof.CircuitChain,
+		zkproof.CircuitAddrThreshold, // RWA Tier 1 (address-bound attribute)
+		zkproof.CircuitEligibility,   // RWA Tier 2 (issuer-bound eligibility)
 	}
+
+	var circuits []zkproof.CircuitID
+	if strings.TrimSpace(*only) == "" {
+		circuits = all
+	} else {
+		want := map[string]bool{}
+		for _, s := range strings.Split(*only, ",") {
+			want[strings.TrimSpace(s)] = true
+		}
+		for _, id := range all {
+			if want[string(id)] {
+				circuits = append(circuits, id)
+			}
+		}
+		if len(circuits) == 0 {
+			log.Fatalf("no known circuits matched -only=%q (known: commitment,threshold,vasp,chain,addrthreshold,eligibility)", *only)
+		}
+	}
+
 	for _, id := range circuits {
 		t0 := time.Now()
 		art, err := zkproof.Setup(id)

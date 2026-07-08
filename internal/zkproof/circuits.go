@@ -85,6 +85,127 @@ func (c *ThresholdCircuit) Define(api frontend.API) error {
 	return nil
 }
 
+// AddrThresholdCircuit is the Tier-1 (anti-replay) RWA attribute gate: it proves
+// exactly what ThresholdCircuit proves — a committed amount is >= a public
+// threshold, amount hidden — but adds the holder's on-chain address as a PUBLIC
+// input so the proof is non-transferable.
+//
+// Why an appended public input is sufficient: in Groth16 EVERY public input is
+// folded into the verifier's pairing check (vk_x = IC[0] + Σ inputᵢ·ICᵢ), so a
+// proof generated for address A fails verification if a different address B is
+// supplied. The RWA contract passes uint160(msg.sender) as HolderAddr, so a proof
+// lifted from public calldata cannot be replayed by another caller. HolderAddr is
+// range-checked to 160 bits both to guarantee it is materialised in the R1CS and
+// to reject any non-address field element. This tier needs NO issuer — it stops
+// replay but does not bind eligibility to a vetted identity (see EligibilityCircuit).
+//
+// Public-input order (mirrored by the generated Solidity verifier's uint256[3]):
+//
+//	input[0] = Commitment, input[1] = Threshold, input[2] = HolderAddr
+type AddrThresholdCircuit struct {
+	Amount     frontend.Variable `gnark:",secret"`
+	Blinding   frontend.Variable `gnark:",secret"`
+	Commitment frontend.Variable `gnark:",public"`
+	Threshold  frontend.Variable `gnark:",public"`
+	HolderAddr frontend.Variable `gnark:",public"`
+}
+
+func (c *AddrThresholdCircuit) Define(api frontend.API) error {
+	h, err := circuitposeidon2.New(api)
+	if err != nil {
+		return err
+	}
+	h.Write(zkhash.DomainAmount, c.Amount, c.Blinding)
+	api.AssertIsEqual(c.Commitment, h.Sum())
+
+	api.ToBinary(c.Amount, 64)
+	api.ToBinary(c.Threshold, 64)
+	api.AssertIsLessOrEqual(c.Threshold, c.Amount)
+
+	// Bind the caller's address into the constraint system (also enforces it is a
+	// well-formed 160-bit value). The value itself is unconstrained beyond width:
+	// the legitimate holder proves with their own address, the contract verifies
+	// with msg.sender, and any mismatch fails the pairing check → no replay.
+	api.ToBinary(c.HolderAddr, 160)
+	return nil
+}
+
+// EligibilityCircuit is the Tier-2 (production) RWA eligibility gate. It closes
+// the replay boundary AND ties eligibility to a vetted identity: a holder becomes
+// eligible only if a TRUSTED ISSUER has signed an attestation over THIS holder's
+// address, and the holder proves an attribute predicate (amount >= threshold,
+// amount hidden). No PII is revealed — only the address (which the contract
+// already knows as msg.sender), the policy threshold, and the issuer's public key.
+//
+// The circuit enforces, in zero knowledge:
+//  1. commitment = Poseidon2(DomainAmount, Amount, Blinding)  (amount hidden);
+//  2. Amount >= Threshold, both range-checked to 64 bits;
+//  3. HolderAddr is a 160-bit value (bound into the R1CS);
+//  4. the issuer's Baby Jubjub EdDSA signature verifies IN-CIRCUIT over the
+//     message m = Poseidon2(DomainHolder, HolderAddr, commitment), under the
+//     public issuer key (IssuerX, IssuerY).
+//
+// (4) is what makes eligibility non-transferable and issuer-gated: only the
+// trusted issuer can produce a signature over a given address, and the signed
+// message is bound to the holder's address, so neither the holder nor an observer
+// can move the eligibility to a different address. Same in-circuit EdDSA machinery
+// as ChainCircuit (F1). The issuer key is PUBLIC so the RWA token pins its trusted
+// claim issuer on-chain (the ERC-3643 "trusted issuer" analogue).
+//
+// Public-input order (mirrored by the generated Solidity verifier's uint256[4]):
+//
+//	input[0] = HolderAddr, input[1] = Threshold, input[2] = IssuerX, input[3] = IssuerY
+type EligibilityCircuit struct {
+	HolderAddr frontend.Variable `gnark:",public"`
+	Threshold  frontend.Variable `gnark:",public"`
+	IssuerX    frontend.Variable `gnark:",public"`
+	IssuerY    frontend.Variable `gnark:",public"`
+
+	Amount   frontend.Variable `gnark:",secret"`
+	Blinding frontend.Variable `gnark:",secret"`
+	Sig      eddsa.Signature   `gnark:",secret"`
+}
+
+func (c *EligibilityCircuit) Define(api frontend.API) error {
+	// 1) amount commitment (amount stays hidden).
+	hc, err := circuitposeidon2.New(api)
+	if err != nil {
+		return err
+	}
+	hc.Write(zkhash.DomainAmount, c.Amount, c.Blinding)
+	commitment := hc.Sum()
+
+	// 2) attribute predicate: amount >= threshold, both range-checked (CR-4).
+	api.ToBinary(c.Amount, 64)
+	api.ToBinary(c.Threshold, 64)
+	api.AssertIsLessOrEqual(c.Threshold, c.Amount)
+
+	// 3) bind the caller's address into the R1CS (160-bit well-formedness).
+	api.ToBinary(c.HolderAddr, 160)
+
+	// 4) reconstruct the issuer-signed message m = H(DomainHolder, addr, commitment)
+	//    and verify the issuer's EdDSA signature over it, under the PUBLIC issuer key.
+	hm, err := circuitposeidon2.New(api)
+	if err != nil {
+		return err
+	}
+	hm.Write(zkhash.DomainHolder, c.HolderAddr, commitment)
+	msg := hm.Sum()
+
+	curve, err := twistededwards.NewEdCurve(api, tedwards.BN254)
+	if err != nil {
+		return err
+	}
+	mh, err := mimc.NewMiMC(api)
+	if err != nil {
+		return err
+	}
+	var pub eddsa.PublicKey
+	pub.A.X = c.IssuerX
+	pub.A.Y = c.IssuerY
+	return eddsa.Verify(curve, c.Sig, msg, pub, &mh)
+}
+
 // VASPCircuit verifies a Merkle authentication path from a secret leaf to the
 // public registered-VASP root.
 type VASPCircuit struct {

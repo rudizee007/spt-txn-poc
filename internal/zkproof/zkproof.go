@@ -33,10 +33,12 @@ import (
 type CircuitID string
 
 const (
-	CircuitCommitment CircuitID = "commitment"
-	CircuitThreshold  CircuitID = "threshold"
-	CircuitVASP       CircuitID = "vasp"
-	CircuitChain      CircuitID = "chain"
+	CircuitCommitment    CircuitID = "commitment"
+	CircuitThreshold     CircuitID = "threshold"
+	CircuitVASP          CircuitID = "vasp"
+	CircuitChain         CircuitID = "chain"
+	CircuitAddrThreshold CircuitID = "addrthreshold" // RWA Tier 1: attribute + address binding
+	CircuitEligibility   CircuitID = "eligibility"   // RWA Tier 2: issuer-signed identity binding
 )
 
 // ProofBytes is a serialized Groth16 proof, ready for transport (e.g., embedded
@@ -63,6 +65,10 @@ func newCircuit(id CircuitID) (frontend.Circuit, error) {
 		return &VASPCircuit{}, nil
 	case CircuitChain:
 		return &ChainCircuit{}, nil
+	case CircuitAddrThreshold:
+		return &AddrThresholdCircuit{}, nil
+	case CircuitEligibility:
+		return &EligibilityCircuit{}, nil
 	default:
 		return nil, fmt.Errorf("zkproof: unknown circuit %q", id)
 	}
@@ -268,6 +274,79 @@ func (a *Artifacts) ProveVASPMembership(leaf *big.Int, sibs []*big.Int, bits []i
 // verifier independently trusts.
 func (a *Artifacts) VerifyVASPMembership(p ProofBytes, root *big.Int) error {
 	return a.verify(p, &VASPCircuit{Root: root})
+}
+
+// ── RWA Tier 1: address-bound threshold predicate (anti-replay) ──────────────
+
+// ProveAddrThreshold proves the committed amount is >= threshold, exactly like
+// ProveThreshold, but binds the proof to holderAddr (20-byte Ethereum address) as
+// a public input so it cannot be replayed by a different caller. The RWA token
+// verifies with input[2] = uint160(msg.sender).
+func (a *Artifacts) ProveAddrThreshold(amount uint64, blinding []byte, threshold uint64, holderAddr []byte) (proof ProofBytes, commitment *big.Int, err error) {
+	amt := feFromUint64(amount)
+	bl := feFromWide(blinding)
+	commit := hashAmount(amt, bl)
+	proof, err = a.prove(&AddrThresholdCircuit{
+		Amount: bigOf(amt), Blinding: bigOf(bl),
+		Commitment: bigOf(commit),
+		Threshold:  new(big.Int).SetUint64(threshold),
+		HolderAddr: new(big.Int).SetBytes(holderAddr),
+	})
+	return proof, bigOf(commit), err
+}
+
+// VerifyAddrThreshold checks an address-bound threshold proof against the amount
+// commitment, the policy threshold, and the holder address the verifier supplies
+// (the RWA contract supplies msg.sender).
+func (a *Artifacts) VerifyAddrThreshold(p ProofBytes, commitment *big.Int, threshold uint64, holderAddr []byte) error {
+	return a.verify(p, &AddrThresholdCircuit{
+		Commitment: commitment,
+		Threshold:  new(big.Int).SetUint64(threshold),
+		HolderAddr: new(big.Int).SetBytes(holderAddr),
+	})
+}
+
+// ── RWA Tier 2: issuer-bound eligibility predicate ───────────────────────────
+
+// ProveEligibility is the HOLDER side of the Tier-2 gate. Given the issuer's
+// attestation (sig + the amount/blinding behind its commitment) from
+// AttestEligibility, it proves in zero knowledge that a trusted issuer signed an
+// eligibility attestation for THIS holderAddr and that the hidden amount meets the
+// public threshold. issuerPub is the issuer's marshaled Baby Jubjub public key.
+func (a *Artifacts) ProveEligibility(amount uint64, blinding []byte, threshold uint64, holderAddr, issuerPub, sig []byte) (proof ProofBytes, commitment *big.Int, err error) {
+	ix, iy, err := issuerXY(issuerPub)
+	if err != nil {
+		return nil, nil, err
+	}
+	amt := feFromUint64(amount)
+	bl := feFromWide(blinding)
+	commit := hashAmount(amt, bl)
+	var full EligibilityCircuit
+	full.HolderAddr = new(big.Int).SetBytes(holderAddr)
+	full.Threshold = new(big.Int).SetUint64(threshold)
+	full.IssuerX = ix
+	full.IssuerY = iy
+	full.Amount = bigOf(amt)
+	full.Blinding = bigOf(bl)
+	full.Sig.Assign(tedwards.BN254, sig)
+	proof, err = a.prove(&full)
+	return proof, bigOf(commit), err
+}
+
+// VerifyEligibility checks a Tier-2 eligibility proof against the policy
+// threshold, the holder address (msg.sender on-chain), and the trusted issuer's
+// public key — all of which the verifier supplies from its own trusted context.
+func (a *Artifacts) VerifyEligibility(p ProofBytes, threshold uint64, holderAddr, issuerPub []byte) error {
+	ix, iy, err := issuerXY(issuerPub)
+	if err != nil {
+		return err
+	}
+	return a.verify(p, &EligibilityCircuit{
+		HolderAddr: new(big.Int).SetBytes(holderAddr),
+		Threshold:  new(big.Int).SetUint64(threshold),
+		IssuerX:    ix,
+		IssuerY:    iy,
+	})
 }
 
 // ── Delegation-chain predicate (agentic) ─────────────────────────────────────

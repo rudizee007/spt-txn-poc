@@ -60,14 +60,28 @@ token; blockchain-agnostic (XRPL is the primary integration target).
   (`AttestationVerifier` `0xb64e2483…46Ab01`), plus Ethereum and Arbitrum Sepolia
   testnets. `cmd/zk-export-solidity`, `cmd/zk-solcalldata`, `solidity/src/`.
 - **Compliance-gated RWA token (ERC-3643-aligned, ZK)** — a permissioned
-  real-world-asset token (`CompliantRWAToken`) whose transfers succeed **only
-  between holders who proved eligibility in zero knowledge** — no PII on-chain, just
-  a boolean set by a verified proof. Demonstrated end-to-end on **Ethereum Sepolia**:
-  token `0xa382aEb2…F06687`, threshold verifier `0xd50D44D1…B6Df6f`; two holders
-  registered via real on-chain proofs, a compliant transfer confirmed, and a transfer
-  to an unproven address **reverted `NotEligible`**. This is the ERC-3643 permissioned
-  model made privacy-preserving. `solidity/src/CompliantRWAToken.sol`,
-  `cmd/rwa-membership-calldata`, `docs/RWA-COMPLIANT-TOKEN-SEPOLIA-RUNBOOK.md`.
+  real-world-asset token whose transfers succeed **only between holders who proved
+  eligibility in zero knowledge** — no PII on-chain, just a boolean set by a verified
+  proof. Demonstrated end-to-end on **Ethereum Sepolia** (`CompliantRWAToken`
+  `0xa382aEb2…F06687`): holders registered via real on-chain proofs, a compliant
+  transfer confirmed, a transfer to an unproven address **reverted `NotEligible`**.
+  The ERC-3643 permissioned model made privacy-preserving.
+  `solidity/src/CompliantRWAToken.sol`, `cmd/rwa-membership-calldata`,
+  `docs/RWA-COMPLIANT-TOKEN-SEPOLIA-RUNBOOK.md`.
+- **Replay-safe, issuer-bound RWA (V2)** — closes the honest boundary of V1: the
+  eligibility proof is now **cryptographically bound to `msg.sender`**, so a valid
+  proof lifted from public calldata **cannot be replayed** by another address. Two
+  tiers: **Tier 1** binds the holder address as a public input (anti-replay); **Tier 2**
+  additionally verifies a **trusted issuer's Baby Jubjub EdDSA signature over the
+  holder's address IN-CIRCUIT** (same machinery as F1), making eligibility
+  non-transferable and issuer-vetted — the ERC-3643 trusted-issuer role, privacy-
+  preserving. Live on **Ethereum Sepolia** (`CompliantRWATokenV2` `0x26a9Ff61…a0cFD`,
+  `Mode.IssuerBound`, eligibility verifier `0xca22c5…2bF5b`): two holders registered
+  via issuer-bound proofs, a compliant transfer confirmed, a **replayed proof rejected
+  `ProofInvalid`**, and a transfer to an unproven address **reverted `NotEligible`**.
+  `solidity/src/CompliantRWATokenV2.sol`, `internal/zkproof` (`AddrThresholdCircuit`,
+  `EligibilityCircuit`), `cmd/rwa-register-calldata`,
+  `docs/RWA-MSGSENDER-BINDING-RUNBOOK.md`.
 - **Agentic authorization (POC-tested) + ZK chain proof** — multi-hop CT→CT
   delegation, an offline N-hop verifier, a granular revocation cascade, and a
   Groth16 `ChainCircuit` that proves a delegation chain valid (attenuation, depth,

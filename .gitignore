@@ -130,3 +130,10 @@ docs/SPT-Txn-COSAiS-Agentic-Overlay-Contribution.md
 solidity/*.bin
 solidity/package.json
 solidity/package-lock.json
+
+# RWA issuer signing key (Tier 2) — secret, never commit
+zk/rwa-issuer.key
+# solc / npm build artifacts
+solidity/*.bin
+solidity/package.json
+solidity/package-lock.json

@@ -22,7 +22,7 @@ import (
 )
 
 func main() {
-	circuit := flag.String("circuit", "threshold", "circuit: commitment | threshold | vasp")
+	circuit := flag.String("circuit", "threshold", "circuit: commitment | threshold | vasp | addrthreshold | eligibility")
 	dir := flag.String("dir", "/var/spt-txn/zk", "directory holding the pinned setup keys (from zk-setup)")
 	out := flag.String("o", "solidity/src/Groth16Verifier.sol", "output Solidity file")
 	flag.Parse()

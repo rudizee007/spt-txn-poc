@@ -1444,10 +1444,10 @@
     <div class="milestone">
       <div class="ms-id" style="font-size:0.72rem;">RWA</div>
       <div class="ms-body">
-        <strong>Compliance-gated RWA token</strong> — an ERC-3643-aligned permissioned token whose transfers succeed <strong>only between holders who proved eligibility in zero knowledge</strong> (no PII on-chain). On Ethereum Sepolia: two holders registered via real on-chain proofs, a compliant transfer confirmed, and a transfer to an unproven address <strong>reverted <code>NotEligible</code></strong><br>
-        <a href="https://sepolia.etherscan.io/address/0xa382aEb2DFA493F7Abd887C011C3051874F06687" target="_blank" style="font-family:'Space Mono',monospace;font-size:0.72rem;color:var(--violet-l);">token 0xa382aE…F06687 ↗</a>
+        <strong>Compliance-gated RWA token — replay-safe, issuer-bound</strong> — an ERC-3643-aligned permissioned token whose transfers succeed <strong>only between holders who proved eligibility in zero knowledge</strong> (no PII on-chain). V2 binds the proof to <code>msg.sender</code> and verifies a <strong>trusted issuer's EdDSA signature over the holder's address in-circuit</strong>, so a proof cannot be replayed by another address. On Ethereum Sepolia: two holders registered via issuer-bound proofs, a compliant transfer confirmed, a <strong>replayed proof rejected <code>ProofInvalid</code></strong>, and a transfer to an unproven address <strong>reverted <code>NotEligible</code></strong><br>
+        <a href="https://sepolia.etherscan.io/address/0x26a9Ff61203C36412BBcDFaE6863fF97Cb9a0cFD" target="_blank" style="font-family:'Space Mono',monospace;font-size:0.72rem;color:var(--violet-l);">tokenV2 0x26a9Ff…a0cFD ↗</a>
         &nbsp;·&nbsp;
-        <a href="https://sepolia.etherscan.io/tx/0x766721d6939e4fd688a8e871ee36f20e9eb193560faa9c398add195a71eec11d" target="_blank" style="font-family:'Space Mono',monospace;font-size:0.72rem;color:var(--violet-l);">compliant transfer tx ↗</a>
+        <a href="https://sepolia.etherscan.io/tx/0xd5c32bc0df17999326bf0944e5cf8ab199fd2ca58ccf019254d064af7bc2eba0" target="_blank" style="font-family:'Space Mono',monospace;font-size:0.72rem;color:var(--violet-l);">compliant transfer tx ↗</a>
       </div>
     </div>
     <div class="milestone">

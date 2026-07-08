@@ -45,6 +45,7 @@ const (
 	DomainAmount     uint64 = 2 // amount commitment:    H(tag, amount, blinding)
 	DomainMerkleNode uint64 = 3 // VASP/issuer Merkle inner node: H(tag, left, right)
 	DomainIssuer     uint64 = 4 // CT-issuer registry leaf: H(tag, pubkeyX, pubkeyY)
+	DomainHolder     uint64 = 5 // RWA eligibility binding: H(tag, holderAddr, commitment)
 )
 
 // FeFromBytes reduces arbitrary bytes to a field element (big-endian mod r).
@@ -144,6 +145,17 @@ func HashAmount(amount, blinding fr.Element) fr.Element {
 // HashNode computes a VASP Merkle inner node H(DomainMerkleNode, left, right).
 func HashNode(left, right fr.Element) fr.Element {
 	return hashWithDomain(DomainMerkleNode, left, right)
+}
+
+// HashHolder computes the RWA eligibility-binding message the trusted issuer
+// signs: H(DomainHolder, holderAddr, commitment). Binding the holder's on-chain
+// address INTO the signed (and in-circuit reconstructed) message is what makes an
+// eligibility proof non-transferable — a proof minted for one address cannot be
+// replayed by another, because the address is both a public input the contract
+// fills with msg.sender AND part of what the issuer actually signed. The matching
+// in-circuit gadget lives in internal/zkproof/circuits.go (EligibilityCircuit).
+func HashHolder(holderAddr, commitment fr.Element) fr.Element {
+	return hashWithDomain(DomainHolder, holderAddr, commitment)
 }
 
 // Commit is the canonical identity humanAnchor commitment over secret material:
