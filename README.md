@@ -15,7 +15,7 @@ token; blockchain-agnostic (XRPL is the primary integration target).
 
 > **Status: working, security-audited reference implementation** — not a skeleton,
 > and not yet production. Deployed and running on a hardened OpenBSD host with a
-> live two-party Travel Rule demo. Ten chain adapters; attestation-anchor contracts
+> live two-party Travel Rule demo. Twenty chain adapters; attestation-anchor contracts
 > live on four public testnets; an **on-chain ZK verifier** live on two L2s; the
 > agentic delegation layer is **POC-built, tested, and now provable in zero
 > knowledge**. See [`docs/STATUS`](docs/STATUS.md) for the current-state map,
@@ -41,12 +41,14 @@ token; blockchain-agnostic (XRPL is the primary integration target).
   **FAIL=0** (`scripts/security-audit.sh`). See `docs/SECURITY-REVIEW.md`.
 - **Audit log** with hash-chain + signed Merkle roots; **escrow** envelope for
   lawful deanonymization.
-- **EO-14409 ready** — a CycloneDX **Cryptographic Bill of Materials**
-  (`docs/cbom.json`, `docs/CBOM.md`) and a lifetime-triaged hybrid post-quantum
-  migration plan.
+- **Post-quantum-hybrid escrow (implemented)** — the escrow envelope seals
+  identities under a hybrid **X25519 + ML-KEM-768** KEM, closing the
+  harvest-now-decrypt-later gap. Plus **EO-14409 readiness**: a CycloneDX
+  Cryptographic Bill of Materials (`docs/cbom.json`, `docs/CBOM.md`) and a
+  lifetime-triaged PQ migration plan.
 - **Blockchain-agnostic, multi-chain** — one `Ledger` adapter interface binds an
-  authorization to a transaction across **ten chains** (XRPL, Hedera, Solana,
-  Stellar, Starknet, Aptos, Ethereum, XDC, Algorand, Arbitrum), all tested.
+  authorization to a transaction across **twenty chains** — a single EVM adapter
+  serves the EVM L1s and L2s — all tested (see `docs/STATUS.md` for the full list).
   `internal/ledger`. Chains are integration targets, never dependencies.
 - **Live on-chain footprints** — attestation-anchor contracts on Ethereum Sepolia,
   Starknet Sepolia, Aptos testnet, and Arbitrum Sepolia (plus a Solana devnet memo
@@ -61,7 +63,7 @@ token; blockchain-agnostic (XRPL is the primary integration target).
   Groth16 `ChainCircuit` that proves a delegation chain valid (attenuation, depth,
   human-anchor) **without revealing intermediate scopes**, with an opt-in,
   gnark-free verifier seam. `internal/cttoken`, `internal/verifier`,
-  `internal/zkproof`, `cmd/agentdemo`, `cmd/agentsvc`.
+  `internal/zkproof`, `cmd/agentdemo`, `cmd/agentsvc`. Designed to enforce inside an **MCP server** as a policy-enforcement point and across **A2A** hops — restoring the human-origin chain that MCP's own token-passthrough rule otherwise severs.
 - **Scoped-disclosure SDK + schema** — a request → consent → response protocol for
   time-limited, scope-selected selective disclosure (discloses only requested ∩
   consented). `internal/disclosure`, `docs/DISCLOSURE-SCHEMA.md`.
@@ -129,8 +131,7 @@ Honest gaps that remain: **on-chain footprints are testnet** (mainnet anchoring 
 the on-chain ZK verifier on mainnet are the next step); the open append-only
 anchor contracts would want access control or a fee on mainnet; biometric
 uniqueness is a placeholder; the `.zkdid`/`.zkdns` production identity/naming layer
-is an integration (interim works today); hybrid PQ key migration is designed, not
-implemented; and an **independent ZK-circuit + protocol audit** is wanted (the
+is an integration (interim works today); the escrow's post-quantum-hybrid KEM (X25519 + ML-KEM-768) is implemented, while broader PQ migration of TLS and signatures is designed, not yet implemented; and an **independent ZK-circuit + protocol audit** is wanted (the
 Arbitrum Audit Fund can subsidize). See [`docs/STATUS.md`](docs/STATUS.md) and the
 grant docs for the funded plan.
 

@@ -33,6 +33,11 @@ zk/
 # ── Compiled command/client binaries — never commit (embed build paths) ───
 clients/hcs-anchor/hcs-anchor
 clients/hcs-anchor/spt-txn-hcs-anchor
+
+# ── Move / Sui build output — never commit (embeds local build paths) ─────
+sui/attestation_anchor/build/
+sui/*/build/
+move/*/build/
 *.out
 docs/XRPL-GRANT-PROPOSAL.md
 docs/XRPL-GRANT-PROPOSAL.md

@@ -40,8 +40,8 @@ Sui explorer (e.g. suiscan / suivision testnet), or `sui client object <ID>`.
 
 ## Notes
 
-- Anchoring is your action (it spends testnet SUI from a funded address) — the tooling
-  cannot publish contracts or move funds.
+- Anchoring is your action (it spends testnet SUI from a funded address);
+  publishing contracts and moving funds is done by you, never automated.
 - The anchor is open by design (an append-only public log); for a mainnet
   deployment add access control or an anti-spam fee first.
 - Only a 32-byte hash is published — no PII, no token contents.

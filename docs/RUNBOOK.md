@@ -157,7 +157,7 @@ HASH=$(cd ../.. && go run ./cmd/anchor -chain hedera | awk '/context_hash/{print
 Turns the POC from "testnet-only" into "production-touching" with one real,
 permanent anchor. The Solidity is build-once-deploy-many, so this is §3 with a
 mainnet RPC and a **real, funded, dedicated** key. This is YOUR action — the tooling
-cannot deploy contracts or move funds.
+never deploys contracts or moves funds on your behalf.
 
 **Chain choice.** An L2 mainnet keeps fees to roughly cents. Default **Arbitrum
 One** (continuity with the Arbitrum Sepolia work and the Multichain grant); **Base

@@ -18,7 +18,7 @@ authorization offline; the human stays pseudonymous but lawfully recoverable —
 - Big terminal font (18–20pt), dark theme, wide window; clear scrollback.
 - Pre-build so nothing compiles on camera:
   ```
-  cd "~/spt-poc"
+  cd ~/spt-poc
   go build ./...
   (cd clients/xrpl-pay && go build -o xrpl-pay .)
   (cd clients/eth-pay  && go build -o eth-pay .)      # also covers Base — just change -endpoint

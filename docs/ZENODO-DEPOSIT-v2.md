@@ -81,7 +81,7 @@ zero-knowledge proofs, verifiable credentials, FATF Travel Rule, ABAC, TBAC, aut
 ## Regenerate the PDF (only if you edit the .md first)
 
 ```sh
-cd ~/Projects/"SPT-TXN POC"/spt-poc
+cd ~/spt-poc
 pandoc docs/WORKING-PAPER-v2.md -o docs/spt-txn-framework-expanded-v2.pdf \
   --pdf-engine=xelatex --shift-heading-level-by=-1 \
   -V mainfont="DejaVu Serif" -V monofont="DejaVu Sans Mono"
