@@ -59,6 +59,15 @@ token; blockchain-agnostic (XRPL is the primary integration target).
   **on-chain** and anchor only if it checks out — **live on Ethereum mainnet**
   (`AttestationVerifier` `0xb64e2483…46Ab01`), plus Ethereum and Arbitrum Sepolia
   testnets. `cmd/zk-export-solidity`, `cmd/zk-solcalldata`, `solidity/src/`.
+- **Compliance-gated RWA token (ERC-3643-aligned, ZK)** — a permissioned
+  real-world-asset token (`CompliantRWAToken`) whose transfers succeed **only
+  between holders who proved eligibility in zero knowledge** — no PII on-chain, just
+  a boolean set by a verified proof. Demonstrated end-to-end on **Ethereum Sepolia**:
+  token `0xa382aEb2…F06687`, threshold verifier `0xd50D44D1…B6Df6f`; two holders
+  registered via real on-chain proofs, a compliant transfer confirmed, and a transfer
+  to an unproven address **reverted `NotEligible`**. This is the ERC-3643 permissioned
+  model made privacy-preserving. `solidity/src/CompliantRWAToken.sol`,
+  `cmd/rwa-membership-calldata`, `docs/RWA-COMPLIANT-TOKEN-SEPOLIA-RUNBOOK.md`.
 - **Agentic authorization (POC-tested) + ZK chain proof** — multi-hop CT→CT
   delegation, an offline N-hop verifier, a granular revocation cascade, and a
   Groth16 `ChainCircuit` that proves a delegation chain valid (attenuation, depth,

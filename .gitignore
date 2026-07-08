@@ -125,3 +125,8 @@ docs/SPT-Txn-x-etherfi-Deck.pptx
 docs/SPT-Txn-NIST-Agentic-Alignment-OnePager.md
 docs/SPT-Txn-CIMA-Engagement-Note.md
 docs/SPT-Txn-COSAiS-Agentic-Overlay-Contribution.md
+
+# solc / npm build artifacts
+solidity/*.bin
+solidity/package.json
+solidity/package-lock.json
