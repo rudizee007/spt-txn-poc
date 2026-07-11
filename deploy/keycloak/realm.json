@@ -1,0 +1,31 @@
+{
+  "realm": "spt",
+  "enabled": true,
+  "sslRequired": "none",
+  "accessTokenLifespan": 900,
+  "clients": [
+    {
+      "clientId": "spt-agent",
+      "enabled": true,
+      "publicClient": true,
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": true,
+      "protocol": "openid-connect",
+      "redirectUris": ["*"],
+      "webOrigins": ["*"]
+    }
+  ],
+  "users": [
+    {
+      "username": "alice",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Alice",
+      "lastName": "Example",
+      "email": "alice@example.com",
+      "credentials": [
+        { "type": "password", "value": "alice", "temporary": false }
+      ]
+    }
+  ]
+}
