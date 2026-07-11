@@ -30,6 +30,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
 	"log"
@@ -78,6 +79,17 @@ func main() {
 	var opts []oidc.Option
 	if audience != "" {
 		opts = append(opts, oidc.WithAudience(audience))
+	}
+	// TEST-ONLY: some self-hosted IdPs (e.g. a local Janssen/Gluu with a
+	// self-signed cert) can't be reached over verified TLS during a demo.
+	// SPT_IDP_INSECURE_SKIP_VERIFY=true disables cert verification for the
+	// discovery/JWKS fetches. NEVER set this in production.
+	if os.Getenv("SPT_IDP_INSECURE_SKIP_VERIFY") == "true" {
+		log.Printf("WARNING: TLS certificate verification DISABLED (SPT_IDP_INSECURE_SKIP_VERIFY) — demo/testing only, never production")
+		opts = append(opts, oidc.WithHTTPClient(&http.Client{
+			Timeout:   10 * time.Second,
+			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
+		}))
 	}
 	ver, err := oidc.NewVerifier(context.Background(), issuerURL, opts...)
 	if err != nil {

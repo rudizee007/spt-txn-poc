@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SPT-Txn Framework · foss.violetskysecurity.com</title>
-<meta name="description" content="Sovereign Policy Token Transactions — policy-bound, tamper-evident authorization across trust boundaries in agentic and multi-organizational systems.">
+<meta name="description" content="Sovereign Policy Token Transactions — policy-bound, tamper-evident authorization across trust boundaries in agentic and multi-organizational systems. Privacy-preserving, replay-safe compliance-gated RWA (ERC-3643-aligned) and FATF Travel Rule.">
 
 <!-- SEO / discovery -->
 <meta name="keywords" content="SPT-Txn, Sovereign Policy Token Transactions, FATF Travel Rule, FATF Recommendation 16, crypto travel rule, VASP compliance, CASP, MiCA, zero-knowledge proof, privacy-preserving compliance, selective disclosure, agentic payments, AI agent authorization, MCP, Model Context Protocol, A2A, agent delegation, x402, HTTP 402, post-quantum cryptography, ML-KEM, X25519MLKEM768, transaction tokens, OAuth, capability tokens, blockchain-agnostic, decentralized identity, zkDID, zkDNS, Violet Sky Security">
@@ -17,7 +17,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Violet Sky Security · SPT-Txn">
 <meta property="og:title" content="SPT-Txn — Privacy-Preserving FATF Travel Rule & Agentic Authorization Framework">
-<meta property="og:description" content="Open-source, blockchain-agnostic framework for the FATF Travel Rule (Recommendation 16) and accountable AI-agent payments. Zero-knowledge scoped disclosure, human-anchor escrow with lawful recovery, post-quantum hybrid (X25519 + ML-KEM-768) cryptography.">
+<meta property="og:description" content="Open-source, blockchain-agnostic framework for the FATF Travel Rule (Recommendation 16), accountable AI-agent payments, and privacy-preserving compliance-gated RWA (ERC-3643-aligned, replay-safe). Zero-knowledge scoped disclosure, human-anchor escrow with lawful recovery, post-quantum hybrid (X25519 + ML-KEM-768) cryptography.">
 <meta property="og:url" content="https://foss.violetskysecurity.com/">
 <meta property="og:image" content="https://foss.violetskysecurity.com/logo_lion.png">
 
@@ -56,7 +56,7 @@
       "programmingLanguage": "Go",
       "runtimePlatform": "OpenBSD",
       "author": { "@type": "Person", "name": "Rudolf J. Coetzee", "identifier": "https://orcid.org/0009-0009-6557-8843" },
-      "keywords": "FATF Travel Rule, Recommendation 16, VASP compliance, zero-knowledge proof, agentic payments, AI agent authorization, MCP, Model Context Protocol, x402, post-quantum cryptography, ML-KEM, transaction tokens, OAuth, blockchain-agnostic"
+      "keywords": "FATF Travel Rule, Recommendation 16, VASP compliance, zero-knowledge proof, agentic payments, AI agent authorization, MCP, Model Context Protocol, x402, post-quantum cryptography, ML-KEM, transaction tokens, OAuth, blockchain-agnostic, RWA tokenization, real-world assets, ERC-3643, compliance-gated token, privacy-preserving eligibility, permissioned token, trusted claim issuer, OIDC, identity provider integration, OAuth Token Exchange, RFC 8693, Keycloak, Auth0, machine-to-machine, M2M authorization"
     },
     {
       "@type": "ScholarlyArticle",
@@ -827,6 +827,7 @@
     <div class="section-eyebrow">Eight-Step Enforcement Engine</div>
     <h2 class="section-title">Every verification step is cryptographic, not policy-based.</h2>
     <p class="section-body">The enforcement engine operates identically offline. It reads only the token and a locally cached Trust Registry snapshot. No issuer contact, no live registry or chain read in the hot path, no trust-on-first-use. Each step fails closed.</p>
+    <p class="section-body" style="margin-top:1rem;"><strong>Measured, not asserted.</strong> On a modest 2012-era server (Intel Xeon E5-2630, OpenBSD, pure-Go, cgo-free), token verification completes in <strong>~0.35&nbsp;ms</strong> and the cached Trust Registry lookup in <strong>~1.1&nbsp;µs</strong> — the on-chain anchor root syncs <strong>out-of-band</strong> and never enters the transaction path. That is sub-millisecond authorization against multi-second on-chain settlement, on a conservative hardware floor. Post-quantum migration does not change this: the escrow key is hybrid X25519&nbsp;+&nbsp;ML-KEM-768, but token signing stays classical, so hot-path latency and the ~759-byte token are unaffected — the PQ cost lands only on the escrow envelope, off the transaction path.</p>
 
     <div class="engine-steps">
       <div class="step">
@@ -1429,6 +1430,7 @@
     &nbsp;·&nbsp;
     <a href="https://sepolia.etherscan.io/tx/0x57dc3614ccb0fd882ce66d4c060345804ec56c686c1eee131ea68ce62eecd76c" target="_blank" style="font-family:'Space Mono',monospace;font-size:0.72rem;color:var(--violet-l);">verified-anchor tx ↗</a>
     <p class="section-body" style="margin-top:0.8rem; margin-bottom:0; max-width:720px; font-size:0.92rem;">Beyond on-chain proofs, the <strong>agentic delegation chain is itself provable in zero-knowledge</strong>: a Groth16 proof that every hidden hop carries a <strong>registered issuer's signature over its scope</strong>, verified in-circuit (Baby Jubjub EdDSA), so an AI agent proves its authority chain is valid without revealing the intermediate scopes.</p>
+    <p class="section-body" style="margin-top:0.8rem; margin-bottom:0; max-width:720px; font-size:0.92rem;">The same primitive gates <strong>real-world-asset compliance</strong>: a permissioned, ERC-3643-aligned token whose transfers succeed only between holders who proved eligibility in zero knowledge — <strong>no PII on-chain</strong>. Eligibility is bound to the holder's address and to a <strong>trusted claim issuer's signature verified in-circuit</strong> (the ERC-3643 trusted-issuer role, made privacy-preserving), so <strong>a stolen proof replayed from another address is rejected on-chain (<code>ProofInvalid</code>)</strong> — demonstrated end-to-end on Ethereum Sepolia.</p>
   </div>
 
   <div style="margin-top:1.6rem;">
@@ -1507,7 +1509,7 @@
       </div>
     </div>
   </div>
-  <p class="section-body" style="margin-top:1.4rem; font-size:0.88rem; color:var(--muted); max-width:760px;">Testnet and devnet footprints demonstrate the anchoring mechanism per chain. Mainnet anchoring and chain-native compliance bindings (for example, complementing confidential-transfer standards with the cross-VASP Travel Rule) are per-chain integration work.</p>
+  <p class="section-body" style="margin-top:1.4rem; font-size:0.88rem; color:var(--muted); max-width:760px;">These footprints demonstrate three distinct on-chain capabilities, not one: attestation <strong>anchoring</strong> per chain; <strong>on-chain ZK verification</strong> of a selective-disclosure proof (live on Ethereum mainnet); and <strong>compliance-gated RWA transfers</strong> — a replay-safe, issuer-bound eligibility gate proven end-to-end on Sepolia. Broader mainnet anchoring and chain-native compliance bindings (for example, complementing confidential-transfer standards with the cross-VASP Travel Rule) are per-chain integration work.</p>
 </div>
   </div>
 </section>
@@ -1549,6 +1551,11 @@
         </div>
         <div class="tk-meta">Where OAuth's charter &amp; expertise point away</div>
       </div>
+    </div>
+
+    <div style="margin-top:2.4rem; border:1px solid var(--violet-m); border-radius:10px; background:rgba(123,47,190,0.08); padding:1.1rem 1.3rem; max-width:920px;">
+      <div class="section-eyebrow" style="color:var(--violet-l);">Live · identity-provider integration</div>
+      <p class="section-body" style="margin-top:0.5rem; margin-bottom:0;">Reuse is not theoretical. An existing identity provider issues SPT-Txn credentials over standard <strong>OAuth 2.0 Token Exchange (RFC 8693)</strong> — no rip-and-replace. Demonstrated end-to-end against both <strong>Keycloak</strong> (open-source) and <strong>Auth0</strong> (commercial), differing only by one configuration value: an IdP-authenticated identity (including a machine / M2M client identity) is exchanged into a human-anchored capability that then <strong>verifies offline</strong> — with no identity-provider contact — and delegates to an AI agent with attenuating, revocable authority. The same OIDC + Token-Exchange flow targets Okta and Ping unchanged. A reference integration (<code>internal/oidc</code>, <code>cmd/idp-bridge</code>), not a proprietary connector.</p>
     </div>
 
     <p class="section-body" style="max-width:820px; margin-top:2.4rem;">SPT-Txn extends the Transaction Tokens line (Tulshibagwale et al., 2023) and is contemporaneous with the 2025–26 agent-context drafts, but is the first to add zero-knowledge selective disclosure, offline capability attenuation, a human anchor, and cross-ledger binding to that line. It does not claim to have originated transaction tokens, agent context, or selective disclosure — it <strong>extends an established line of work and contributes a specific new layer back as open source.</strong> That is the honest position, and it is security-by-design in practice: peer-reviewed primitives, verifiable claims, no proprietary black boxes.</p>
