@@ -1,10 +1,17 @@
 # Letter of Interest — NCCoE "Software and AI Agent Identity and Authorization"
 
 > **Draft for submission.** Fill the bracketed fields, move onto organization
-> letterhead, and submit in response to the NCCoE call for collaborators
-> accompanying the project description (expected summer 2026). This references
-> the NIST/NCCoE concept paper *Accelerating the Adoption of Software and
-> Artificial Intelligence Agent Identity and Authorization* (Feb 2026).
+> letterhead, and submit. This references the NIST/NCCoE concept paper
+> *Accelerating the Adoption of Software and Artificial Intelligence Agent
+> Identity and Authorization* (published 5 February 2026; public comment closed
+> 2 April 2026, drawing responses from 600+ organizations). As of July 2026 the
+> NCCoE has stated it will develop a **project description** from that input,
+> expected in summer 2026; a formal **call for collaborators** typically
+> accompanies it and has not yet been issued. This letter is therefore
+> *anticipatory positioning* — an early expression of interest and capability
+> ahead of the call — not a response to an open solicitation. Re-confirm the
+> current project stage on the NCCoE project page before sending, and adjust the
+> closing ask if the call has since opened.
 >
 > **Public-disclosure note:** everything below is drawn only from already-public
 > work (the IETF draft, the SSRN/Zenodo papers, and the public reference
@@ -29,11 +36,14 @@ To the NCCoE Project Team,
 collaborator in the NCCoE project on Software and AI Agent Identity and
 Authorization, as scoped in the February 2026 concept paper *Accelerating the
 Adoption of Software and Artificial Intelligence Agent Identity and
-Authorization*. We believe the constructs we have developed and published
-directly address the four capability areas the concept paper identifies as
-most in need of practical, standards-based demonstration: **identification,
-authorization, auditing and non-repudiation, and mitigation of prompt-injection
-techniques.**
+Authorization*. The concept paper names OAuth 2.0, SPIFFE/SPIRE, and the Model
+Context Protocol (MCP) as the standards and technologies of interest, and
+frames its focus around **identification, authorization, access delegation, and
+logging**, with detailed treatment of **auditing and non-repudiation** and of
+**controls to prevent and mitigate prompt-injection techniques**. Our published
+constructs and public reference implementation are built on precisely that
+stack — OAuth 2.0 Token Exchange, SPIFFE/SPIRE workload identity, and an MCP
+enforcement profile — and address each of those areas directly.
 
 ## Who we are
 
@@ -71,7 +81,18 @@ sealed chain in which each hop can only *narrow* authority, verifiable offline
 with no call home. This is the concept paper's "authorization chain" made
 concrete and machine-checkable.
 
-**Auditing and non-repudiation — as a byproduct of enforcement.** Every
+**Access delegation — accountability preserved from human to agent to tool.**
+The concept paper frames access delegation as linking a user's identity to the
+agents acting on their behalf so accountability and oversight are maintained.
+Our root token carries a commitment to the delegating human's identity anchor,
+and that anchor is propagated unchanged into every downstream capability and
+transaction token in the chain. A verifier or auditor can therefore trace any
+individual tool call back to the human who authorized the chain — without the
+intermediate agents ever holding, or being able to widen, that authority.
+Delegation is bounded: the root declares a maximum depth, each hop decrements
+it, and a hop at depth zero is refused.
+
+**Logging, auditing, and non-repudiation — as a byproduct of enforcement.** Every
 authorization decision emits a signed Transaction Receipt at the moment of
 decision, appended to an append-only Merkle transparency log with
 externally-witnessed signed tree heads (Certificate-Transparency lineage). An
