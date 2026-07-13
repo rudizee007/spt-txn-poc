@@ -46,14 +46,33 @@ import (
 const grantTokenExchange = "urn:ietf:params:oauth:grant-type:token-exchange"
 const catTokenType = "urn:violetsky:token-type:spt-cat"
 
+// Fail-closed bounds (mirror cmd/workload-bridge). A caller cannot request an
+// unbounded delegation chain, and a CAT can never outlive the IdP proof it was
+// minted on. Requested scope is an advisory ceiling; per-principal entitlement
+// is enforced downstream at the PEP/policy layer, not by the exchange.
+const (
+	maxDelegationDepth = 8
+	defaultCATTTL      = 24 * time.Hour
+	maxCATTTL          = 24 * time.Hour
+)
+
 func main() {
 	addr := envOr("SPT_IDP_ADDR", "127.0.0.1:8090")
 	issuerURL := envOr("SPT_IDP_OIDC_ISSUER", "http://localhost:8080/realms/spt")
-	audience := os.Getenv("SPT_IDP_AUDIENCE") // optional; SET IN PRODUCTION
+	audience := os.Getenv("SPT_IDP_AUDIENCE")
 	catIssuer := envOr("SPT_IDP_CAT_ISSUER", "domain-a.authorg")
 
 	log.SetPrefix("idp-bridge: ")
 	log.SetFlags(log.Ltime)
+
+	// Fail closed on audience — no bypass. Without an audience bound, a subject
+	// token minted for ANY other relying party in the same issuer could be
+	// replayed at this endpoint and exchanged for a delegable root CAT
+	// (authority inflation). The fix for a demo is one env var, so there is no
+	// opt-out: the endpoint will not start without it.
+	if audience == "" {
+		log.Fatal("SPT_IDP_AUDIENCE is required so subject tokens are bound to this endpoint (defeats cross-service replay). Set it to this exchange endpoint's audience identifier.")
+	}
 
 	// CAT signing key: load a pinned seed (hex, 32 bytes) or generate one.
 	var priv ed25519.PrivateKey
@@ -75,11 +94,9 @@ func main() {
 	pub := priv.Public().(ed25519.PublicKey)
 	log.Printf("CAT issuer %q public key: %s", catIssuer, hex.EncodeToString(pub))
 
-	// OIDC verifier — discovery + JWKS against the identity provider.
-	var opts []oidc.Option
-	if audience != "" {
-		opts = append(opts, oidc.WithAudience(audience))
-	}
+	// OIDC verifier — discovery + JWKS against the identity provider. Audience
+	// is guaranteed non-empty by the fail-closed check above.
+	opts := []oidc.Option{oidc.WithAudience(audience)}
 	// TEST-ONLY: some self-hosted IdPs (e.g. a local Janssen/Gluu with a
 	// self-signed cert) can't be reached over verified TLS during a demo.
 	// SPT_IDP_INSECURE_SKIP_VERIFY=true disables cert verification for the
@@ -166,12 +183,26 @@ func handleExchange(ver *oidc.Verifier, priv ed25519.PrivateKey, catIssuer strin
 		}
 
 		depth := 3
-		if d, err := strconv.Atoi(p["delegation_depth_max"]); err == nil && d >= 0 {
+		if d, err := strconv.Atoi(p["delegation_depth_max"]); err == nil && d >= 1 {
 			depth = d
 		}
-		ttl := 24 * time.Hour
+		if depth > maxDelegationDepth {
+			depth = maxDelegationDepth
+		}
+
+		// TTL is capped and then clamped down to the IdP proof's remaining life,
+		// so the CAT can never outlive the token it was minted on.
+		ttl := defaultCATTTL
 		if h, err := strconv.Atoi(p["ttl_hours"]); err == nil && h > 0 {
 			ttl = time.Duration(h) * time.Hour
+		}
+		if ttl > maxCATTTL {
+			ttl = maxCATTTL
+		}
+		if exp, ok := claimExp(claims); ok {
+			if rem := time.Until(exp); rem > 0 && rem < ttl {
+				ttl = rem
+			}
 		}
 
 		cat, err := cattoken.Issue(cattoken.IssueRequest{
@@ -198,6 +229,18 @@ func handleExchange(ver *oidc.Verifier, priv ed25519.PrivateKey, catIssuer strin
 			"human_anchor":      cat.HumanAnchor.String(),
 		})
 	}
+}
+
+// claimExp reads the subject token's exp claim (epoch seconds) across the
+// numeric encodings JSON decoding may yield.
+func claimExp(c oidc.Claims) (time.Time, bool) {
+	switch n := c["exp"].(type) {
+	case float64:
+		return time.Unix(int64(n), 0), true
+	case int64:
+		return time.Unix(n, 0), true
+	}
+	return time.Time{}, false
 }
 
 // parseParams accepts either form-encoded (RFC 8693 canonical) or a JSON body.

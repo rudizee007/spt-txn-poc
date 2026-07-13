@@ -218,7 +218,13 @@ func (v *Verifier) Verify(ctx context.Context, token string) (Claims, error) {
 		return nil, fmt.Errorf("oidc: issuer %q != expected %q", iss, v.issuer)
 	}
 	now := time.Now()
-	if exp, ok := numTime(claims["exp"]); ok && now.After(exp.Add(v.leeway)) {
+	// exp is REQUIRED: a token with no expiry would never age out. Reject it
+	// rather than treat a missing exp as "never expires" (fail closed).
+	exp, hasExp := numTime(claims["exp"])
+	if !hasExp {
+		return nil, errors.New("oidc: token missing required exp")
+	}
+	if now.After(exp.Add(v.leeway)) {
 		return nil, errors.New("oidc: token expired")
 	}
 	if nbf, ok := numTime(claims["nbf"]); ok && now.Add(v.leeway).Before(nbf) {

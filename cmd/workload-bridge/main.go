@@ -56,6 +56,12 @@ import (
 const grantTokenExchange = "urn:ietf:params:oauth:grant-type:token-exchange"
 const catTokenType = "urn:violetsky:token-type:spt-cat"
 
+// maxDelegationDepth bounds the delegation fan-out a single exchange may request
+// (fail-closed: a caller can never request an unbounded chain). The attestation
+// proves identity, not entitlement; requested scope is an advisory ceiling and
+// per-principal entitlement is enforced downstream at the PEP/policy layer.
+const maxDelegationDepth = 8
+
 func main() {
 	addr := envOr("SPT_WL_ADDR", "127.0.0.1:8091")
 	catIssuer := envOr("SPT_WL_CAT_ISSUER", "domain-a.authorg")
@@ -191,6 +197,9 @@ func (h *handler) exchange(w http.ResponseWriter, r *http.Request) {
 	depth := 3
 	if d, err := strconv.Atoi(p["delegation_depth_max"]); err == nil && d >= 1 {
 		depth = d
+	}
+	if depth > maxDelegationDepth {
+		depth = maxDelegationDepth
 	}
 
 	// CAT lifetime bounded by the attestation lifetime (spec §4). Default 15

@@ -130,6 +130,18 @@ Fail-closed: any verification, audience, temporal, freshness, or scope failure
 returns an OAuth error and issues **no** token. The workload's raw assertion is
 never logged or forwarded (only its evidence digest is retained).
 
+**Division of labor for the `intersection(requested, permitted)` above.** The
+attestation establishes *identity*, never *entitlement*. The reference bridges
+therefore enforce the bounds they can enforce without a policy source: a
+**hard cap on `delegation_depth_max`** (a caller can never request an unbounded
+delegation fan-out) and a CAT lifetime clamped so it never outlives the proof.
+The requested `scope` is carried as an **advisory ceiling**; the authoritative
+`intersection` against a per-principal *permitted* entitlement is performed
+**downstream at the PEP/policy layer** (jurisdictional TBAC), which is where the
+`permitted` set lives — not in the public reference issuer. An operator who
+exposes a bridge without a PEP in front is relying on the ceiling alone and
+MUST configure one; the bridge does not invent entitlement it cannot prove.
+
 ## 7. Non-goals
 
 - Issuing workload identity (that is SPIFFE/cloud IdP; we consume it).
