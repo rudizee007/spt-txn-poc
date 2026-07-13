@@ -130,17 +130,24 @@ Fail-closed: any verification, audience, temporal, freshness, or scope failure
 returns an OAuth error and issues **no** token. The workload's raw assertion is
 never logged or forwarded (only its evidence digest is retained).
 
-**Division of labor for the `intersection(requested, permitted)` above.** The
-attestation establishes *identity*, never *entitlement*. The reference bridges
-therefore enforce the bounds they can enforce without a policy source: a
-**hard cap on `delegation_depth_max`** (a caller can never request an unbounded
-delegation fan-out) and a CAT lifetime clamped so it never outlives the proof.
-The requested `scope` is carried as an **advisory ceiling**; the authoritative
-`intersection` against a per-principal *permitted* entitlement is performed
-**downstream at the PEP/policy layer** (jurisdictional TBAC), which is where the
-`permitted` set lives — not in the public reference issuer. An operator who
-exposes a bridge without a PEP in front is relying on the ceiling alone and
-MUST configure one; the bridge does not invent entitlement it cannot prove.
+**Where the `intersection(requested, permitted)` above is performed.** Per the
+working papers the *issuer* grants `intersection(requested, permitted)` at mint
+time, and the enforcement point independently re-checks the full chain
+intersection at execution — defense in depth, not alternatives. The reference
+bridges perform the issuer side directly: a policy-permitted ceiling is REQUIRED
+at startup (`SPT_WL_PERMITTED_SCOPE` / `SPT_IDP_PERMITTED_SCOPE`; the issuer
+fails closed and will not run without one, so no authority is granted by
+omission), and every issued CAT's scope is `tbac.Intersect(permitted,
+requested)` — the greatest lower bound of the two.
+Because a root token has no ancestor to inherit a dropped ceiling from, the
+result asserts every permitted dimension: a request may narrow a ceiling but
+cannot drop it, a request above a numeric ceiling is clamped down, and a request
+for a value or a dimension the policy does not permit is rejected. Delegation
+depth is likewise bounded and the CAT lifetime is clamped to the attestation. A
+richer *per-principal* entitlement ceiling — a different permitted scope per
+attested subject — is a jurisdictional-TBAC (policy-pack) concern layered above
+this single-ceiling mechanism. The PEP still re-checks the whole chain at
+execution.
 
 ## 7. Non-goals
 

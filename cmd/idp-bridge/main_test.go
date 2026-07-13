@@ -34,6 +34,7 @@ import (
 
 	"github.com/rudizee007/spt-txn-poc/internal/cattoken"
 	"github.com/rudizee007/spt-txn-poc/internal/oidc"
+	"github.com/rudizee007/spt-txn-poc/internal/tbac"
 )
 
 const testCATAudience = "spt-agents"
@@ -97,8 +98,9 @@ func newIDPEnv(t *testing.T) idpEnv {
 	catPub, catPriv, _ := ed25519.GenerateKey(rand.Reader)
 	holderPub, _, _ := ed25519.GenerateKey(rand.Reader)
 
+	permitted := tbac.Scope{"action": "transfer", "max_amount": float64(10000), "currency": "USD"}
 	return idpEnv{
-		handler:   handleExchange(ver, catPriv, "domain-a.authorg"),
+		handler:   handleExchange(ver, catPriv, "domain-a.authorg", permitted),
 		issuer:    srv.URL,
 		rsaPriv:   rsaPriv,
 		kid:       kid,
@@ -199,33 +201,42 @@ func TestIDPExchange_ScopePrecedence(t *testing.T) {
 	e := newIDPEnv(t)
 
 	t.Run("request_scope_wins", func(t *testing.T) {
-		p := e.validParams(e.token(map[string]any{"spt_scope": map[string]any{"action": "wire"}}))
-		p["scope"] = `{"action":"read"}`
+		// Request narrows max_amount to 100; the spt_scope claim asks for 5000.
+		// The request takes precedence and both are within the 10000 ceiling.
+		p := e.validParams(e.token(map[string]any{"spt_scope": map[string]any{"max_amount": float64(5000)}}))
+		p["scope"] = `{"max_amount":100}`
 		rr := e.post(p)
 		if rr.Code != http.StatusOK {
 			t.Fatalf("status %d (%s)", rr.Code, rr.Body.String())
 		}
 		claims, _ := cattoken.Verify(body(t, rr)["access_token"].(string), e.catPub)
-		if cs := claims["capability_scope"].(map[string]any); cs["action"] != "read" {
+		if cs := claims["capability_scope"].(map[string]any); cs["max_amount"] != float64(100) {
 			t.Fatalf("request scope did not win: %v", cs)
 		}
 	})
 
 	t.Run("spt_scope_claim_fallback", func(t *testing.T) {
-		p := e.validParams(e.token(map[string]any{"spt_scope": map[string]any{"action": "wire"}}))
+		p := e.validParams(e.token(map[string]any{"spt_scope": map[string]any{"max_amount": float64(2000)}}))
 		rr := e.post(p)
 		claims, _ := cattoken.Verify(body(t, rr)["access_token"].(string), e.catPub)
-		if cs := claims["capability_scope"].(map[string]any); cs["action"] != "wire" {
+		if cs := claims["capability_scope"].(map[string]any); cs["max_amount"] != float64(2000) {
 			t.Fatalf("spt_scope claim not used: %v", cs)
 		}
 	})
 
 	t.Run("conservative_default", func(t *testing.T) {
+		// No request and no spt_scope: the grant is exactly the permitted ceiling.
 		rr := e.post(e.validParams(e.token(nil)))
 		claims, _ := cattoken.Verify(body(t, rr)["access_token"].(string), e.catPub)
 		if cs := claims["capability_scope"].(map[string]any); cs["action"] != "transfer" {
-			t.Fatalf("default scope not applied: %v", cs)
+			t.Fatalf("default (ceiling) scope not applied: %v", cs)
 		}
+	})
+
+	t.Run("request_exceeding_ceiling_denied", func(t *testing.T) {
+		p := e.validParams(e.token(nil))
+		p["scope"] = `{"action":"wire"}` // outside the permitted action
+		assertDenied(t, e.post(p), http.StatusForbidden)
 	})
 }
 

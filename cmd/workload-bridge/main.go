@@ -51,6 +51,7 @@ import (
 
 	"github.com/rudizee007/spt-txn-poc/internal/attest"
 	"github.com/rudizee007/spt-txn-poc/internal/cattoken"
+	"github.com/rudizee007/spt-txn-poc/internal/tbac"
 )
 
 const grantTokenExchange = "urn:ietf:params:oauth:grant-type:token-exchange"
@@ -58,8 +59,9 @@ const catTokenType = "urn:violetsky:token-type:spt-cat"
 
 // maxDelegationDepth bounds the delegation fan-out a single exchange may request
 // (fail-closed: a caller can never request an unbounded chain). The attestation
-// proves identity, not entitlement; requested scope is an advisory ceiling and
-// per-principal entitlement is enforced downstream at the PEP/policy layer.
+// proves identity, not entitlement; scope entitlement is decided here by the
+// issuer as intersect(requested, permitted) and independently re-checked on the
+// full chain by the PEP at execution.
 const maxDelegationDepth = 8
 
 func main() {
@@ -119,6 +121,7 @@ func main() {
 	h := &handler{
 		ks: ks, x509: x509Bundle, priv: priv, catIssuer: catIssuer,
 		expectedIssuer: expectedIssuer, audience: audience,
+		permitted: loadPermittedScope("SPT_WL_PERMITTED_SCOPE"),
 	}
 
 	mux := http.NewServeMux()
@@ -142,6 +145,7 @@ type handler struct {
 	catIssuer      string
 	expectedIssuer string
 	audience       string
+	permitted      tbac.Scope
 }
 
 func (h *handler) exchange(w http.ResponseWriter, r *http.Request) {
@@ -190,9 +194,22 @@ func (h *handler) exchange(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	scope := parseScope(p["scope"])
-	if scope == nil {
-		scope = map[string]any{"action": "transfer", "max_amount": 10000, "currency": "USD"}
+	// Issuer-side scope decision (spec §Attested-Issuance, draft §3): the issuer
+	// grants intersect(requested, permitted). An omitted request yields the full
+	// permitted ceiling; a request is narrowed to it and can never widen it. The
+	// PEP re-checks the chain at execution — this is defense in depth, not a
+	// substitute for it.
+	var scope tbac.Scope
+	if requested := parseScope(p["scope"]); requested == nil {
+		scope = h.permitted
+	} else {
+		g, err := tbac.Intersect(h.permitted, tbac.Scope(requested))
+		if err != nil {
+			log.Printf("scope rejected: %v", err)
+			oauthErr(w, http.StatusForbidden, "invalid_scope", "requested scope exceeds the policy-permitted ceiling")
+			return
+		}
+		scope = g
 	}
 	depth := 3
 	if d, err := strconv.Atoi(p["delegation_depth_max"]); err == nil && d >= 1 {
@@ -388,4 +405,24 @@ func envOr(k, d string) string {
 		return v
 	}
 	return d
+}
+
+// loadPermittedScope reads the policy-permitted scope ceiling this issuer will
+// grant, from env as a JSON object. It is REQUIRED and fails closed at startup:
+// the issuer will not run without an explicit ceiling, so no authority is ever
+// granted by omission (a default ceiling would silently hand out real authority
+// on an unconfigured deployment). A malformed value likewise refuses to start.
+// Per-principal entitlement policy — a different ceiling per attested subject —
+// is a jurisdictional-TBAC (policy-pack) concern layered above this.
+func loadPermittedScope(env string) tbac.Scope {
+	raw := os.Getenv(env)
+	if raw == "" {
+		log.Fatalf("%s is required: the issuer must be told the policy-permitted scope ceiling it may grant (a JSON object). It will not start without one, so no authority is granted by omission.", env)
+	}
+	var m map[string]any
+	if err := json.Unmarshal([]byte(raw), &m); err != nil || len(m) == 0 {
+		log.Fatalf("%s must be a non-empty JSON object: %v", env, err)
+	}
+	log.Printf("permitted scope ceiling loaded from %s", env)
+	return tbac.Scope(m)
 }

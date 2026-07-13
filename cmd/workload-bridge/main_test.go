@@ -36,6 +36,7 @@ import (
 
 	"github.com/rudizee007/spt-txn-poc/internal/attest"
 	"github.com/rudizee007/spt-txn-poc/internal/cattoken"
+	"github.com/rudizee007/spt-txn-poc/internal/tbac"
 )
 
 const (
@@ -104,6 +105,7 @@ func newEnv(t *testing.T) env {
 		catIssuer:      "domain-a.authorg",
 		expectedIssuer: testIssuer,
 		audience:       testAudience,
+		permitted:      tbac.Scope{"action": "transfer", "max_amount": float64(10000), "currency": "USD"},
 	}
 	return env{h: h, kid: kid, svidPriv: svidPriv, catPub: catPub, holderHex: hex.EncodeToString(holderPub)}
 }
@@ -242,23 +244,67 @@ func TestExchange_CATNeverOutlivesAttestation(t *testing.T) {
 	}
 }
 
-func TestExchange_ScopeIsCeiling(t *testing.T) {
+// A request narrows within the permitted ceiling: max_amount 50 < 10000 is
+// honored, and the dimensions the request omits (action, currency) are carried
+// from the ceiling — the root must not drop them.
+func TestExchange_RequestNarrowsWithinCeiling(t *testing.T) {
 	e := newEnv(t)
 	now := time.Now()
 	svid := e.spiffeSVID(spiffeSubject, []string{testAudience}, now, now.Add(time.Hour), e.svidPriv)
 	p := e.validParams(svid)
-	p["scope"] = `{"action":"read","max_amount":50}`
+	p["scope"] = `{"max_amount":50}`
 
 	rr := e.post(p)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("status = %d (%s)", rr.Code, rr.Body.String())
 	}
-	access := decodeBody(t, rr)["access_token"].(string)
-	claims, _ := cattoken.Verify(access, e.catPub)
+	claims, _ := cattoken.Verify(decodeBody(t, rr)["access_token"].(string), e.catPub)
 	cs := claims["capability_scope"].(map[string]any)
-	if cs["action"] != "read" || cs["max_amount"] != float64(50) {
-		t.Fatalf("requested scope not honored as ceiling: %v", cs)
+	if cs["max_amount"] != float64(50) {
+		t.Fatalf("max_amount not narrowed to request: %v", cs["max_amount"])
 	}
+	if cs["action"] != "transfer" || cs["currency"] != "USD" {
+		t.Fatalf("root dropped a permitted ceiling dimension: %v", cs)
+	}
+}
+
+// A request above a numeric ceiling is clamped down, never honored.
+func TestExchange_RequestAboveCeilingClamped(t *testing.T) {
+	e := newEnv(t)
+	now := time.Now()
+	svid := e.spiffeSVID(spiffeSubject, []string{testAudience}, now, now.Add(time.Hour), e.svidPriv)
+	p := e.validParams(svid)
+	p["scope"] = `{"max_amount":1000000000}`
+
+	rr := e.post(p)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d (%s)", rr.Code, rr.Body.String())
+	}
+	claims, _ := cattoken.Verify(decodeBody(t, rr)["access_token"].(string), e.catPub)
+	if cs := claims["capability_scope"].(map[string]any); cs["max_amount"] != float64(10000) {
+		t.Fatalf("SECURITY: request above ceiling not clamped: %v", cs["max_amount"])
+	}
+}
+
+// A request for a dimension the policy does not permit, or a conflicting value
+// on an equality dimension, is denied — the issuer will not grant unheld
+// authority.
+func TestExchange_ScopeExceedingPolicyDenied(t *testing.T) {
+	e := newEnv(t)
+	now := time.Now()
+	svid := e.spiffeSVID(spiffeSubject, []string{testAudience}, now, now.Add(time.Hour), e.svidPriv)
+
+	t.Run("unpermitted_dimension", func(t *testing.T) {
+		p := e.validParams(svid)
+		p["scope"] = `{"admin":true}`
+		assertDenied(t, e.post(p), http.StatusForbidden)
+	})
+
+	t.Run("conflicting_action", func(t *testing.T) {
+		p := e.validParams(svid)
+		p["scope"] = `{"action":"wire"}`
+		assertDenied(t, e.post(p), http.StatusForbidden)
+	})
 }
 
 func TestExchange_K8s_Success(t *testing.T) {

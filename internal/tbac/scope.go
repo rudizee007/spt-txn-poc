@@ -82,6 +82,120 @@ func Attenuate(parent, request Scope) (Scope, error) {
 	return out, nil
 }
 
+// Intersect computes the greatest-lower-bound scope for ROOT issuance: the
+// authority granted by an issuer is bounded by BOTH the policy-permitted ceiling
+// and the caller's requested scope. Unlike per-hop delegation, a root token has
+// no ancestor to inherit a dropped ceiling from, so the result asserts EVERY
+// dimension the permitted ceiling declares — a request cannot silently drop the
+// `max_amount` ceiling and leave the root unbounded. For each dimension:
+//
+//   - present only in permitted: carried as-is (the request did not restrict it);
+//   - present in both: narrowed to the greatest lower bound — numeric to the
+//     lower of the two, string/bool to the common value (a mismatch is an
+//     error), list to the set intersection, object recursively;
+//   - present only in the request: rejected — a request cannot introduce
+//     authority the policy ceiling does not grant.
+//
+// The result is guaranteed contained in permitted: Contains(permitted, result)
+// is nil. A request that exceeds a numeric ceiling is clamped down (the ceiling
+// is a bound, not an instruction); a request that conflicts on an equality
+// dimension (e.g. currency USD vs EUR) is an error and issuance MUST fail.
+func Intersect(permitted, requested Scope) (Scope, error) {
+	out := make(Scope, len(permitted))
+	for dim, pv := range permitted {
+		rv, ok := requested[dim]
+		if !ok {
+			out[dim] = pv // request did not restrict this axis; carry the ceiling
+			continue
+		}
+		gv, err := glb(pv, rv)
+		if err != nil {
+			return nil, fmt.Errorf("scope dimension %q: %w", dim, err)
+		}
+		out[dim] = gv
+	}
+	for dim := range requested {
+		if _, ok := permitted[dim]; !ok {
+			return nil, fmt.Errorf("scope dimension %q not permitted by policy (cannot grant unheld authority)", dim)
+		}
+	}
+	return out, nil
+}
+
+// glb returns the greatest lower bound of a permitted value and a requested
+// value under the same containment order used by Contains.
+func glb(permitted, requested any) (any, error) {
+	// Numbers: the lower of the two ceilings (a request above the ceiling is
+	// clamped down, never honored).
+	if pr, pok := toRat(permitted); pok {
+		rr, rok := toRat(requested)
+		if !rok {
+			return nil, fmt.Errorf("type mismatch: permitted is numeric, requested is %T", requested)
+		}
+		if rr.Cmp(pr) <= 0 {
+			return requested, nil
+		}
+		return permitted, nil
+	}
+	switch p := permitted.(type) {
+	case string:
+		r, ok := requested.(string)
+		if !ok {
+			return nil, fmt.Errorf("type mismatch: permitted is string, requested is %T", requested)
+		}
+		if r != p {
+			return nil, fmt.Errorf("requested %q is not the permitted value %q", r, p)
+		}
+		return p, nil
+	case bool:
+		r, ok := requested.(bool)
+		if !ok {
+			return nil, fmt.Errorf("type mismatch: permitted is bool, requested is %T", requested)
+		}
+		if r != p {
+			return nil, fmt.Errorf("requested %v is not the permitted value %v", r, p)
+		}
+		return p, nil
+	case []any:
+		r, ok := requested.([]any)
+		if !ok {
+			return nil, fmt.Errorf("type mismatch: permitted is list, requested is %T", requested)
+		}
+		return listIntersect(p, r), nil // elements in both; may be empty (maximally narrow)
+	case map[string]any:
+		r, ok := requested.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("type mismatch: permitted is object, requested is %T", requested)
+		}
+		sub, err := Intersect(Scope(p), Scope(r))
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any(sub), nil
+	default:
+		if !reflect.DeepEqual(permitted, requested) {
+			return nil, fmt.Errorf("requested %v is not the permitted value %v", requested, permitted)
+		}
+		return permitted, nil
+	}
+}
+
+// listIntersect returns the elements present in BOTH lists (requested ∩
+// permitted), preserving the request's order. An empty result is a valid,
+// maximally-narrow grant (nothing on that axis is authorized).
+func listIntersect(permitted, requested []any) []any {
+	out := []any{}
+	for _, r := range requested {
+		for _, p := range permitted {
+			if equalValue(p, r) {
+				out = append(out, r)
+				break
+			}
+		}
+	}
+	return out
+}
+
 // TxnScope projects a concrete ledger transaction onto the scope dimensions a
 // capability actually constrains, so containment is checked only where the
 // capability speaks. POC mapping: Amount -> max_amount (numeric ceiling),
