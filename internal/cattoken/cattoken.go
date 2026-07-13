@@ -67,6 +67,20 @@ type IssueRequest struct {
 	// The holder must prove possession of the corresponding private key
 	// when presenting the CAT (holder binding per Section 3.2).
 	HolderPublicKey ed25519.PublicKey
+
+	// Attestation optionally seals a verified attested-workload identity into
+	// the CAT as the signed `spt_attestation` claim (SPT-Txn P4, spec
+	// docs/spec/NHI-ATTESTED-ISSUANCE.md §4). Build it from
+	// attest.Identity.SealClaim(). When present, the CAT's exp MUST NOT exceed
+	// the attestation's sealed exp — Issue enforces this and rejects a request
+	// that would outlive the proof it was minted on. nil for human-issued CATs.
+	Attestation map[string]any
+
+	// Status optionally sets the signed `status` claim binding this CAT to a
+	// Token Status List entry for scalable revocation (docs/spec/STATUS-LIST.md
+	// §4), e.g. {"status_list": {"idx": 42, "uri": "https://…/sl/9"}}. nil
+	// leaves the CAT out of status-list scope (key-cascade + TTL only).
+	Status map[string]any
 }
 
 // CAT is an issued Compliance Attestation Token.
@@ -128,6 +142,19 @@ func Issue(req IssueRequest, signingKey crypto.Signer) (*CAT, error) {
 		"capability_scope":     req.Scope,
 		"delegation_depth_max": req.DelegationDepthMax,
 		"holder_key":           hex.EncodeToString(req.HolderPublicKey),
+	}
+
+	// P4: seal a verified attestation, if supplied. The CAT must not outlive
+	// the attestation it was minted on (spec §4) — reject rather than clamp,
+	// because an over-long request here signals a caller bug, not a default.
+	if req.Attestation != nil {
+		if attExp, ok := numClaim(req.Attestation["exp"]); ok && exp.Unix() > attExp {
+			return nil, fmt.Errorf("CAT exp %d would outlive sealed attestation exp %d", exp.Unix(), attExp)
+		}
+		claims["spt_attestation"] = req.Attestation
+	}
+	if req.Status != nil {
+		claims["status"] = req.Status
 	}
 
 	// ── 3. Build JWT (EdDSA / Ed25519) ───────────────────────────────
@@ -226,6 +253,25 @@ func Verify(tokenStr string, issuerPublicKey ed25519.PublicKey) (map[string]any,
 
 func base64url(b []byte) string {
 	return base64.RawURLEncoding.EncodeToString(b)
+}
+
+// numClaim reads a numeric claim value across the encodings it may arrive in
+// (a Go int64 when built in-process via SealClaim, float64 after a JSON
+// round-trip, or json.Number).
+func numClaim(v any) (int64, bool) {
+	switch n := v.(type) {
+	case int64:
+		return n, true
+	case int:
+		return int64(n), true
+	case float64:
+		return int64(n), true
+	case json.Number:
+		if i, err := n.Int64(); err == nil {
+			return i, true
+		}
+	}
+	return 0, false
 }
 
 func newJTI() (string, error) {

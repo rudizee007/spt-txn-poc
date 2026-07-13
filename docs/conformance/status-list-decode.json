@@ -1,0 +1,162 @@
+{
+ "version": 1,
+ "note": "decode: base64url(lst) -> zlib-inflate -> bit array (MSB-first, bits-wide per entry). status(idx)=value",
+ "vectors": [
+  {
+   "bits": 1,
+   "entries": 128,
+   "lst": "eNrzZUAFAATgAE4",
+   "checks": [
+    {
+     "idx": 0,
+     "status": 0
+    },
+    {
+     "idx": 1,
+     "status": 1
+    },
+    {
+     "idx": 2,
+     "status": 0
+    },
+    {
+     "idx": 3,
+     "status": 0
+    },
+    {
+     "idx": 4,
+     "status": 1
+    },
+    {
+     "idx": 5,
+     "status": 1
+    },
+    {
+     "idx": 6,
+     "status": 0
+    },
+    {
+     "idx": 7,
+     "status": 1
+    }
+   ]
+  },
+  {
+   "bits": 2,
+   "entries": 108,
+   "lst": "eNqTlmbABQAFsgA3",
+   "checks": [
+    {
+     "idx": 0,
+     "status": 0
+    },
+    {
+     "idx": 1,
+     "status": 1
+    },
+    {
+     "idx": 2,
+     "status": 2
+    },
+    {
+     "idx": 3,
+     "status": 3
+    },
+    {
+     "idx": 4,
+     "status": 0
+    },
+    {
+     "idx": 5,
+     "status": 1
+    },
+    {
+     "idx": 6,
+     "status": 2
+    },
+    {
+     "idx": 7,
+     "status": 3
+    }
+   ]
+  },
+  {
+   "bits": 4,
+   "entries": 64,
+   "lst": "eNpjXc-AFwAAFfEAtQ",
+   "checks": [
+    {
+     "idx": 0,
+     "status": 0
+    },
+    {
+     "idx": 1,
+     "status": 5
+    },
+    {
+     "idx": 2,
+     "status": 10
+    },
+    {
+     "idx": 3,
+     "status": 15
+    },
+    {
+     "idx": 4,
+     "status": 0
+    },
+    {
+     "idx": 5,
+     "status": 0
+    },
+    {
+     "idx": 6,
+     "status": 0
+    },
+    {
+     "idx": 7,
+     "status": 0
+    }
+   ]
+  },
+  {
+   "bits": 8,
+   "entries": 55,
+   "lst": "eNpjYGT6z85AMgAANggBCg",
+   "checks": [
+    {
+     "idx": 0,
+     "status": 0
+    },
+    {
+     "idx": 1,
+     "status": 1
+    },
+    {
+     "idx": 2,
+     "status": 2
+    },
+    {
+     "idx": 3,
+     "status": 255
+    },
+    {
+     "idx": 4,
+     "status": 7
+    },
+    {
+     "idx": 5,
+     "status": 0
+    },
+    {
+     "idx": 6,
+     "status": 0
+    },
+    {
+     "idx": 7,
+     "status": 0
+    }
+   ]
+  }
+ ]
+}

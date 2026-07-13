@@ -1,0 +1,243 @@
+package decision
+
+import (
+	"context"
+	"crypto/ed25519"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"testing"
+	"time"
+
+	"github.com/rudizee007/spt-txn-poc/internal/intent"
+	"github.com/rudizee007/spt-txn-poc/internal/receipt"
+)
+
+// harness wires an Engine with a stub verifier and an in-memory emitter that
+// records every receipt, so tests can assert on the evidence as well as the
+// decision.
+type harness struct {
+	engine   *Engine
+	receipts []*receipt.Receipt
+	logKey   ed25519.PrivateKey
+	logPub   ed25519.PublicKey
+	claims   map[string]any // returned by the stub verifier on success
+	verifyErr error
+	emitErr   error
+}
+
+func newHarness(t *testing.T) *harness {
+	t.Helper()
+	pub, priv, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := &harness{logKey: priv, logPub: pub}
+	eng, err := New(Config{
+		PEP:          "pep.test",
+		PolicyHash:   receipt.TokenHash("policy-v1"),
+		Jurisdiction: "TEST",
+		Verify: func(ctx context.Context, token string) (map[string]any, error) {
+			if h.verifyErr != nil {
+				return nil, h.verifyErr
+			}
+			return h.claims, nil
+		},
+		Emit: func(r *receipt.Receipt) (string, error) {
+			if h.emitErr != nil {
+				return "", h.emitErr
+			}
+			if err := r.Sign(h.logKey); err != nil {
+				return "", err
+			}
+			h.receipts = append(h.receipts, r)
+			return mustHash(r), nil
+		},
+		ReplayWindow:   time.Minute,
+		ReplayCapacity: 4,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.engine = eng
+	return h
+}
+
+func mustHash(r *receipt.Receipt) string {
+	s, err := r.Hash()
+	if err != nil {
+		panic(err)
+	}
+	return s
+}
+
+func declaredIntent() intent.Intent {
+	return intent.Intent{Tool: "payments.transfer", Params: json.RawMessage(`{"amount":"10.00"}`), Target: "mcp://pay"}
+}
+
+func (h *harness) bindClaims(t *testing.T, jti string, in intent.Intent) {
+	t.Helper()
+	d, err := in.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.claims = map[string]any{"jti": jti, intent.Claim: d}
+}
+
+func (h *harness) lastReceipt(t *testing.T) *receipt.Receipt {
+	t.Helper()
+	if len(h.receipts) == 0 {
+		t.Fatal("no receipt emitted")
+	}
+	return h.receipts[len(h.receipts)-1]
+}
+
+func TestPermitPath(t *testing.T) {
+	h := newHarness(t)
+	h.bindClaims(t, "jti-1", declaredIntent())
+	d := h.engine.Decide(context.Background(), Input{Token: "tok", Intent: declaredIntent()})
+	if !d.Permit() || d.Class() != receipt.ClassOK || d.Rule() != "authorize.ok" {
+		t.Fatalf("permit path: %+v", d)
+	}
+	r := h.lastReceipt(t)
+	if r.Decision != receipt.DecisionPermit {
+		t.Fatalf("receipt decision %s", r.Decision)
+	}
+	if err := r.Verify(h.logPub); err != nil {
+		t.Fatalf("receipt does not verify: %v", err)
+	}
+	if d.ReceiptHash() != mustHash(r) {
+		t.Fatal("decision does not reference the emitted receipt")
+	}
+}
+
+func TestEveryDenyPathEmitsReceiptAndClassifies(t *testing.T) {
+	type tc struct {
+		name      string
+		setup     func(h *harness, t *testing.T)
+		input     func(h *harness, t *testing.T) Input
+		wantRule  string
+		wantClass string
+	}
+	cases := []tc{
+		{"absent token", func(h *harness, t *testing.T) {}, func(h *harness, t *testing.T) Input {
+			return Input{Token: "", Intent: declaredIntent()}
+		}, "token.absent", receipt.ClassViolation},
+		{"verify violation", func(h *harness, t *testing.T) { h.verifyErr = errors.New("bad signature") }, func(h *harness, t *testing.T) Input {
+			return Input{Token: "tok", Intent: declaredIntent()}
+		}, "token.verify", receipt.ClassViolation},
+		{"verify unavailable", func(h *harness, t *testing.T) { h.verifyErr = UnavailableError{errors.New("status list unreachable")} }, func(h *harness, t *testing.T) Input {
+			return Input{Token: "tok", Intent: declaredIntent()}
+		}, "token.verify-unavailable", receipt.ClassUnavailable},
+		{"missing jti", func(h *harness, t *testing.T) { h.claims = map[string]any{intent.Claim: "x"} }, func(h *harness, t *testing.T) Input {
+			return Input{Token: "tok", Intent: declaredIntent()}
+		}, "token.jti-absent", receipt.ClassViolation},
+		{"intent mismatch", func(h *harness, t *testing.T) { h.bindClaims(t, "jti-x", declaredIntent()) }, func(h *harness, t *testing.T) Input {
+			other := declaredIntent()
+			other.Tool = "payments.drain"
+			return Input{Token: "tok", Intent: other}
+		}, "intent.digest-mismatch", receipt.ClassViolation},
+		{"no intent claim", func(h *harness, t *testing.T) { h.claims = map[string]any{"jti": "jti-y"} }, func(h *harness, t *testing.T) Input {
+			return Input{Token: "tok", Intent: declaredIntent()}
+		}, "intent.digest-mismatch", receipt.ClassViolation},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			h := newHarness(t)
+			h.claims = map[string]any{}
+			c.setup(h, t)
+			d := h.engine.Decide(context.Background(), c.input(h, t))
+			if d.Permit() {
+				t.Fatal("denied path permitted")
+			}
+			if d.Rule() != c.wantRule || d.Class() != c.wantClass {
+				t.Fatalf("rule/class = %s/%s, want %s/%s", d.Rule(), d.Class(), c.wantRule, c.wantClass)
+			}
+			r := h.lastReceipt(t)
+			if r.Decision != receipt.DecisionDeny || r.Class != c.wantClass || r.RulePath != c.wantRule {
+				t.Fatalf("receipt %s/%s/%s does not match decision", r.Decision, r.Class, r.RulePath)
+			}
+		})
+	}
+}
+
+func TestReplaySingleUse(t *testing.T) {
+	h := newHarness(t)
+	h.bindClaims(t, "jti-replay", declaredIntent())
+	in := Input{Token: "tok", Intent: declaredIntent()}
+	if d := h.engine.Decide(context.Background(), in); !d.Permit() {
+		t.Fatalf("first use denied: %s", d.Rule())
+	}
+	d := h.engine.Decide(context.Background(), in)
+	if d.Permit() || d.Rule() != "replay.duplicate" || d.Class() != receipt.ClassViolation {
+		t.Fatalf("replay accepted: %+v", d)
+	}
+}
+
+func TestReplayCacheFullDeniesUnavailable(t *testing.T) {
+	h := newHarness(t) // capacity 4
+	for i := 0; i < 4; i++ {
+		h.bindClaims(t, fmt.Sprintf("jti-%d", i), declaredIntent())
+		if d := h.engine.Decide(context.Background(), Input{Token: "tok", Intent: declaredIntent()}); !d.Permit() {
+			t.Fatalf("fill %d denied: %s", i, d.Rule())
+		}
+	}
+	h.bindClaims(t, "jti-overflow", declaredIntent())
+	d := h.engine.Decide(context.Background(), Input{Token: "tok", Intent: declaredIntent()})
+	if d.Permit() || d.Class() != receipt.ClassUnavailable || d.Rule() != "replay.cache-unavailable" {
+		t.Fatalf("full cache did not deny-unavailable: %+v", d)
+	}
+}
+
+// TestReceiptEmissionFailureDeniesEvenValidRequests: enforcement without
+// evidence is not enforcement.
+func TestReceiptEmissionFailureDenies(t *testing.T) {
+	h := newHarness(t)
+	h.bindClaims(t, "jti-e", declaredIntent())
+	h.emitErr = errors.New("log unreachable")
+	d := h.engine.Decide(context.Background(), Input{Token: "tok", Intent: declaredIntent()})
+	if d.Permit() {
+		t.Fatal("permit granted without a logged receipt")
+	}
+	if d.Class() != receipt.ClassUnavailable || d.Rule() != "receipt.emit-failed" {
+		t.Fatalf("got %s/%s", d.Class(), d.Rule())
+	}
+}
+
+// TestZeroValueDenies: a Decision that never went through the engine denies
+// with class unavailable — the structural fail-closed property.
+func TestZeroValueDenies(t *testing.T) {
+	var d Decision
+	if d.Permit() {
+		t.Fatal("zero-value Decision permits")
+	}
+	if d.Class() != receipt.ClassUnavailable {
+		t.Fatalf("zero-value class %s", d.Class())
+	}
+	if d.Rule() != "decision.unset" {
+		t.Fatalf("zero-value rule %s", d.Rule())
+	}
+}
+
+func TestConfigValidation(t *testing.T) {
+	base := Config{
+		PEP:        "p",
+		PolicyHash: "h",
+		Verify:     func(context.Context, string) (map[string]any, error) { return nil, nil },
+		Emit:       func(*receipt.Receipt) (string, error) { return "", nil },
+	}
+	broken := []func(Config) Config{
+		func(c Config) Config { c.PEP = ""; return c },
+		func(c Config) Config { c.PolicyHash = ""; return c },
+		func(c Config) Config { c.Verify = nil; return c },
+		func(c Config) Config { c.Emit = nil; return c },
+	}
+	for i, b := range broken {
+		if _, err := New(b(base)); err == nil {
+			t.Errorf("config %d accepted; want error", i)
+		}
+	}
+	if _, err := New(base); err != nil {
+		t.Fatalf("valid config rejected: %v", err)
+	}
+}

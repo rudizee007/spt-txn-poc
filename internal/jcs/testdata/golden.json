@@ -1,0 +1,58 @@
+[
+ {
+  "value_json": "{\"b\": 1, \"a\": 2}",
+  "canonical": "{\"a\":2,\"b\":1}"
+ },
+ {
+  "value_json": "{\"￺\": \"bmp-high\", \"😀\": \"surrogate\", \"€\": \"euro\", \"A\": \"basic\", \"a\": \"lower\"}",
+  "canonical": "{\"A\":\"basic\",\"a\":\"lower\",\"€\":\"euro\",\"😀\":\"surrogate\",\"￺\":\"bmp-high\"}"
+ },
+ {
+  "value_json": "{\"\": \"empty-key\", \" \": \"space\", \"a\\\"b\": \"quote\", \"b\\\\c\": \"backslash\"}",
+  "canonical": "{\"\":\"empty-key\",\" \":\"space\",\"a\\\"b\":\"quote\",\"b\\\\c\":\"backslash\"}"
+ },
+ {
+  "value_json": "{\"ctl\": \"\\b\\f\\n\\r\\t end\"}",
+  "canonical": "{\"ctl\":\"\\b\\f\\n\\r\\t end\"}"
+ },
+ {
+  "value_json": "{\"lit\": \"Ωλ≈ç√ — 中文 🚀\"}",
+  "canonical": "{\"lit\":\"Ωλ≈ç√ — 中文 🚀\"}"
+ },
+ {
+  "value_json": "{\"nested\": {\"z\": [1, 2, {\"y\": null, \"x\": [true, false]}], \"a\": {}}, \"arr\": [[], {}, \"s\"]}",
+  "canonical": "{\"arr\":[[],{},\"s\"],\"nested\":{\"a\":{},\"z\":[1,2,{\"x\":[true,false],\"y\":null}]}}"
+ },
+ {
+  "value_json": "{\"ints\": [0, 1, -1, 42, 9007199254740991, -9007199254740991]}",
+  "canonical": "{\"ints\":[0,1,-1,42,9007199254740991,-9007199254740991]}"
+ },
+ {
+  "value_json": "[]",
+  "canonical": "[]"
+ },
+ {
+  "value_json": "{}",
+  "canonical": "{}"
+ },
+ {
+  "value_json": "\"plain string\"",
+  "canonical": "\"plain string\""
+ },
+ {
+  "value_json": "true",
+  "canonical": "true"
+ },
+ {
+  "value_json": "null",
+  "canonical": "null"
+ },
+ {
+  "value_json": "{\"amount\": \"125000.00\", \"currency\": \"USD\", \"tool\": \"payments.transfer\"}",
+  "canonical": "{\"amount\":\"125000.00\",\"currency\":\"USD\",\"tool\":\"payments.transfer\"}"
+ },
+ {
+  "value_json": "{\"a1\": {\"b\": [{\"d\": 1, \"c\": 2}]}, \"a0\": [{\"k2\": \"v\", \"k1\": \"v\"}]}",
+  "canonical": "{\"a0\":[{\"k1\":\"v\",\"k2\":\"v\"}],\"a1\":{\"b\":[{\"c\":2,\"d\":1}]}}"
+ }
+]

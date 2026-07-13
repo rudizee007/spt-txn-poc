@@ -29,6 +29,7 @@ import (
 	"github.com/rudizee007/spt-txn-poc/internal/cattoken"
 	"github.com/rudizee007/spt-txn-poc/internal/dpop"
 	"github.com/rudizee007/spt-txn-poc/internal/ledger"
+	"github.com/rudizee007/spt-txn-poc/internal/statuslist"
 	"github.com/rudizee007/spt-txn-poc/internal/tbac"
 	"github.com/rudizee007/spt-txn-poc/internal/trustregistry"
 	"github.com/rudizee007/spt-txn-poc/internal/txntoken"
@@ -91,6 +92,33 @@ type Engine struct {
 	// ChainVerifier, if set, enables the optional ZK N-hop mode (Input.ChainProof).
 	// Left nil, the engine is gnark-free and uses the cleartext chain walk only.
 	ChainVerifier ChainVerifierFunc
+
+	// StatusResolver, if set, enables per-token status-list revocation
+	// (docs/spec/STATUS-LIST.md). It holds verified, cached Status Lists and is
+	// consulted OFFLINE for every chain/txn token that carries a `status`
+	// claim. Left nil, status-list checking is disabled (no regression) and
+	// revocation relies on issuer-key cascade + short TTL alone. Populate it
+	// out of band from signed Status List Tokens, never in the hot path.
+	StatusResolver *statuslist.Resolver
+}
+
+// checkStatus consults the status-list resolver for a token, if both the
+// resolver is configured and the token carries a status claim. A malformed
+// status claim, an unavailable list, a revoked/suspended entry, or an unknown
+// status all fail closed. Absence of a status claim (or of a resolver) is not
+// an error — such a token simply is not in scope for status-list revocation.
+func (e *Engine) checkStatus(claims map[string]any) error {
+	if e.StatusResolver == nil {
+		return nil
+	}
+	ref, ok, err := statuslist.ReferenceFromClaims(claims)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil
+	}
+	return e.StatusResolver.Check(ref)
 }
 
 // New returns an engine bound to a registry.
@@ -141,9 +169,14 @@ func (e *Engine) Verify(ctx context.Context, in Input) Decision {
 	if err := step3Audience(txClaims, in.Audience); err != nil {
 		return deny(3, err)
 	}
-	// Step 4 — revocation (issuer key still active in the registry).
+	// Step 4 — revocation: issuer key still active in the registry, AND
+	// (if a StatusResolver is configured) the SPT-Txn token is not revoked or
+	// suspended via its status-list entry. Both fail closed.
 	if err := e.step4Revocation(ctx, txClaims); err != nil {
 		return deny(4, err)
+	}
+	if err := e.checkStatus(txClaims); err != nil {
+		return deny(4, fmt.Errorf("SPT-Txn status: %w", err))
 	}
 	// Step 5 — DPoP sender constraint (with token binding + replay protection).
 	if err := e.step5DPoP(txClaims, in.TxnToken, in.DPoPProof, in.HTM, in.HTU); err != nil {
@@ -303,6 +336,11 @@ func (e *Engine) step6Chain(ctx context.Context, txClaims map[string]any, ctToke
 	if !ok {
 		return nil, fmt.Errorf("CAT missing delegation_depth_max")
 	}
+	// Per-token status-list revocation for the root CAT (no-op unless a
+	// StatusResolver is configured and the CAT carries a status claim).
+	if err := e.checkStatus(catClaims); err != nil {
+		return nil, fmt.Errorf("CAT status: %w", err)
+	}
 
 	// Walk the CT chain root→leaf. The "parent budget" starts at the CAT's max
 	// and must decrease by exactly one at each hop.
@@ -310,6 +348,24 @@ func (e *Engine) step6Chain(ctx context.Context, txClaims map[string]any, ctToke
 	parentToken := catToken
 	parentBudget := catMax
 	var leaf map[string]any
+
+	// Effective scope = the INTERSECTION of every scope from the root CAT to
+	// the leaf. Per-hop Contains(parent, child) only inspects the child's
+	// declared dimensions, so a hop that DROPS a ceiling/equality dimension
+	// (e.g. omits max_amount or currency) would otherwise leave that axis
+	// unconstrained at transaction time — a widening disguised as attenuation
+	// (docs/THREAT-MODEL.md §4.2). We defeat that here, at the enforcement
+	// point: start from the root's scope and overlay each hop. Because a hop
+	// can only tighten or drop a dimension it inherited (Contains rejects any
+	// dimension not present in the parent), overlaying present dimensions and
+	// RETAINING dropped ones yields the tightest constraint on every axis the
+	// chain ever declared. The transaction is checked against THIS in step 7.
+	effective := tbac.Scope{}
+	if rootScope, err := scopeOf(catClaims); err == nil {
+		for k, v := range rootScope {
+			effective[k] = v
+		}
+	}
 
 	for i, ctTok := range cts {
 		ctClaims, err := e.verifyChainToken(ctx, ctTok, cttoken.Verify)
@@ -369,12 +425,46 @@ func (e *Engine) step6Chain(ctx context.Context, txClaims map[string]any, ctToke
 			return nil, fmt.Errorf("delegation depth violated at CT[%d] (parent_budget=%d this_remaining=%d)", i, parentBudget, ctRem)
 		}
 
+		// TTL monotonicity, re-verified at validation (defense in depth against
+		// a delegator whose construction-time check was bypassed): each hop's
+		// validity window must sit inside its parent's. A hop that outlives its
+		// parent is a lifetime escalation, exactly like a scope widening.
+		ctExp, ok := intClaim(ctClaims, "exp")
+		if !ok {
+			return nil, fmt.Errorf("CT[%d] missing exp", i)
+		}
+		parentExp, ok := intClaim(parentClaims, "exp")
+		if !ok {
+			return nil, fmt.Errorf("parent of CT[%d] missing exp", i)
+		}
+		if ctExp > parentExp {
+			return nil, fmt.Errorf("CT[%d] outlives its parent (exp %d > %d): TTL must attenuate", i, ctExp, parentExp)
+		}
+
+		// Per-token status-list revocation for this hop: a revoked intermediate
+		// invalidates the whole chain, not just the leaf.
+		if err := e.checkStatus(ctClaims); err != nil {
+			return nil, fmt.Errorf("CT[%d] status: %w", i, err)
+		}
+
+		// Overlay this hop's declared dimensions onto the effective scope.
+		// Every dimension present here is ⊆ its parent (checked just above)
+		// and was already present in `effective`, so this only ever tightens;
+		// dimensions this hop dropped keep their tighter ancestor value.
+		for k, v := range ctScope {
+			effective[k] = v
+		}
+
 		// Advance to the next hop.
 		parentClaims = ctClaims
 		parentToken = ctTok
 		parentBudget = ctRem
 		leaf = ctClaims
 	}
+
+	// Hand the accumulated effective scope to step 7 without disturbing the
+	// leaf's own claims (binding checks below rely on the leaf as-presented).
+	leaf[effectiveScopeClaim] = map[string]any(effective)
 
 	// Bind the SPT-Txn to the LEAF capability: jti reference, humanAnchor, and
 	// the holder key (DPoP cnf.jkt) all commit to the final delegated CT.
@@ -400,12 +490,18 @@ func (e *Engine) step6Chain(ctx context.Context, txClaims map[string]any, ctToke
 // attests the hidden middle: a valid attenuating, depth-bounded chain links the
 // CAT's authority to the leaf's scope.
 //
-// Integration seam: H0/CLeaf are the public inputs the proof was made against.
-// Cryptographically binding H0 to the CAT's human_anchor and CLeaf to the leaf
-// CT's declared scope requires the token format to carry the Poseidon2
-// commitments (the planned human_anchor migration). Until then this path proves
-// such a chain EXISTS for (H0, CLeaf, D) and verifies the endpoints in clear; it
-// is gated behind an explicit, operator-opted-in ChainVerifier.
+// Endpoint binding (both public inputs are now cryptographically bound to the
+// presented tokens, closing the adversarial-review gap):
+//   - H0 (the proof's root commitment) MUST equal the field element of the
+//     presented CAT's humanAnchor — enforced below — so the proof cannot be a
+//     valid chain rooted at a different anchor. This requires Poseidon2-committed
+//     anchors (zkdid.Compute equals zkproof's commitment over the same inputs).
+//   - CLeaf (the leaf-scope commitment) is derived by the injected ChainVerifier
+//     from the presented leaf CT's own scope, so the proof only verifies for the
+//     exact leaf scope presented (see TestChainVerifierFunc_Injection).
+//   - D (max depth) is taken from the presented CAT.
+// The intermediate hop scopes remain hidden; only the endpoints are in clear.
+// Still gated behind an explicit, operator-opted-in ChainVerifier.
 func (e *Engine) step6ChainZK(ctx context.Context, txClaims map[string]any, in Input) (map[string]any, error) {
 	if e.ChainVerifier == nil {
 		return nil, fmt.Errorf("a ZK chain proof was presented but no ChainVerifier is configured")
@@ -426,6 +522,23 @@ func (e *Engine) step6ChainZK(ctx context.Context, txClaims map[string]any, in I
 	if !ok || anchor == "" {
 		return nil, fmt.Errorf("CAT missing humanAnchor")
 	}
+	// Bind H0 to THIS CAT's humanAnchor. The proof's root public input (H0) is
+	// carried with the proof; without this check a holder could present a valid
+	// proof rooted at a DIFFERENT (attacker-controlled) anchor together with an
+	// unrelated CAT, since the endpoint-equality checks below only compare the
+	// presented tokens' anchors to each other, not to the proof's root. The
+	// CAT humanAnchor is the hex of the 32-byte field element that H0 also
+	// represents (zkdid.Commitment.BigInt() == SetBytes(anchor-bytes)), so an
+	// exact equality binds the proof to this root. This closes the ZK-path gap
+	// noted in the adversarial review; it is a verifier-side check requiring no
+	// circuit change. ZK mode therefore requires Poseidon2-committed anchors.
+	anchorBytes, err := hex.DecodeString(anchor)
+	if err != nil || len(anchorBytes) != 32 {
+		return nil, fmt.Errorf("CAT humanAnchor is not a 32-byte commitment (ZK mode requires a Poseidon2-committed anchor)")
+	}
+	if new(big.Int).SetBytes(anchorBytes).Cmp(in.ChainH0) != 0 {
+		return nil, fmt.Errorf("ZK chain H0 does not equal the presented CAT humanAnchor: proof is rooted at a different anchor")
+	}
 	leaf, err := e.verifyChainToken(ctx, in.CT, cttoken.Verify)
 	if err != nil {
 		return nil, fmt.Errorf("leaf CT: %w", err)
@@ -434,8 +547,8 @@ func (e *Engine) step6ChainZK(ctx context.Context, txClaims map[string]any, in I
 	// Bind the proof to the PRESENTED tokens: the leaf-scope commitment (CLeaf) is
 	// derived (by the injected verifier) from the leaf CT's own scope, and the max
 	// depth (D) from the CAT — so the proof cannot claim a different leaf scope or
-	// a deeper chain than what is presented. H0 is carried with the proof; the
-	// human binding is the cleartext endpoint equality checked below.
+	// a deeper chain than what is presented. H0 was bound to the CAT humanAnchor
+	// above, so all three public inputs are now pinned to the presented tokens.
 	scope, ok := leaf["capability_scope"].(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("leaf CT missing capability_scope")
@@ -472,6 +585,15 @@ func (e *Engine) step6ChainZK(ctx context.Context, txClaims map[string]any, in I
 	if err := checkHolderBinding(txClaims, leaf); err != nil {
 		return nil, err
 	}
+	// The ZK proof validated the transaction ceilings against the LEAF scope
+	// (maxAmt/currency above). Set the effective-scope claim explicitly to the
+	// leaf's own capability_scope so step7Scope enforces the same scope the
+	// proof was checked against — and never reads a stale or attacker value.
+	// (verifyChainToken has already stripped any reserved-prefix claim that
+	// arrived on the token, so this assignment is the sole writer.)
+	if ls, ok := leaf["capability_scope"].(map[string]any); ok {
+		leaf[effectiveScopeClaim] = ls
+	}
 	return leaf, nil
 }
 
@@ -488,7 +610,22 @@ func (e *Engine) verifyChainToken(ctx context.Context, token string, verify func
 	if err != nil {
 		return nil, fmt.Errorf("resolve issuer %q: %w", iss, err)
 	}
-	return verify(token, key)
+	claims, err := verify(token, key)
+	if err != nil {
+		return nil, err
+	}
+	// Reserved-namespace hygiene: the verifier stashes synthetic, internal
+	// values (e.g. __spt_effective_scope) on claim maps AFTER verification.
+	// Strip any reservedClaimPrefix key that arrived ON a real token so a
+	// signed token can never pre-populate the synthetic namespace and have it
+	// survive into step 7 — closing the ZK-path self-poisoning gap
+	// structurally rather than by convention.
+	for k := range claims {
+		if strings.HasPrefix(k, reservedClaimPrefix) {
+			delete(claims, k)
+		}
+	}
+	return claims, nil
 }
 
 // checkHolderBinding confirms the SPT-Txn cnf.jkt is the thumbprint of the CT
@@ -524,10 +661,27 @@ func intClaim(claims map[string]any, name string) (int, bool) {
 	return int(f), true
 }
 
+// reservedClaimPrefix namespaces synthetic, verifier-internal claims. Any
+// token claim with this prefix is stripped at verification (verifyChainToken)
+// so it can only ever be set by the verifier, never by a token issuer.
+const reservedClaimPrefix = "__spt_"
+
+// effectiveScopeClaim is a synthetic, verifier-internal claim: step6Chain
+// stashes the chain-intersection scope here for step7Scope to enforce. It is
+// never signed, never emitted, and never present on a real token.
+const effectiveScopeClaim = reservedClaimPrefix + "effective_scope"
+
 func step7Scope(ctClaims map[string]any, tc ledger.TxnContext) error {
-	raw, ok := ctClaims["capability_scope"].(map[string]any)
+	// Prefer the chain-intersection scope computed in step 6; fall back to the
+	// leaf's own scope only if it is absent (e.g. the ZK chain path, which does
+	// not expose intermediate scopes). Checking the transaction against the
+	// intersection is what makes a dropped-ceiling hop non-exploitable.
+	raw, ok := ctClaims[effectiveScopeClaim].(map[string]any)
 	if !ok {
-		return fmt.Errorf("CT missing capability_scope")
+		raw, ok = ctClaims["capability_scope"].(map[string]any)
+		if !ok {
+			return fmt.Errorf("CT missing capability_scope")
+		}
 	}
 	parent := tbac.Scope(raw)
 	txnScope, err := tbac.TxnScope(parent, tc)

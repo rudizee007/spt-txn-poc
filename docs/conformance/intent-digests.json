@@ -1,0 +1,40 @@
+{
+ "version": 1,
+ "note": "intent_digest = base64url_nopad(SHA-256('spt-txn-intent-v1' 0x00 JCS({tool,params,target})))",
+ "vectors": [
+  {
+   "tool": "payments.transfer",
+   "params": {
+    "amount": "125000.00",
+    "beneficiary": "GB29NWBK60161331926819",
+    "currency": "USD"
+   },
+   "target": "mcp://payments",
+   "intent_digest": "qD_k_tpbZnYmmqn19YJ1-2SBZcTQ1gVgUvIIucEAb4U"
+  },
+  {
+   "tool": "files.read",
+   "params": {
+    "path": "/data/report.pdf"
+   },
+   "target": "mcp://files",
+   "intent_digest": "YigM_GmNBAb9Euj-gd9u5HVEKCrV2jTAI2dmxv9FUZU"
+  },
+  {
+   "tool": "noop",
+   "params": {},
+   "target": "x",
+   "intent_digest": "4e1KyMIBrLkAW_3vSs7PLyucb5ViVZl_Op_3rafeI5A"
+  },
+  {
+   "tool": "unicode",
+   "params": {
+    "k": "Ωλ≈ç√ — 中文 🚀",
+    "€": "e",
+    "😀": "s"
+   },
+   "target": "t",
+   "intent_digest": "MHrnDmPGNC7Dmwp8LkehIhpmg-pf7e0pnHFTn8a-fOE"
+  }
+ ]
+}

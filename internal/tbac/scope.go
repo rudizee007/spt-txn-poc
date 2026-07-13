@@ -17,10 +17,20 @@
 //   - list    child set MUST be a subset of parent set
 //   - object  child MUST be contained recursively
 //
-// A dimension present in the parent but absent in the child is permitted: the
-// child simply does not request that dimension and is therefore more
-// restrictive. A dimension present in the child but absent in the parent is a
-// violation: the child cannot grant authority the parent never held.
+// A dimension present in the child but absent in the parent is a violation:
+// the child cannot grant authority the parent never held.
+//
+// A dimension present in the parent but absent in the child passes THIS
+// per-hop containment check — but it is NOT thereby "more restrictive." Each
+// dimension is a CONSTRAINT, and dropping a constraint widens authority on
+// that axis at transaction time (TxnScope only asserts the dimensions the
+// scope actually declares). Dropping is therefore neutralised at the
+// enforcement point: the verifier (verifier.step6Chain) computes the
+// INTERSECTION of every scope from the root CAT to the leaf and checks the
+// transaction against that, so a dropped ceiling is inherited from the
+// nearest ancestor that still declares it. See docs/THREAT-MODEL.md §4.2 and
+// docs/spec/DELEGATION-INTENT-MCP.md §1.2. Do not rely on per-hop Contains
+// alone to bound a transaction.
 //
 // Cedar policy interop (the richer production model) is a v2 task; the
 // interface below is what the v2 swap must preserve.

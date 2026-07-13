@@ -1,0 +1,16 @@
+{
+ "version": 1,
+ "note": "signing_input = 'spt-txn-env-v1' 0x00 suite_id 0x00 payload",
+ "vectors": [
+  {
+   "suite": "EdDSA",
+   "payload_hex": "68656c6c6f",
+   "signing_input_hex": "7370742d74786e2d656e762d76310045644453410068656c6c6f"
+  },
+  {
+   "suite": "HYBRID-Ed25519-MLDSA65",
+   "payload_hex": "0001027061796c6f6164",
+   "signing_input_hex": "7370742d74786e2d656e762d7631004859425249442d456432353531392d4d4c4453413635000001027061796c6f6164"
+  }
+ ]
+}

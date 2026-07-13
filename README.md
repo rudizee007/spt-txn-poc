@@ -107,7 +107,8 @@ token; blockchain-agnostic (XRPL is the primary integration target).
   CAT/attribute model + standards mapping.
 - [`docs/CBOM.md`](docs/CBOM.md) / [`docs/cbom.json`](docs/cbom.json) — Cryptographic Bill of Materials.
 - [`docs/ZK-CIRCUIT-SPEC.md`](docs/ZK-CIRCUIT-SPEC.md) — auditor-facing spec of every circuit (inputs, constraints, soundness arguments) to de-risk an independent ZK audit.
-- [`docs/THREAT-MODEL.md`](docs/THREAT-MODEL.md) — STRIDE + LINDDUN threat model with mitigations and residual risks.
+- [`docs/THREAT-MODEL.md`](docs/THREAT-MODEL.md) — STRIDE-per-component threat model for the authorization core (adversary catalogue, kill-list bug classes, review checklist).
+- [`docs/THREAT-MODEL-PRIVACY.md`](docs/THREAT-MODEL-PRIVACY.md) — STRIDE + LINDDUN token/privacy threat model with mitigations and residual risks.
 - [`docs/SCALING-AND-SUBSTRATE.md`](docs/SCALING-AND-SUBSTRATE.md) — how it scales beyond one host (stateless verifier / per-participant issuer / off-hot-path registry) + the storage-substrate decision (on-chain Merkle root + signed Go snapshots; DWN as inspiration only).
 - [`docs/PLATFORM-AND-OSS-STRATEGY.md`](docs/PLATFORM-AND-OSS-STRATEGY.md) — open-source posture, OpenBSD vs FIPS-140-3 hardened Linux (portable-Go migration; Go FIPS mode), and the OSS scaling stack for high request volumes.
 - [`docs/INTEGRATION-READINESS-CHECKLIST.md`](docs/INTEGRATION-READINESS-CHECKLIST.md) — what an L1/L2 or VASP requires before integrating (security/TPRM, Travel Rule interop, technical, crypto, legal) with SPT-Txn's honest current status against each.

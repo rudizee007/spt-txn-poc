@@ -84,6 +84,13 @@ type IssueRequest struct {
 	// Txn is the concrete transaction being authorized.
 	Txn ledger.TxnContext
 
+	// IntentDigest optionally binds the declared action per
+	// docs/spec/DELEGATION-INTENT-MCP.md §2 (claim spt_intent_digest,
+	// computed with internal/intent). When set, an intent-enforcing PEP
+	// verifies the actual call against it; when empty the claim is omitted
+	// and such a PEP denies the token (absence never downgrades enforcement).
+	IntentDigest string
+
 	// TTL overrides DefaultTTL when non-zero.
 	TTL time.Duration
 }
@@ -156,6 +163,20 @@ func Issue(req IssueRequest, signingKey crypto.Signer) (*TXN, error) {
 		ttl = DefaultTTL
 	}
 	exp := now.Add(ttl)
+	// TTL monotonicity (docs/spec/DELEGATION-INTENT-MCP.md §1.2): the
+	// transaction token's window sits inside its parent capability's. The
+	// default clamps; an explicit overrun is rejected.
+	if parentExpF, ok := parent["exp"].(float64); ok {
+		parentExp := int64(parentExpF)
+		if req.TTL == 0 && exp.Unix() > parentExp {
+			exp = time.Unix(parentExp, 0).UTC()
+		}
+		if exp.Unix() > parentExp {
+			return nil, fmt.Errorf("SPT-Txn token would outlive parent CT (child exp %d > parent exp %d)", exp.Unix(), parentExp)
+		}
+	} else {
+		return nil, fmt.Errorf("parent CT missing exp")
+	}
 	jti, err := newJTI()
 	if err != nil {
 		return nil, err
@@ -174,6 +195,9 @@ func Issue(req IssueRequest, signingKey crypto.Signer) (*TXN, error) {
 		"spt_txn_chain":        req.Ledger.Name(),
 		"spt_txn_context_hash": ctxHash,
 		"cnf":                  map[string]any{"jkt": dpop.Thumbprint(req.HolderPublicKey)},
+	}
+	if req.IntentDigest != "" {
+		claims["spt_intent_digest"] = req.IntentDigest
 	}
 
 	token, err := signJWT(claims, signingKey)

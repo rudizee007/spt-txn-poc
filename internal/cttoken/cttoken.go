@@ -76,6 +76,11 @@ type IssueRequest struct {
 
 	// TTL overrides DefaultTTL when non-zero.
 	TTL time.Duration
+
+	// Status optionally sets the signed `status` claim binding this CT to a
+	// Token Status List entry for scalable per-token revocation
+	// (docs/spec/STATUS-LIST.md §4). nil leaves the CT out of status scope.
+	Status map[string]any
 }
 
 // CT is an issued Capability Token.
@@ -143,6 +148,22 @@ func Issue(req IssueRequest, signingKey crypto.Signer) (*CT, error) {
 		ttl = DefaultTTL
 	}
 	exp := now.Add(ttl)
+	// TTL monotonicity (docs/spec/DELEGATION-INTENT-MCP.md §1.2): the child's
+	// validity window must sit inside the parent's. The DEFAULT lifetime
+	// clamps to the parent boundary (a default is computed, not requested);
+	// an EXPLICITLY requested TTL that would outlive the parent is rejected —
+	// the issuer never silently rewrites an explicit request.
+	parentExpF, ok := parent["exp"].(float64)
+	if !ok {
+		return nil, fmt.Errorf("parent CAT missing exp")
+	}
+	parentExp := int64(parentExpF)
+	if req.TTL == 0 && exp.Unix() > parentExp {
+		exp = time.Unix(parentExp, 0).UTC()
+	}
+	if exp.Unix() > parentExp {
+		return nil, fmt.Errorf("child CT would outlive parent CAT (child exp %d > parent exp %d): TTL must attenuate", exp.Unix(), parentExp)
+	}
 	jti, err := newJTI()
 	if err != nil {
 		return nil, fmt.Errorf("generate jti: %w", err)
@@ -162,6 +183,9 @@ func Issue(req IssueRequest, signingKey crypto.Signer) (*CT, error) {
 		"holder_key":                 hex.EncodeToString(req.HolderPublicKey),
 		"spt_cat_ref":                parentJTI,
 		"spt_parent_hash":            base64url(parentHash[:]),
+	}
+	if req.Status != nil {
+		claims["status"] = req.Status
 	}
 
 	token, err := signJWT(claims, signingKey)
@@ -209,6 +233,10 @@ type DelegateRequest struct {
 	// its parent; callers SHOULD pass a TTL no longer than the parent's
 	// remaining life.
 	TTL time.Duration
+
+	// Status optionally sets the signed `status` claim binding this child CT
+	// to a Token Status List entry (docs/spec/STATUS-LIST.md §4).
+	Status map[string]any
 }
 
 // Delegate verifies the parent CT, attenuates its scope, decrements the
@@ -276,6 +304,20 @@ func Delegate(req DelegateRequest, signingKey crypto.Signer) (*CT, error) {
 		ttl = DefaultTTL
 	}
 	exp := now.Add(ttl)
+	// TTL monotonicity (docs/spec/DELEGATION-INTENT-MCP.md §1.2): a delegated
+	// CT must not outlive its parent CT. The default lifetime clamps to the
+	// parent boundary; an explicitly requested TTL that overruns is rejected.
+	parentExpF, ok := parent["exp"].(float64)
+	if !ok {
+		return nil, fmt.Errorf("parent CT missing exp")
+	}
+	parentExp := int64(parentExpF)
+	if req.TTL == 0 && exp.Unix() > parentExp {
+		exp = time.Unix(parentExp, 0).UTC()
+	}
+	if exp.Unix() > parentExp {
+		return nil, fmt.Errorf("delegated CT would outlive parent CT (child exp %d > parent exp %d): TTL must attenuate", exp.Unix(), parentExp)
+	}
 	jti, err := newJTI()
 	if err != nil {
 		return nil, fmt.Errorf("generate jti: %w", err)
@@ -296,6 +338,9 @@ func Delegate(req DelegateRequest, signingKey crypto.Signer) (*CT, error) {
 		"spt_cat_ref":                rootCATRef,                // root CAT, unchanged
 		"spt_parent_ref":             parentJTI,                 // immediate parent CT
 		"spt_parent_hash":            base64url(parentHash[:]),  // hash of immediate parent
+	}
+	if req.Status != nil {
+		claims["status"] = req.Status
 	}
 
 	token, err := signJWT(claims, signingKey)
