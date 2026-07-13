@@ -387,3 +387,47 @@ func TestIDPExchange_MissingExpRejected(t *testing.T) {
 	tok := e.token(map[string]any{"exp": nil})
 	assertDenied(t, e.post(e.validParams(tok)), http.StatusUnauthorized)
 }
+
+// Dry-run of a would-succeed IdP exchange: previews the decision, mints nothing.
+func TestIDPExchange_DryRun_WouldIssue(t *testing.T) {
+	e := newIDPEnv(t)
+	p := e.validParams(e.token(nil))
+	p["dry_run"] = "true"
+
+	rr := e.post(p)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d (%s)", rr.Code, rr.Body.String())
+	}
+	b := body(t, rr)
+	if b["would_issue"] != true {
+		t.Fatalf("would_issue = %v, want true", b["would_issue"])
+	}
+	if _, ok := b["access_token"]; ok {
+		t.Fatal("SECURITY: dry-run produced an access_token")
+	}
+	if b["subject"] != "user-123" {
+		t.Fatalf("subject = %v", b["subject"])
+	}
+}
+
+// Dry-run of a would-deny IdP exchange: 200 preview, would_issue=false, no token.
+func TestIDPExchange_DryRun_WouldDeny(t *testing.T) {
+	e := newIDPEnv(t)
+	p := e.validParams("not.a.jwt")
+	p["dry_run"] = "true"
+
+	rr := e.post(p)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("dry-run should return a 200 preview, got %d (%s)", rr.Code, rr.Body.String())
+	}
+	b := body(t, rr)
+	if b["would_issue"] != false {
+		t.Fatalf("would_issue = %v, want false", b["would_issue"])
+	}
+	if _, ok := b["access_token"]; ok {
+		t.Fatal("SECURITY: token present on a deny preview")
+	}
+	if b["decision_class"] != "violation" {
+		t.Fatalf("decision_class = %v, want violation", b["decision_class"])
+	}
+}

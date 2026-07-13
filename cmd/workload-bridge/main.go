@@ -26,8 +26,12 @@
 //	subject_token_type  = urn:violetsky:token-type:{spiffe-jwt-svid|k8s-sa|gcp-wif|...}
 //	holder_key_hex      = <64-hex Ed25519 public key of the workload/agent>
 //	audience            = <this endpoint's identifier>   (required)
-//	scope               = <JSON object>   (optional ceiling)
+//	scope               = <JSON object>   (optional; intersected with the policy ceiling)
 //	requested_max_age_s = <int>           (optional freshness predicate)
+//	dry_run             = "true"          (optional; run the full evaluation and
+//	                                       return the decision it WOULD make —
+//	                                       would_issue + granted scope, or the
+//	                                       denial reason — WITHOUT issuing a token)
 package main
 
 import (
@@ -148,6 +152,29 @@ type handler struct {
 	permitted      tbac.Scope
 }
 
+// exchangeDecision is the outcome of evaluating an exchange, computed
+// identically for the live and dry-run paths. On allow it carries what WOULD be
+// minted; on deny it carries the exact response the live path returns. It never
+// carries a token — minting happens only in the live branch of exchange(),
+// after this decision, so a dry-run is structurally incapable of producing
+// authority.
+type exchangeDecision struct {
+	wouldIssue bool
+
+	// allow
+	scope  tbac.Scope
+	depth  int
+	ttl    time.Duration
+	id     attest.Identity
+	holder []byte
+
+	// deny (mirrors the live oauthErr call)
+	httpStatus    int
+	oauthError    string
+	description   string
+	decisionClass string // "ok" | "violation" | "invalid_request"
+}
+
 func (h *handler) exchange(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		oauthErr(w, http.StatusMethodNotAllowed, "invalid_request", "POST required")
@@ -155,32 +182,95 @@ func (h *handler) exchange(w http.ResponseWriter, r *http.Request) {
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, 256<<10)
 	p := parseParams(r)
+	dryRun := p["dry_run"] == "true"
+
+	dec := h.decide(r.Context(), p)
+
+	if !dec.wouldIssue {
+		if dryRun {
+			writeJSON(w, http.StatusOK, map[string]any{
+				"dry_run":           true,
+				"would_issue":       false,
+				"decision_class":    dec.decisionClass,
+				"error":             dec.oauthError,
+				"error_description": dec.description,
+			})
+			return
+		}
+		oauthErr(w, dec.httpStatus, dec.oauthError, dec.description)
+		return
+	}
+
+	if dryRun {
+		// Preview only: report the decision, mint nothing.
+		writeJSON(w, http.StatusOK, map[string]any{
+			"dry_run":              true,
+			"would_issue":          true,
+			"decision_class":       "ok",
+			"granted_scope":        map[string]any(dec.scope),
+			"delegation_depth_max": dec.depth,
+			"expires_in":           int(dec.ttl.Seconds()),
+			"attested_subject":     dec.id.Subject,
+			"attestation_method":   string(dec.id.Method),
+		})
+		return
+	}
+
+	cat, err := cattoken.Issue(cattoken.IssueRequest{
+		Issuer:             h.catIssuer,
+		Subject:            "workload:" + dec.id.Subject,
+		PrincipalName:      dec.id.Subject,
+		Scope:              cattoken.CapabilityScope(dec.scope),
+		DelegationDepthMax: dec.depth,
+		TTL:                dec.ttl,
+		HolderPublicKey:    ed25519.PublicKey(dec.holder),
+		Attestation:        dec.id.SealClaim(),
+	}, h.priv)
+	if err != nil {
+		log.Printf("cattoken.Issue: %v", err)
+		oauthErr(w, http.StatusBadRequest, "invalid_request", "issuance failed")
+		return
+	}
+	log.Printf("exchanged %s attestation (sub=%s) -> attested CAT", dec.id.Method, dec.id.Subject)
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"access_token":       cat.Token,
+		"issued_token_type":  catTokenType,
+		"token_type":         "N_A",
+		"expires_in":         int(time.Until(cat.ExpiresAt).Seconds()),
+		"attested_subject":   dec.id.Subject,
+		"attestation_method": string(dec.id.Method),
+	})
+}
+
+// decide runs the full evaluation pipeline and returns a decision. It performs
+// no I/O beyond attestation verification and mints nothing. Live and dry-run
+// call this identically; only exchange() decides whether to act on the result.
+func (h *handler) decide(ctx context.Context, p map[string]string) exchangeDecision {
+	deny := func(status int, oauthError, desc, class string) exchangeDecision {
+		return exchangeDecision{httpStatus: status, oauthError: oauthError, description: desc, decisionClass: class}
+	}
 
 	if p["grant_type"] != grantTokenExchange {
-		oauthErr(w, http.StatusBadRequest, "unsupported_grant_type", "expected "+grantTokenExchange)
-		return
+		return deny(http.StatusBadRequest, "unsupported_grant_type", "expected "+grantTokenExchange, "invalid_request")
 	}
 	// Audience must match this endpoint (defeats cross-service replay).
 	if p["audience"] != h.audience {
-		oauthErr(w, http.StatusBadRequest, "invalid_request", "audience must equal this exchange endpoint")
-		return
+		return deny(http.StatusBadRequest, "invalid_request", "audience must equal this exchange endpoint", "invalid_request")
 	}
 	holder, err := hex.DecodeString(p["holder_key_hex"])
 	if err != nil || len(holder) != ed25519.PublicKeySize {
-		oauthErr(w, http.StatusBadRequest, "invalid_request", "holder_key_hex must be 64 hex chars")
-		return
+		return deny(http.StatusBadRequest, "invalid_request", "holder_key_hex must be 64 hex chars", "invalid_request")
 	}
 	method, err := attest.MethodFromTokenType(p["subject_token_type"])
 	if err != nil {
-		oauthErr(w, http.StatusBadRequest, "invalid_request", "unsupported subject_token_type")
-		return
+		return deny(http.StatusBadRequest, "invalid_request", "unsupported subject_token_type", "invalid_request")
 	}
 
-	id, err := h.verify(r.Context(), method, p)
+	id, err := h.verify(ctx, method, p)
 	if err != nil {
 		log.Printf("attestation rejected (%s): %v", method, err)
-		oauthErr(w, http.StatusUnauthorized, "invalid_grant", "attestation rejected")
-		return
+		return deny(http.StatusUnauthorized, "invalid_grant", "attestation rejected", "violation")
 	}
 
 	// Optional freshness predicate.
@@ -188,8 +278,7 @@ func (h *handler) exchange(w http.ResponseWriter, r *http.Request) {
 		if secs, err := strconv.Atoi(s); err == nil && secs > 0 {
 			if err := (attest.Freshness{MaxAge: time.Duration(secs) * time.Second}).Check(id, time.Now()); err != nil {
 				log.Printf("freshness rejected: %v", err)
-				oauthErr(w, http.StatusForbidden, "invalid_grant", "attestation not fresh enough")
-				return
+				return deny(http.StatusForbidden, "invalid_grant", "attestation not fresh enough", "violation")
 			}
 		}
 	}
@@ -206,8 +295,7 @@ func (h *handler) exchange(w http.ResponseWriter, r *http.Request) {
 		g, err := tbac.Intersect(h.permitted, tbac.Scope(requested))
 		if err != nil {
 			log.Printf("scope rejected: %v", err)
-			oauthErr(w, http.StatusForbidden, "invalid_scope", "requested scope exceeds the policy-permitted ceiling")
-			return
+			return deny(http.StatusForbidden, "invalid_scope", "requested scope exceeds the policy-permitted ceiling", "violation")
 		}
 		scope = g
 	}
@@ -228,31 +316,7 @@ func (h *handler) exchange(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	cat, err := cattoken.Issue(cattoken.IssueRequest{
-		Issuer:             h.catIssuer,
-		Subject:            "workload:" + id.Subject,
-		PrincipalName:      id.Subject,
-		Scope:              cattoken.CapabilityScope(scope),
-		DelegationDepthMax: depth,
-		TTL:                ttl,
-		HolderPublicKey:    ed25519.PublicKey(holder),
-		Attestation:        id.SealClaim(),
-	}, h.priv)
-	if err != nil {
-		log.Printf("cattoken.Issue: %v", err)
-		oauthErr(w, http.StatusBadRequest, "invalid_request", "issuance failed")
-		return
-	}
-	log.Printf("exchanged %s attestation (sub=%s) -> attested CAT", method, id.Subject)
-
-	writeJSON(w, http.StatusOK, map[string]any{
-		"access_token":      cat.Token,
-		"issued_token_type": catTokenType,
-		"token_type":        "N_A",
-		"expires_in":        int(time.Until(cat.ExpiresAt).Seconds()),
-		"attested_subject":  id.Subject,
-		"attestation_method": string(id.Method),
-	})
+	return exchangeDecision{wouldIssue: true, scope: scope, depth: depth, ttl: ttl, id: id, holder: holder}
 }
 
 func (h *handler) verify(ctx context.Context, method attest.Method, p map[string]string) (attest.Identity, error) {

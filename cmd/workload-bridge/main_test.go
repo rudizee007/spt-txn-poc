@@ -508,3 +508,58 @@ func TestExchange_DelegationDepthCapped(t *testing.T) {
 		t.Fatalf("delegation depth = %d, want clamp to %d", depth, maxDelegationDepth)
 	}
 }
+
+// Dry-run of a would-succeed exchange: reports the decision and the scope it
+// WOULD grant, but mints no token — structurally, the preview branch returns
+// before cattoken.Issue is ever called.
+func TestExchange_DryRun_WouldIssue(t *testing.T) {
+	e := newEnv(t)
+	now := time.Now()
+	svid := e.spiffeSVID(spiffeSubject, []string{testAudience}, now, now.Add(time.Hour), e.svidPriv)
+	p := e.validParams(svid)
+	p["dry_run"] = "true"
+
+	rr := e.post(p)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d (%s)", rr.Code, rr.Body.String())
+	}
+	b := decodeBody(t, rr)
+	if b["would_issue"] != true {
+		t.Fatalf("would_issue = %v, want true", b["would_issue"])
+	}
+	if _, ok := b["access_token"]; ok {
+		t.Fatal("SECURITY: dry-run produced an access_token")
+	}
+	if b["attested_subject"] != spiffeSubject {
+		t.Fatalf("attested_subject = %v", b["attested_subject"])
+	}
+	if b["granted_scope"] == nil {
+		t.Fatal("preview missing granted_scope")
+	}
+}
+
+// Dry-run of a would-deny exchange: 200 preview with would_issue=false and NO
+// token, rather than a live 4xx.
+func TestExchange_DryRun_WouldDeny(t *testing.T) {
+	e := newEnv(t)
+	now := time.Now()
+	_, wrongPriv, _ := ed25519.GenerateKey(rand.Reader)
+	svid := e.spiffeSVID(spiffeSubject, []string{testAudience}, now, now.Add(time.Hour), wrongPriv)
+	p := e.validParams(svid)
+	p["dry_run"] = "true"
+
+	rr := e.post(p)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("dry-run should return a 200 preview, got %d (%s)", rr.Code, rr.Body.String())
+	}
+	b := decodeBody(t, rr)
+	if b["would_issue"] != false {
+		t.Fatalf("would_issue = %v, want false", b["would_issue"])
+	}
+	if _, ok := b["access_token"]; ok {
+		t.Fatal("SECURITY: token present on a deny preview")
+	}
+	if b["decision_class"] != "violation" {
+		t.Fatalf("decision_class = %v, want violation", b["decision_class"])
+	}
+}

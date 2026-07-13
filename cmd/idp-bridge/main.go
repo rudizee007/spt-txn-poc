@@ -22,8 +22,11 @@
 //	subject_token      = <Keycloak access token>                            (required)
 //	subject_token_type = urn:ietf:params:oauth:token-type:access_token
 //	holder_key_hex     = <64-hex Ed25519 public key of the agent/holder>     (required)
-//	scope              = <JSON object>   (optional; else spt_scope claim, else default)
+//	scope              = <JSON object>   (optional; intersected with the policy ceiling)
 //	ttl_hours, delegation_depth_max      (optional)
+//	dry_run            = "true"          (optional; run the full evaluation and
+//	                                      return the decision it WOULD make,
+//	                                      WITHOUT issuing a token)
 package main
 
 import (
@@ -129,6 +132,28 @@ func main() {
 	log.Fatal(srv.ListenAndServe())
 }
 
+// idpDecision is the outcome of evaluating an IdP exchange, computed identically
+// for the live and dry-run paths. It never carries a token — minting happens
+// only in the live branch of the handler, after this decision.
+type idpDecision struct {
+	wouldIssue bool
+
+	// allow
+	subject   string
+	principal string
+	scope     tbac.Scope
+	depth     int
+	ttl       time.Duration
+	holder    []byte
+	holderHex string
+
+	// deny (mirrors the live oauthErr call)
+	httpStatus    int
+	oauthError    string
+	description   string
+	decisionClass string // "ok" | "violation" | "invalid_request"
+}
+
 func handleExchange(ver *oidc.Verifier, priv ed25519.PrivateKey, catIssuer string, permitted tbac.Scope) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -137,101 +162,53 @@ func handleExchange(ver *oidc.Verifier, priv ed25519.PrivateKey, catIssuer strin
 		}
 		r.Body = http.MaxBytesReader(w, r.Body, 128<<10)
 		p := parseParams(r)
+		dryRun := p["dry_run"] == "true"
 
-		if p["grant_type"] != grantTokenExchange {
-			oauthErr(w, http.StatusBadRequest, "unsupported_grant_type", "expected "+grantTokenExchange)
-			return
-		}
-		subjectToken := p["subject_token"]
-		if subjectToken == "" {
-			oauthErr(w, http.StatusBadRequest, "invalid_request", "subject_token required")
-			return
-		}
-		holderHex := p["holder_key_hex"]
-		holder, err := hex.DecodeString(holderHex)
-		if err != nil || len(holder) != ed25519.PublicKeySize {
-			oauthErr(w, http.StatusBadRequest, "invalid_request", "holder_key_hex must be 64 hex chars (32-byte Ed25519 key)")
-			return
-		}
+		dec := decideIDP(r.Context(), ver, permitted, p)
 
-		// Verify the identity provider's token (signature, iss, exp, aud).
-		claims, err := ver.Verify(r.Context(), subjectToken)
-		if err != nil {
-			log.Printf("subject token rejected: %v", err)
-			oauthErr(w, http.StatusUnauthorized, "invalid_grant", "subject token rejected")
-			return
-		}
-		subject := claims.Str("sub")
-		if subject == "" {
-			oauthErr(w, http.StatusUnauthorized, "invalid_grant", "subject token missing sub")
-			return
-		}
-		principal := claims.Str("preferred_username")
-		if principal == "" {
-			principal = subject
-		}
-
-		// Issuer-side scope decision: grant intersect(requested, permitted).
-		// Requested precedence: request `scope` (JSON) > IdP `spt_scope` claim.
-		// An omitted request yields the full permitted ceiling; neither source can
-		// widen beyond it. The PEP re-checks the chain at execution.
-		requested := parseScope(p["scope"])
-		if requested == nil {
-			if s, ok := claims["spt_scope"].(map[string]any); ok {
-				requested = s
-			}
-		}
-		var scope tbac.Scope
-		if requested == nil {
-			scope = permitted
-		} else {
-			g, err := tbac.Intersect(permitted, tbac.Scope(requested))
-			if err != nil {
-				log.Printf("scope rejected: %v", err)
-				oauthErr(w, http.StatusForbidden, "invalid_scope", "requested scope exceeds the policy-permitted ceiling")
+		if !dec.wouldIssue {
+			if dryRun {
+				writeJSON(w, http.StatusOK, map[string]any{
+					"dry_run":           true,
+					"would_issue":       false,
+					"decision_class":    dec.decisionClass,
+					"error":             dec.oauthError,
+					"error_description": dec.description,
+				})
 				return
 			}
-			scope = g
+			oauthErr(w, dec.httpStatus, dec.oauthError, dec.description)
+			return
 		}
 
-		depth := 3
-		if d, err := strconv.Atoi(p["delegation_depth_max"]); err == nil && d >= 1 {
-			depth = d
-		}
-		if depth > maxDelegationDepth {
-			depth = maxDelegationDepth
-		}
-
-		// TTL is capped and then clamped down to the IdP proof's remaining life,
-		// so the CAT can never outlive the token it was minted on.
-		ttl := defaultCATTTL
-		if h, err := strconv.Atoi(p["ttl_hours"]); err == nil && h > 0 {
-			ttl = time.Duration(h) * time.Hour
-		}
-		if ttl > maxCATTTL {
-			ttl = maxCATTTL
-		}
-		if exp, ok := claimExp(claims); ok {
-			if rem := time.Until(exp); rem > 0 && rem < ttl {
-				ttl = rem
-			}
+		if dryRun {
+			writeJSON(w, http.StatusOK, map[string]any{
+				"dry_run":              true,
+				"would_issue":          true,
+				"decision_class":       "ok",
+				"granted_scope":        map[string]any(dec.scope),
+				"delegation_depth_max": dec.depth,
+				"expires_in":           int(dec.ttl.Seconds()),
+				"subject":              dec.subject,
+			})
+			return
 		}
 
 		cat, err := cattoken.Issue(cattoken.IssueRequest{
 			Issuer:             catIssuer,
-			Subject:            subject,
-			PrincipalName:      principal,
-			Scope:              cattoken.CapabilityScope(scope),
-			DelegationDepthMax: depth,
-			TTL:                ttl,
-			HolderPublicKey:    ed25519.PublicKey(holder),
+			Subject:            dec.subject,
+			PrincipalName:      dec.principal,
+			Scope:              cattoken.CapabilityScope(dec.scope),
+			DelegationDepthMax: dec.depth,
+			TTL:                dec.ttl,
+			HolderPublicKey:    ed25519.PublicKey(dec.holder),
 		}, priv)
 		if err != nil {
 			log.Printf("cattoken.Issue: %v", err)
 			oauthErr(w, http.StatusBadRequest, "invalid_request", "issuance failed")
 			return
 		}
-		log.Printf("exchanged IdP token (sub=%s) -> CAT for holder %s…", subject, holderHex[:8])
+		log.Printf("exchanged IdP token (sub=%s) -> CAT for holder %s…", dec.subject, dec.holderHex[:8])
 
 		writeJSON(w, http.StatusOK, map[string]any{
 			"access_token":      cat.Token,
@@ -240,6 +217,93 @@ func handleExchange(ver *oidc.Verifier, priv ed25519.PrivateKey, catIssuer strin
 			"expires_in":        int(time.Until(cat.ExpiresAt).Seconds()),
 			"human_anchor":      cat.HumanAnchor.String(),
 		})
+	}
+}
+
+// decideIDP runs the full evaluation pipeline (verify the IdP token, derive
+// subject/principal, intersect scope, bound depth, clamp TTL) and returns a
+// decision. It mints nothing. Live and dry-run call it identically.
+func decideIDP(ctx context.Context, ver *oidc.Verifier, permitted tbac.Scope, p map[string]string) idpDecision {
+	deny := func(status int, oauthError, desc, class string) idpDecision {
+		return idpDecision{httpStatus: status, oauthError: oauthError, description: desc, decisionClass: class}
+	}
+
+	if p["grant_type"] != grantTokenExchange {
+		return deny(http.StatusBadRequest, "unsupported_grant_type", "expected "+grantTokenExchange, "invalid_request")
+	}
+	subjectToken := p["subject_token"]
+	if subjectToken == "" {
+		return deny(http.StatusBadRequest, "invalid_request", "subject_token required", "invalid_request")
+	}
+	holderHex := p["holder_key_hex"]
+	holder, err := hex.DecodeString(holderHex)
+	if err != nil || len(holder) != ed25519.PublicKeySize {
+		return deny(http.StatusBadRequest, "invalid_request", "holder_key_hex must be 64 hex chars (32-byte Ed25519 key)", "invalid_request")
+	}
+
+	// Verify the identity provider's token (signature, iss, exp, aud).
+	claims, err := ver.Verify(ctx, subjectToken)
+	if err != nil {
+		log.Printf("subject token rejected: %v", err)
+		return deny(http.StatusUnauthorized, "invalid_grant", "subject token rejected", "violation")
+	}
+	subject := claims.Str("sub")
+	if subject == "" {
+		return deny(http.StatusUnauthorized, "invalid_grant", "subject token missing sub", "violation")
+	}
+	principal := claims.Str("preferred_username")
+	if principal == "" {
+		principal = subject
+	}
+
+	// Issuer-side scope decision: grant intersect(requested, permitted).
+	// Requested precedence: request `scope` (JSON) > IdP `spt_scope` claim.
+	// An omitted request yields the full permitted ceiling; neither source can
+	// widen beyond it. The PEP re-checks the chain at execution.
+	requested := parseScope(p["scope"])
+	if requested == nil {
+		if s, ok := claims["spt_scope"].(map[string]any); ok {
+			requested = s
+		}
+	}
+	var scope tbac.Scope
+	if requested == nil {
+		scope = permitted
+	} else {
+		g, err := tbac.Intersect(permitted, tbac.Scope(requested))
+		if err != nil {
+			log.Printf("scope rejected: %v", err)
+			return deny(http.StatusForbidden, "invalid_scope", "requested scope exceeds the policy-permitted ceiling", "violation")
+		}
+		scope = g
+	}
+
+	depth := 3
+	if d, err := strconv.Atoi(p["delegation_depth_max"]); err == nil && d >= 1 {
+		depth = d
+	}
+	if depth > maxDelegationDepth {
+		depth = maxDelegationDepth
+	}
+
+	// TTL is capped and then clamped down to the IdP proof's remaining life,
+	// so the CAT can never outlive the token it was minted on.
+	ttl := defaultCATTTL
+	if h, err := strconv.Atoi(p["ttl_hours"]); err == nil && h > 0 {
+		ttl = time.Duration(h) * time.Hour
+	}
+	if ttl > maxCATTTL {
+		ttl = maxCATTTL
+	}
+	if exp, ok := claimExp(claims); ok {
+		if rem := time.Until(exp); rem > 0 && rem < ttl {
+			ttl = rem
+		}
+	}
+
+	return idpDecision{
+		wouldIssue: true, subject: subject, principal: principal,
+		scope: scope, depth: depth, ttl: ttl, holder: holder, holderHex: holderHex,
 	}
 }
 
