@@ -47,6 +47,11 @@ type JWTConfig struct {
 	RequireExpiry bool
 	// Leeway tolerates clock skew on exp/nbf. Zero uses clockSkew.
 	Leeway time.Duration
+	// Now, if non-zero, fixes the verification time. Production leaves it zero
+	// (real wall clock); tests set it to verify against a captured token whose
+	// exp/nbf are fixed. It never relaxes a check — it only substitutes the
+	// instant the temporal checks compare against.
+	Now time.Time
 }
 
 // allowedJWTAlgs is the algorithm allowlist. Everything else — including
@@ -117,7 +122,10 @@ func VerifyJWT(ctx context.Context, token string, cfg JWTConfig, ks KeySource) (
 	if leeway <= 0 {
 		leeway = clockSkew
 	}
-	now := time.Now()
+	now := cfg.Now
+	if now.IsZero() {
+		now = time.Now()
+	}
 
 	// Issuer.
 	if cfg.ExpectedIssuer != "" {

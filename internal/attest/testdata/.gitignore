@@ -1,0 +1,7 @@
+# Local-only OIDC interop fixtures — do NOT commit.
+# A real OIDC token embeds the minting repo's identity (name, visibility) in its
+# claims; publishing it from this public repo would disclose that repo
+# (disclosure barrier, CLAUDE.md §0). Keep these local to run the GitHub OIDC
+# interop test; CI runs the mock-based discovery/JWKS tests instead.
+github_oidc_token.txt
+github_oidc_jwks.json
