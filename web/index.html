@@ -591,6 +591,7 @@
 <section aria-label="The one-sentence difference" style="padding:3.6rem 1.5rem 3.4rem; background:var(--bg2); border-top:1px solid var(--border); border-bottom:1px solid var(--border);">
   <blockquote style="max-width:900px; margin:0 auto; padding:0; border:0; text-align:center;">
     <div style="font-family:'Space Mono', monospace; font-size:0.7rem; letter-spacing:2px; color:var(--violet-m); text-transform:uppercase; margin-bottom:1.3rem;">The one-sentence difference</div>
+    <p style="font-size:clamp(1rem, 2vw, 1.25rem); line-height:1.5; color:var(--violet-xl); margin:0 0 1.15rem;">An AI agent or partner system is handed a role &mdash; and keeps that authority over every action it takes, with no record of who approved what. When it is manipulated or compromised, the blast radius is everything it could ever touch.</p>
     <p style="font-size:clamp(1.15rem, 2.5vw, 1.62rem); line-height:1.55; font-weight:500; color:var(--white); margin:0;">
       Everyone else authorizes agents and workloads <span style="color:var(--violet-l);">by role</span>.
       SPT-Txn authorizes <span style="color:var(--violet-l);">the specific transaction the actor declared</span>,
@@ -980,6 +981,7 @@
   <div class="section-inner">
     <div class="section-eyebrow">Adoption Model · Offline by Design</div>
     <h2 class="section-title">Issue once. Verify anywhere, offline.</h2>
+    <p class="section-body" style="color:var(--violet-l); margin-bottom:0.9rem;"><strong style="color:var(--violet-m);">The problem &mdash;</strong> Authorization that phones home is fragile exactly where regulated cross-border transactions live &mdash; latency, outages, jurisdiction limits &mdash; and it stalls because both sides must adopt the same system before either sees value.</p>
     <p class="section-body">SPT-Txn is a verifiable authorization format, not a protocol both sides must install. An issuer creates value the moment it issues: a provable compliance posture, a tamper-evident audit trail, and a privacy-preserving human anchor it can produce under lawful process, whether or not the counterparty does anything. Verifying is a cheap, optional, fully offline capability any party adopts unilaterally: drop in the verifier library, hold a cached snapshot of the Trust Registry, and check the token. No handshake, no shared registry to join, no synchronized rollout.</p>
 
     <figure style="margin:2.6rem auto 0.5rem; max-width:820px;">
@@ -1052,6 +1054,7 @@
   <div class="section-inner">
     <div class="section-eyebrow">Applied · FATF Travel Rule</div>
     <h2 class="section-title">Privacy-preserving Travel Rule, running today.</h2>
+    <p class="section-body" style="color:var(--violet-l); margin-bottom:0.9rem;"><strong style="color:var(--violet-m);">The problem &mdash;</strong> Complying with the crypto Travel Rule today means shipping your customer&rsquo;s full name, account, and exact amount to every counterparty &mdash; turning a compliance obligation into a standing data-breach and privacy liability.</p>
     <p class="section-body">SPT-Txn carries a payload-level zero-knowledge attestation over the inter-VASP Travel Rule Protocol (TRP). Plain TRP and TRISA encrypt in transit, but still deliver the full originator/beneficiary PII to the counterparty to receive and store. SPT-Txn discloses only the FATF-required fields, proves the rest in zero knowledge, hides the exact amount, and exposes nothing on-ledger or to third parties.</p>
 
     <figure style="margin:2.6rem auto 0.5rem; max-width:780px;">
@@ -1126,6 +1129,7 @@
   <div class="section-inner">
     <div class="section-eyebrow">Applied · Agentic authorization</div>
     <h2 class="section-title">Authorize an AI agent. Scope can only narrow.</h2>
+    <p class="section-body" style="color:var(--violet-l); margin-bottom:0.9rem;"><strong style="color:var(--violet-m);">The problem &mdash;</strong> When a person hands a task to an AI agent, the human-origin signal dissolves within a hop or two &mdash; a hijacked agent can act beyond its mandate, and auditors can&rsquo;t prove which human authorized which action.</p>
     <p class="section-body">When a person authorizes an AI agent, SPT-Txn issues the agent a strictly narrower, delegation-depth-bounded Capability Token carrying an immutable humanAnchor back to the accountable person. An agent can only attenuate what it holds, never widen it, and revoking a delegator's key denies its sub-agents while the delegator's own authority stands. Every check runs offline.</p>
 
     <div class="token-cards">
@@ -1569,8 +1573,8 @@
     </div>
 
     <div style="margin-top:2.4rem; border:1px solid var(--violet-m); border-radius:10px; background:rgba(123,47,190,0.08); padding:1.1rem 1.3rem; max-width:920px;">
-      <div class="section-eyebrow" style="color:var(--violet-l);">Live · identity-provider integration</div>
-      <p class="section-body" style="margin-top:0.5rem; margin-bottom:0;">Reuse is not theoretical. An existing identity provider issues SPT-Txn credentials over standard <strong>OAuth 2.0 Token Exchange (RFC 8693)</strong> — no rip-and-replace. Demonstrated end-to-end against both <strong>Keycloak</strong> (open-source) and <strong>Auth0</strong> (commercial), differing only by one configuration value: an IdP-authenticated identity (including a machine / M2M client identity) is exchanged into a human-anchored capability that then <strong>verifies offline</strong> — with no identity-provider contact — and delegates to an AI agent with attenuating, revocable authority. The same OIDC + Token-Exchange flow targets Okta and Ping unchanged. A reference integration (<code>internal/oidc</code>, <code>cmd/idp-bridge</code>), not a proprietary connector.</p>
+      <div class="section-eyebrow" style="color:var(--violet-l);">Live · identity-provider &amp; AI-agent integration</div>
+      <p class="section-body" style="margin-top:0.5rem; margin-bottom:0;">Reuse is not theoretical. An existing identity provider issues SPT-Txn credentials over standard <strong>OAuth 2.0 Token Exchange (RFC 8693)</strong> — no rip-and-replace. Demonstrated end-to-end against <strong>Keycloak</strong> (open-source), <strong>Auth0</strong> (commercial), and <strong>PingOne</strong> — including a live <strong>PingOne AI Agent</strong> registered in Ping&rsquo;s Agent IAM Core: an IdP-authenticated identity (a human, or a machine / M2M agent that carries no <code>sub</code> and is keyed on its verified <code>client_id</code>) is exchanged into a human-anchored capability that then <strong>verifies offline</strong> — with no identity-provider contact — and delegates to a sub-agent with attenuating, revocable authority. Where PingOne&rsquo;s own agent model enforces by <strong>online token introspection</strong> at a gateway, SPT-Txn verifies the same delegation <strong>offline, at the edge</strong>, emitting a tamper-evident receipt. The same flow targets Okta unchanged. A reference integration (<code>internal/oidc</code>, <code>cmd/idp-bridge</code>), not a proprietary connector.</p>
     </div>
 
     <p class="section-body" style="max-width:820px; margin-top:2.4rem;">SPT-Txn extends the Transaction Tokens line (Tulshibagwale et al., 2023) and is contemporaneous with the 2025–26 agent-context drafts, but is the first to add zero-knowledge selective disclosure, offline capability attenuation, a human anchor, and cross-ledger binding to that line. It does not claim to have originated transaction tokens, agent context, or selective disclosure — it <strong>extends an established line of work and contributes a specific new layer back as open source.</strong> That is the honest position, and it is security-by-design in practice: peer-reviewed primitives, verifiable claims, no proprietary black boxes.</p>
