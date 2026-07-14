@@ -431,3 +431,87 @@ func TestIDPExchange_DryRun_WouldDeny(t *testing.T) {
 		t.Fatalf("decision_class = %v, want violation", b["decision_class"])
 	}
 }
+
+// Ping OIDC compatibility — proves the bridge exchanges a real PingOne
+// client_credentials (Worker app) token, the same OIDC + Token-Exchange flow
+// already demonstrated against Keycloak and Auth0. The claim set below was
+// captured from a live PingOne trial tenant. It exercises the Ping specifics:
+//   - a JWKS carrying MULTIPLE keys (PingFederate duplicates the signing key
+//     under different kids/algs), so the verifier must resolve strictly by kid;
+//   - `aud` as an ARRAY and a PingOne-style issuer path (…/as);
+//   - a machine/agent (M2M) token with NO `sub` — the authenticated principal is
+//     the OAuth `client_id`, which the bridge uses as the subject.
+// Hermetic: no live PingOne tenant needed. The live end-to-end runbook is in
+// docs/PINGONE-IDP-INTEGRATION.md.
+func TestIDPExchange_PingOneCompatibility(t *testing.T) {
+	const sigKid = "ping-rs256"
+	const decoyKid = "ping-legacy"
+	signKey, _ := rsa.GenerateKey(rand.Reader, 2048)
+	decoyKey, _ := rsa.GenerateKey(rand.Reader, 2048)
+
+	var issuer string
+	mux := http.NewServeMux()
+	mux.HandleFunc("/as/.well-known/openid-configuration", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"issuer": issuer, "jwks_uri": issuer + "/jwks"})
+	})
+	mux.HandleFunc("/as/jwks", func(w http.ResponseWriter, _ *http.Request) {
+		// Multiple keys, signing key NOT first — verifier must pick by kid.
+		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []any{
+			rsaJWK(decoyKid, &decoyKey.PublicKey),
+			rsaJWK(sigKid, &signKey.PublicKey),
+		}})
+	})
+	srv := httptest.NewTLSServer(mux)
+	t.Cleanup(srv.Close)
+	issuer = srv.URL + "/as" // PingOne-style issuer path
+
+	ver, err := oidc.NewVerifier(context.Background(), issuer,
+		oidc.WithHTTPClient(srv.Client()),
+		oidc.WithAudience("https://api.pingone.com"), // the aud a PingOne token carries
+	)
+	if err != nil {
+		t.Fatalf("verifier setup against Ping-shaped discovery failed: %v", err)
+	}
+
+	catPub, catPriv, _ := ed25519.GenerateKey(rand.Reader)
+	holderPub, _, _ := ed25519.GenerateKey(rand.Reader)
+	permitted := tbac.Scope{"action": "transfer", "max_amount": float64(10000), "currency": "USD"}
+	h := handleExchange(ver, catPriv, "domain-a.authorg", permitted)
+
+	// Real PingOne client_credentials (Worker app) token: NO `sub` — a machine /
+	// agent identity carries `client_id`; `aud` is an array. RS256, kid = sigKid.
+	const clientID = "128b7766-a360-4d1c-8838-daaab49e970a"
+	tok := mintRS256(sigKid, map[string]any{
+		"iss":       issuer,
+		"client_id": clientID,
+		"aud":       []any{"https://api.pingone.com"},
+		"env":       "85430661-6d64-4256-b9ad-467e539124d4",
+		"iat":       time.Now().Unix(),
+		"exp":       time.Now().Add(time.Hour).Unix(),
+	}, signKey)
+
+	form := url.Values{}
+	form.Set("grant_type", grantTokenExchange)
+	form.Set("subject_token", tok)
+	form.Set("subject_token_type", "urn:ietf:params:oauth:token-type:access_token")
+	form.Set("holder_key_hex", hex.EncodeToString(holderPub))
+	req := httptest.NewRequest(http.MethodPost, "/token", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	h(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("PingOne-shaped exchange failed: status %d (%s)", rr.Code, rr.Body.String())
+	}
+	access, _ := body(t, rr)["access_token"].(string)
+	if access == "" {
+		t.Fatal("no CAT issued for a valid PingOne-shaped token")
+	}
+	claims, err := cattoken.Verify(access, catPub)
+	if err != nil {
+		t.Fatalf("issued CAT does not verify: %v", err)
+	}
+	if claims["sub"] != clientID {
+		t.Fatalf("CAT sub = %v, want the client_id (M2M subject)", claims["sub"])
+	}
+}

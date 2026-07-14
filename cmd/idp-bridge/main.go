@@ -247,9 +247,21 @@ func decideIDP(ctx context.Context, ver *oidc.Verifier, permitted tbac.Scope, p 
 		log.Printf("subject token rejected: %v", err)
 		return deny(http.StatusUnauthorized, "invalid_grant", "subject token rejected", "violation")
 	}
+	// Subject: prefer `sub` (a human / OIDC login). A machine-to-machine or agent
+	// token minted via client_credentials has no `sub` — the authenticated
+	// principal IS the OAuth client — so fall back to `client_id`, then `azp`.
+	// This is the workload / AI-agent identity case (e.g. a PingOne Worker app or
+	// an Agent IAM Core M2M identity). The token is fully verified either way;
+	// only the choice of subject claim differs.
 	subject := claims.Str("sub")
 	if subject == "" {
-		return deny(http.StatusUnauthorized, "invalid_grant", "subject token missing sub", "violation")
+		subject = claims.Str("client_id")
+	}
+	if subject == "" {
+		subject = claims.Str("azp")
+	}
+	if subject == "" {
+		return deny(http.StatusUnauthorized, "invalid_grant", "subject token has no sub, client_id, or azp", "violation")
 	}
 	principal := claims.Str("preferred_username")
 	if principal == "" {
