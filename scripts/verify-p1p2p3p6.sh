@@ -17,13 +17,15 @@ echo "== vet (new + touched packages) =="
 go vet ./internal/jcs/ ./internal/intent/ ./internal/decision/ \
        ./internal/mcppep/ ./internal/receipt/ ./internal/suite/ \
        ./internal/attest/ ./internal/statuslist/ ./internal/controlmap/ ./internal/conformance/ \
+       ./internal/identityroot/ ./internal/zkdidmock/ ./internal/civicpass/ \
        ./internal/cttoken/ ./internal/txntoken/ ./internal/verifier/ \
-       ./cmd/receiptverify/ ./cmd/extauthz/ ./cmd/opashim/ ./cmd/workload-bridge/ ./cmd/receiptexport/
+       ./cmd/receiptverify/ ./cmd/extauthz/ ./cmd/opashim/ ./cmd/workload-bridge/ ./cmd/receiptexport/ ./cmd/civicdemo/
 
 echo "== unit + property tests =="
 go test ./internal/jcs/ ./internal/intent/ ./internal/decision/ \
         ./internal/mcppep/ ./internal/receipt/ ./internal/suite/ \
         ./internal/attest/ ./internal/statuslist/ ./internal/controlmap/ ./internal/conformance/ \
+        ./internal/identityroot/ ./internal/zkdidmock/ ./internal/civicpass/ \
         ./internal/cttoken/ ./internal/txntoken/ ./internal/verifier/ \
         ./internal/audit/ ./internal/tbac/
 

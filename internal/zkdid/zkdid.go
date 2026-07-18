@@ -12,9 +12,12 @@
 // gadget + a trusted-setup regen). Importing this pulls gnark-crypto field
 // arithmetic + the hash only, not the prover.
 //
-// The zkDNS resolution layer (Toby Bolton's .zkdid/.zkdns infrastructure) is the
-// intended production provider of zkDID anchors. For the POC, identity material
-// is supplied directly as a deterministic byte slice representing a test human.
+// The personhood/naming root (Toby Bolton's .zkdid™ / .zkdns™ initiative,
+// https://zkd.id) is the intended production provider of these anchors — a
+// proposed integration, not implemented or endorsed. For the POC, identity
+// material is supplied directly as a deterministic byte slice representing a
+// test human; internal/zkdidmock stands in for the shape of a real .zkdid™
+// provider (a personhood-backed anchor plus a context nullifier).
 package zkdid
 
 import (

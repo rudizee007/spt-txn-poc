@@ -81,6 +81,14 @@ type IssueRequest struct {
 	// §4), e.g. {"status_list": {"idx": 42, "uri": "https://…/sl/9"}}. nil
 	// leaves the CAT out of status-list scope (key-cascade + TTL only).
 	Status map[string]any
+
+	// IdentityAnchor optionally supplies a pre-computed 32-byte zkDID commitment
+	// to use as the humanAnchor, instead of deriving one from PrincipalName.
+	// This is the integration seam a zkDID/personhood provider fills — the mock
+	// provider in internal/zkdidmock, and in production Toby Bolton's .zkdid™
+	// initiative. Empty means "derive from the test principal" (POC default);
+	// a non-empty value that is not exactly 32 bytes is rejected.
+	IdentityAnchor []byte
 }
 
 // CAT is an issued Compliance Attestation Token.
@@ -111,13 +119,24 @@ func Issue(req IssueRequest, signingKey crypto.Signer) (*CAT, error) {
 		return nil, fmt.Errorf("invalid request: %w", err)
 	}
 
-	// ── 1. Compute humanAnchor ────────────────────────────────────────
-	identityMaterial := zkdid.TestPrincipal(req.PrincipalName)
-	randomness, err := zkdid.NewRandomness()
-	if err != nil {
-		return nil, fmt.Errorf("generate randomness: %w", err)
+	// ── 1. Obtain the humanAnchor ─────────────────────────────────────
+	// If the caller supplies an externally-produced 32-byte anchor (the seam a
+	// zkDID provider fills — see internal/zkdidmock, and in production Toby
+	// Bolton's .zkdid™ initiative), use it as the humanAnchor. Otherwise, for
+	// the POC, derive one from a deterministic test principal.
+	var anchor zkdid.Commitment
+	if len(req.IdentityAnchor) == 32 {
+		copy(anchor[:], req.IdentityAnchor)
+	} else if len(req.IdentityAnchor) != 0 {
+		return nil, fmt.Errorf("identity anchor must be 32 bytes, got %d", len(req.IdentityAnchor))
+	} else {
+		identityMaterial := zkdid.TestPrincipal(req.PrincipalName)
+		randomness, err := zkdid.NewRandomness()
+		if err != nil {
+			return nil, fmt.Errorf("generate randomness: %w", err)
+		}
+		anchor = zkdid.Compute(identityMaterial, randomness[:])
 	}
-	anchor := zkdid.Compute(identityMaterial, randomness[:])
 
 	// ── 2. Build JWT claims ───────────────────────────────────────────
 	now := time.Now().UTC()

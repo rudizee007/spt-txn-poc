@@ -6,16 +6,17 @@
 //
 // The narrative:
 //  1. Attest a workload's SPIFFE JWT-SVID.
-//  2. Seal that attestation into a root CAT.
-//  3. Delegate agent -> sub-agent, scope attenuating at each hop.
-//  4. The sub-agent declares an intent and mints a transaction token bound to it.
-//  5. Verify the whole chain OFFLINE (signatures, attenuation, status list) -> ALLOW.
-//  6. Emit a signed receipt into the transparency log.
-//  7. Revoke the leaf via the status list -> the same request now DENIES.
-//  8. Show intent binding: a hijacked call DENIES even with a valid token.
-//  9. Witnesses co-sign the log's tree head; a rewritten history is refused.
-// 10. Export the receipt to NIST/DORA/SOC2 control evidence.
-// 11. Crypto-agility: the suite id is covered by the signature.
+//  2. Establish the human identity root: verify a Civic Pass / SAS attestation.
+//  3. Seal the attestation + the verified human anchor into a root CAT.
+//  4. Delegate agent -> sub-agent, scope attenuating at each hop.
+//  5. The sub-agent declares an intent and mints a transaction token bound to it.
+//  6. Verify the whole chain OFFLINE (signatures, attenuation, status list) -> ALLOW.
+//  7. Emit a signed receipt into the transparency log.
+//  8. Revoke the leaf via the status list -> the same request now DENIES.
+//  9. Show intent binding: a hijacked call DENIES even with a valid token.
+// 10. Witnesses co-sign the log's tree head; a rewritten history is refused.
+// 11. Export the receipt to NIST/DORA/SOC2 control evidence.
+// 12. Crypto-agility: the suite id is covered by the signature.
 //
 // Everything here is exercised by the package tests; this program is the guided
 // tour, not a substitute for them.
@@ -36,6 +37,7 @@ import (
 	"github.com/rudizee007/spt-txn-poc/internal/attest"
 	"github.com/rudizee007/spt-txn-poc/internal/audit"
 	"github.com/rudizee007/spt-txn-poc/internal/cattoken"
+	"github.com/rudizee007/spt-txn-poc/internal/civicpass"
 	"github.com/rudizee007/spt-txn-poc/internal/controlmap"
 	"github.com/rudizee007/spt-txn-poc/internal/cttoken"
 	"github.com/rudizee007/spt-txn-poc/internal/dpop"
@@ -92,21 +94,49 @@ func main() {
 	fmt.Printf("   trust domain     : %s\n", id.TrustDomain)
 	fmt.Printf("   evidence digest  : %s…\n", id.EvidenceDigest[:16])
 
-	// ── 2. seal it into a root CAT ─────────────────────────────────────
-	step(2, "Issue a root CAT with the attestation sealed + a status-list slot")
+	// ── 2. establish the human identity root (Civic Pass / SAS) ────────
+	// The identity root is a swappable dependency (docs/spec/IDENTITY-ROOT-SEAM.md).
+	// A shipping root — here Civic Pass / the Solana Attestation Service — is
+	// VERIFIED (not asserted) and its anchor sealed as the CAT humanAnchor. Swap
+	// the provider (mock, or a future .zkdid) and this issuance code is unchanged.
+	step(2, "Establish the human identity root — verify a Civic Pass / SAS attestation")
+	attPub, attPriv := genKey() // the identity root (Civic gatekeeper / SAS attester)
+	nullKey := make([]byte, 32)
+	_, err = rand.Read(nullKey)
+	check(err, "nullifier key")
+	idroot, _, err := civicpass.NewVerifier(nullKey)
+	check(err, "new identity-root verifier")
+	check(idroot.TrustAttester("civic-gatekeeper:uniqueness-v1", attPub), "trust attester")
+	idroot.AllowClaim("proof-of-personhood")
+	pass := &civicpass.Attestation{
+		Scheme: civicpass.SchemeCivicPass, Attester: "civic-gatekeeper:uniqueness-v1",
+		Subject: "So1anaWa11et:" + id.Subject, Claim: "proof-of-personhood",
+		IssuedAt: time.Now().Add(-time.Minute), ExpiresAt: time.Now().Add(time.Hour),
+	}
+	pass.Sign(attPriv) // in production: an on-chain Civic Pass / SAS attestation account
+	check(idroot.Present(pass), "verify identity-root attestation")
+	human, err := idroot.Resolve(ctx, "So1anaWa11et:"+id.Subject, issCT)
+	check(err, "resolve human identity root")
+	fmt.Printf("   identity root    : civic-pass (verified, not asserted; fail-closed)\n")
+	fmt.Printf("   humanAnchor      : %s…  (fresh; nullifier is context-scoped)\n", human.Anchor.String()[:16])
+
+	// ── 3. seal it into a root CAT ─────────────────────────────────────
+	step(3, "Issue a root CAT with the attestation + verified human anchor sealed")
 	cat, err := cattoken.Issue(cattoken.IssueRequest{
 		Issuer: issCT, Subject: "workload:" + id.Subject, PrincipalName: id.Subject,
 		Scope:              cattoken.CapabilityScope{"action": "payment", "max_amount": 10000, "currency": "USD"},
 		DelegationDepthMax: 3, TTL: 4 * time.Minute, HolderPublicKey: agentPub,
-		Attestation: id.SealClaim(),
-		Status:      statusRef(0),
+		Attestation:    id.SealClaim(),
+		Status:         statusRef(0),
+		IdentityAnchor: human.Anchor.Bytes(), // ← the identity-root seam
 	}, ctPriv)
 	check(err, "issue CAT")
 	fmt.Printf("   CAT scope        : max_amount=10000 USD, action=payment (depth<=3)\n")
 	fmt.Printf("   spt_attestation  : sealed (%v)\n", cat.Claims["spt_attestation"] != nil)
+	fmt.Printf("   humanAnchor      : sealed from the verified identity root (%s)\n", okStr(cat.HumanAnchor == human.Anchor))
 
-	// ── 3. delegate, attenuating scope ─────────────────────────────────
-	step(3, "Delegate agent -> sub-agent; scope can only narrow")
+	// ── 4. delegate, attenuating scope ─────────────────────────────────
+	step(4, "Delegate agent -> sub-agent; scope can only narrow")
 	ctA, err := cttoken.Issue(cttoken.IssueRequest{
 		Issuer: issCT, ParentCAT: cat.Token, ParentIssuerKey: ctPub,
 		RequestedScope:  tbac.Scope{"max_amount": 8000, "currency": "USD"},
@@ -121,8 +151,8 @@ func main() {
 	check(err, "delegate CT_B")
 	fmt.Printf("   CAT(10000) -> CT_A(8000) -> CT_B(5000)  — monotonic, offline-verifiable\n")
 
-	// ── 4. declare intent + mint the transaction token ─────────────────
-	step(4, "Sub-agent declares its intent and mints a transaction-bound token")
+	// ── 5. declare intent + mint the transaction token ─────────────────
+	step(5, "Sub-agent declares its intent and mints a transaction-bound token")
 	declared := intent.Intent{
 		Tool:   "payments.transfer",
 		Params: json.RawMessage(`{"amount":"3000","beneficiary":"rsA2LpzuawewSBQXkiju3YQTMzW13pAAdW","currency":"USD"}`),
@@ -141,8 +171,8 @@ func main() {
 	fmt.Printf("   intent digest    : %s…\n", intentDigest[:16])
 	fmt.Printf("   txn              : transfer 3000 USD (within CT_B's 5000 ceiling)\n")
 
-	// ── 5. verify offline (with status list active) -> ALLOW ───────────
-	step(5, "Verify the whole chain OFFLINE — signatures, attenuation, freshness, status")
+	// ── 6. verify offline (with status list active) -> ALLOW ───────────
+	step(6, "Verify the whole chain OFFLINE — signatures, attenuation, freshness, status")
 	sl, err := statuslist.New(2, 1024)
 	check(err, "new status list")
 	slTok, err := statuslist.SignToken(sl, slURI, time.Now(), time.Hour, statusPriv)
@@ -159,8 +189,8 @@ func main() {
 		fail("expected ALLOW, got deny at step %d (%s): %s", d.Step, d.StepName, d.Reason)
 	}
 
-	// ── 6. emit a signed receipt into the transparency log ─────────────
-	step(6, "Emit a signed receipt into the append-only transparency log")
+	// ── 7. emit a signed receipt into the transparency log ─────────────
+	step(7, "Emit a signed receipt into the append-only transparency log")
 	dir, _ := os.MkdirTemp("", "spt-demo")
 	defer os.RemoveAll(dir)
 	logPath := filepath.Join(dir, "audit.jsonl")
@@ -174,8 +204,8 @@ func main() {
 	fmt.Printf("   receipt          : PERMIT/ok  hash=%s…\n", rhash[:16])
 	fmt.Printf("   log integrity    : %s\n", okStr(alog.Verify() == nil))
 
-	// ── 7. revoke the leaf via the status list -> DENY ─────────────────
-	step(7, "Revoke the leaf CT via the status list — an equivalent request now denies")
+	// ── 8. revoke the leaf via the status list -> DENY ─────────────────
+	step(8, "Revoke the leaf CT via the status list — an equivalent request now denies")
 	_ = sl.Set(2, statuslist.StatusInvalid) // flip CT_B's slot to REVOKED
 	slTok2, err := statuslist.SignToken(sl, slURI, time.Now(), time.Hour, statusPriv)
 	check(err, "re-sign status list")
@@ -197,8 +227,8 @@ func main() {
 	}
 	eng.StatusResolver = res // restore for later steps
 
-	// ── 8. intent binding: a hijacked call denies ──────────────────────
-	step(8, "Goal hijack: same valid token, a DIFFERENT call — intent binding denies it")
+	// ── 9. intent binding: a hijacked call denies ──────────────────────
+	step(9, "Goal hijack: same valid token, a DIFFERENT call — intent binding denies it")
 	hijacked := declared
 	hijacked.Params = json.RawMessage(`{"amount":"999999","beneficiary":"rATTACKER","currency":"USD"}`)
 	if err := intent.Match(intentDigest, hijacked); err != nil {
@@ -211,8 +241,8 @@ func main() {
 	}
 	fmt.Printf("   declared transfer: matches — the token works only for what it declared\n")
 
-	// ── 9. witness co-signing: a rewritten log is refused ──────────────
-	step(9, "Witnesses co-sign the tree head; a rewritten history is refused")
+	// ── 10. witness co-signing: a rewritten log is refused ─────────────
+	step(10, "Witnesses co-sign the tree head; a rewritten history is refused")
 	entries := alog.Entries()
 	sr := audit.PublishRoot(entries, logPriv)
 	w1Pub, w1Priv := genKey()
@@ -242,8 +272,8 @@ func main() {
 		fail("witness co-signed a rewritten history")
 	}
 
-	// ── 10. control-framework export ───────────────────────────────────
-	step(10, "Export the receipt to NIST 800-53 / DORA / SOC2 control evidence")
+	// ── 11. control-framework export ───────────────────────────────────
+	step(11, "Export the receipt to NIST 800-53 / DORA / SOC2 control evidence")
 	rows := controlmap.Rows(*permit, rhash, "")
 	shown := 0
 	for _, r := range rows {
@@ -255,8 +285,8 @@ func main() {
 	}
 	fmt.Printf("   (+%d more rows across frameworks, each anchored to receipt %s…)\n", len(rows)-shown, rhash[:12])
 
-	// ── 11. crypto-agility ─────────────────────────────────────────────
-	step(11, "Crypto-agility: the suite id is covered by the signature")
+	// ── 12. crypto-agility ─────────────────────────────────────────────
+	step(12, "Crypto-agility: the suite id is covered by the signature")
 	env, err := suite.Seal(suite.SuiteEdDSA, []byte("policy-decision-envelope"), suite.PrivateKeySet{Ed25519: logPriv})
 	check(err, "seal envelope")
 	check(suite.Verify(env, suite.PublicKeySet{Ed25519: logPub}, suite.ModeVerifyBoth, nil, ""), "verify envelope")
