@@ -24,6 +24,21 @@
 #   T-14 the absolute-URL scheme check is dropped (guards -upstream AND -public-url)
 #   T-15 -upstream stops being required
 #   T-16 a bad tts public key no longer stops startup
+#   T-17 the top-level agent-card allowlist is bypassed (a "Url" variant relays)
+#   T-18 a v1.0 card's supportedInterfaces is relayed untouched
+#   T-19 a non-JSONRPC v1.0 interface is re-advertised instead of dropped
+#   T-20 the upstream card's JWS signatures survive the rewrite
+#   T-21 a card naming no endpoint in either dialect is relayed
+#   T-22 an informational URL member (iconUrl) is relayed
+#   T-23 the agent's securitySchemes are relayed
+#   T-24 a JSONRPC entry's protocolVersion is copied without a type check
+#   T-25 the card-refusal body leaks the reason to the caller
+#   T-26 A2A-Version is not set on the forwarded request
+#   T-27 an unknown dialect is forwarded (unversioned) instead of refused
+#   T-28 an allowlisted card member is relayed untyped (capabilities.streaming)
+#   T-29 a skill's security references survive the dropped securitySchemes
+#   T-30 preferredTransport survives unrewritten when no url sits beside it
+#   T-31 a JSONRPC interface on a version the PEP does not speak is re-advertised
 #
 # NOT COVERED BY MUTATION, and why:
 #
@@ -158,6 +173,83 @@ run_mutation "T-15 -upstream stops being required" \
   "TestMissingRequired_NamesEachFailOpenSetting" \
   "		{\"-upstream\", upstream}," \
   "" || rc=1
+
+run_mutation "T-17 top-level card allowlist bypassed" \
+  "TestCard_ACaseVariantOfURLIsRefusedNotRelayed" \
+  "	if err := a2apep.ScanObject(card, allowedCardMembers, \"agent card\"); err != nil {" \
+  "	if err := a2apep.ScanObject(card, allowedCardMembers, \"agent card\"); err != nil && false {" || rc=1
+
+run_mutation "T-18 v1.0 supportedInterfaces relayed untouched" \
+  "TestCard_V1RelayRewritesSupportedInterfacesAndDropsOtherBindings" \
+  "	if hasInterfaces {" \
+  "	if false && hasInterfaces {" || rc=1
+
+run_mutation "T-19 non-JSONRPC v1.0 interface re-advertised" \
+  "TestCard_V1RelayRewritesSupportedInterfacesAndDropsOtherBindings" \
+  "			if binding != \"JSONRPC\" {" \
+  "			if false && binding != \"JSONRPC\" {" || rc=1
+
+run_mutation "T-20 upstream JWS signatures survive" \
+  "TestCard_V1RelayRewritesSupportedInterfacesAndDropsOtherBindings" \
+  "	if raw, ok := obj[\"signatures\"]; ok {" \
+  "	if raw, ok := obj[\"signatures\"]; ok && false {" || rc=1
+
+run_mutation "T-21 card naming no endpoint relayed" \
+  "TestRewriteCard_RefusesWhatItCannotRewrite" \
+  "	if !hasURL && !hasInterfaces {" \
+  "	if false && !hasURL && !hasInterfaces {" || rc=1
+
+run_mutation "T-22 iconUrl relayed" \
+  "TestRewriteCard_DropsAndReportsURLAndAuthBearingMembers" \
+  "	\"iconUrl\", \"documentationUrl\", \"provider\"," \
+  "	\"documentationUrl\", \"provider\"," || rc=1
+
+run_mutation "T-23 securitySchemes relayed" \
+  "TestRewriteCard_DropsAndReportsURLAndAuthBearingMembers" \
+  "	\"securitySchemes\", \"security\", \"securityRequirements\"," \
+  "	\"security\", \"securityRequirements\"," || rc=1
+
+run_mutation "T-24 protocolVersion copied without a type check" \
+  "TestRewriteCard_RefusesWhatItCannotRewrite" \
+  "			if err := json.Unmarshal(e[\"protocolVersion\"], &version); err != nil {" \
+  "			if err := json.Unmarshal(e[\"protocolVersion\"], &version); err != nil && false {" || rc=1
+
+run_mutation "T-25 card-refusal body leaks the reason" \
+  "TestCard_ARefusedCardIsABadGatewayThatLeaksNothing" \
+  "		http.Error(w, \"upstream agent card cannot be relayed\", http.StatusBadGateway)" \
+  "		http.Error(w, \"upstream agent card cannot be relayed: \"+err.Error(), http.StatusBadGateway)" || rc=1
+
+run_mutation "T-26 A2A-Version not set" \
+  "TestForward_SetsA2AVersionFromTheVerifiedDialect" \
+  "	req.Header.Set(\"A2A-Version\", string(dialect))" \
+  "	_ = dialect" || rc=1
+
+run_mutation "T-27 unknown dialect forwarded" \
+  "TestForward_SetsA2AVersionFromTheVerifiedDialect" \
+  "	case a2apep.DialectV03, a2apep.DialectV1:
+	default:" \
+  "	case a2apep.DialectV03, a2apep.DialectV1, a2apep.Dialect(\"\"), a2apep.Dialect(\"2.0\"), a2apep.Dialect(\"0.3.0\"):
+	default:" || rc=1
+
+run_mutation "T-28 card member relayed untyped" \
+  "TestRewriteCard_RefusesWhatItCannotRewrite" \
+  "	\"streaming\": {kind: kindBool}, \"pushNotifications\": {kind: kindBool}," \
+  "	\"streaming\": {kind: kindHandled}, \"pushNotifications\": {kind: kindBool}," || rc=1
+
+run_mutation "T-29 skill security references survive" \
+  "TestRewriteCard_DropsSkillSecurityReferencesWithTheSchemes" \
+  "var droppedSkillMembers = []string{\"security\", \"securityRequirements\"}" \
+  "var droppedSkillMembers = []string{\"security\"}" || rc=1
+
+run_mutation "T-30 preferredTransport survives without a url" \
+  "TestRewriteCard_PreferredTransportIsAlwaysJSONRPCWhenPresent" \
+  "	if _, ok := obj[\"preferredTransport\"]; ok || hasURL {" \
+  "	if hasURL {" || rc=1
+
+run_mutation "T-31 JSONRPC interface on an unknown version re-advertised" \
+  "TestRewriteCard_DropsJSONRPCInterfacesOnVersionsThePEPDoesNotSpeak" \
+  "			if !knownProtocolVersions[version] {" \
+  "			if false && !knownProtocolVersions[version] {" || rc=1
 
 run_mutation "T-16 bad tts public key no longer stops startup" \
   "TestBuildEngine_FailsClosedOnBadConfiguration" \

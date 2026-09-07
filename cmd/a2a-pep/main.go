@@ -32,7 +32,10 @@
 //     card unmodified would publish the address of the agent BEHIND the
 //     enforcement point, so the first thing any compliant client does with the
 //     card is take the bypass. Card relay is therefore OFF unless -public-url
-//     says what to advertise instead.
+//     says what to advertise instead. Both card dialects (A2A v0.3.0 `url`,
+//     A2A v1.0 `supportedInterfaces`) are rewritten, a card in neither is
+//     refused, and any JWS signature over the upstream card is stripped
+//     because the rewrite invalidates it (see rewriteCard).
 //
 // # Why this binary exists
 //
@@ -268,8 +271,24 @@ func (p *proxy) serveRPC(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(resp)
 }
 
-// forward delivers a token-stripped request to the wrapped agent.
-func (p *proxy) forward(ctx context.Context, raw []byte) ([]byte, error) {
+// forward delivers a request to the wrapped agent under the dialect the
+// middleware classified it as.
+func (p *proxy) forward(ctx context.Context, raw []byte, dialect a2apep.Dialect) ([]byte, error) {
+	// A2A-Version tells the wrapped agent which protocol semantics to parse
+	// the body under. It is set from the middleware's classification of the
+	// METHOD NAME and from nothing else. The caller's own A2A-Version header is
+	// not consulted, like every other caller header: a version the caller
+	// chose would let the caller have the agent parse an authorized body under
+	// semantics the PEP did not check it against. Only the two values the
+	// middleware can produce are sent; anything else is a bug upstream of
+	// here, and the request is refused rather than sent unversioned, because
+	// the reference server treats an absent header as 0.3 and would parse a
+	// v1.0 body wrong rather than reject it.
+	switch dialect {
+	case a2apep.DialectV03, a2apep.DialectV1:
+	default:
+		return nil, fmt.Errorf("a2a-pep: refusing to forward under unknown dialect %q", dialect)
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.upstream, bytes.NewReader(raw))
 	if err != nil {
 		return nil, err
@@ -280,6 +299,7 @@ func (p *proxy) forward(ctx context.Context, raw []byte) ([]byte, error) {
 	// agent a different credential for the same caller.
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("A2A-Version", string(dialect))
 
 	resp, err := p.client.Do(req)
 	if err != nil {
@@ -327,22 +347,278 @@ func (p *proxy) serveCard(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "upstream agent card unavailable", http.StatusBadGateway)
 		return
 	}
-	rewritten, dropped, err := rewriteCard(body, p.publicURL)
+	rewritten, rep, err := rewriteCard(body, p.publicURL)
 	if err != nil {
-		http.Error(w, "upstream agent card is not a JSON object", http.StatusBadGateway)
+		// The reason goes to the operator's log, not to the caller: the error
+		// names card members, and the caller has no business learning the
+		// shape of a card this PEP refused to publish.
+		log.Printf("agent card: refusing to relay: %v", err)
+		http.Error(w, "upstream agent card cannot be relayed", http.StatusBadGateway)
 		return
 	}
-	if dropped > 0 {
+	if rep.DroppedInterfaces > 0 {
 		// Every relay, not once: a persistent misconfiguration deserves a
 		// persistent complaint, and a discovery endpoint is not a hot path.
-		log.Printf("agent card: dropped %d additionalInterfaces entry/entries. Clients "+
-			"can no longer discover those transports through this PEP, which does not "+
-			"enforce them. If they must stay reachable, put a PEP in front of them; "+
-			"do not re-advertise a route this one cannot guard.", dropped)
+		log.Printf("agent card: dropped %d interface entry/entries (v0.3.0 "+
+			"additionalInterfaces, or v1.0 supportedInterfaces on a binding other than "+
+			"JSONRPC). Clients can no longer discover those transports through this PEP, "+
+			"which does not enforce them. If they must stay reachable, put a PEP in front "+
+			"of them; do not re-advertise a route this one cannot guard.",
+			rep.DroppedInterfaces)
+	}
+	if rep.StrippedSignatures > 0 {
+		log.Printf("agent card: stripped %d JWS signature(s). The relayed card is rewritten "+
+			"and the upstream signature no longer covers it; it is relayed unsigned rather "+
+			"than carrying a signature that does not verify. Clients that require a signed "+
+			"card will refuse this one until the PEP is given a signing key of its own.",
+			rep.StrippedSignatures)
+	}
+	if len(rep.DroppedMembers) > 0 {
+		log.Printf("agent card: dropped member(s) %s. Each carries a URL, an authentication "+
+			"scheme, or a reference to one, that this PEP cannot vouch for or does not honour "+
+			"(no client header reaches the wrapped agent, so its security schemes are not how a "+
+			"caller authenticates here; the relayed card is deliberately silent on auth, see "+
+			"docs/spec/DELEGATION-INTENT-A2A.md 6.1). If a link must be advertised, publish it "+
+			"from the PEP's own documentation, not through the card of the agent behind it.",
+			strings.Join(rep.DroppedMembers, ", "))
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	_, _ = w.Write(rewritten)
+}
+
+// cardRewrite reports what rewriteCard removed from the relayed card. Every
+// field exists for one reason: removing something from a discovery document
+// silently is the same defect as publishing something that should not be
+// there, facing the other way. The caller tells the operator.
+type cardRewrite struct {
+	// DroppedInterfaces is the number of upstream interface entries that are
+	// not re-advertised: every v0.3.0 additionalInterfaces entry, and every
+	// v1.0 supportedInterfaces entry whose protocolBinding is not JSONRPC.
+	DroppedInterfaces int
+	// StrippedSignatures is the number of entries removed from the card's
+	// top-level signatures array.
+	StrippedSignatures int
+	// DroppedMembers names the recognised-but-not-relayed members that were
+	// present (see droppedCardMembers and capabilities.extensions).
+	DroppedMembers []string
+}
+
+// allowedCardMembers is the AgentCard surface of A2A v0.3.0 and v1.0 together.
+// It is an ALLOWLIST, matched exactly and case-sensitively: a member outside it
+// is refused and the card is not relayed.
+//
+// The earlier version of this function knew five members and relayed every
+// other member verbatim. That is a denylist, and it failed the way denylists
+// fail: a card carrying the upstream address under a name the function had not
+// thought of -- "endpoint", or simply "Url", which Go's encoding/json decodes
+// into a `json:"url"` field because struct-tag matching is case-insensitive --
+// relayed the address with nothing dropped and nothing logged. Exact-case
+// membership closes both at once: "Url" is not "url", so it is unrecognised, so
+// the card is refused.
+var allowedCardMembers = map[string]bool{
+	// Both dialects.
+	"name": true, "description": true, "version": true, "provider": true,
+	"iconUrl": true, "documentationUrl": true, "capabilities": true,
+	"securitySchemes": true, "defaultInputModes": true, "defaultOutputModes": true,
+	"skills": true, "signatures": true,
+	// v0.3.0.
+	"protocolVersion": true, "url": true, "preferredTransport": true,
+	"additionalInterfaces": true, "security": true, "supportsAuthenticatedExtendedCard": true,
+	// v1.0.
+	"supportedInterfaces": true, "securityRequirements": true,
+}
+
+// droppedCardMembers are recognised members that are removed rather than
+// relayed, and named in the report so the operator sees it.
+//
+//   - iconUrl, documentationUrl, provider (whose url is REQUIRED in v1.0):
+//     informational URLs. Nothing in the protocol dials them, but nothing stops
+//     an operator hosting them on the agent, at which point the relayed card
+//     names the host this PEP exists to hide. The PEP cannot tell a public
+//     documentation site from the agent's own host without a denylist of hosts,
+//     so it relays neither. The cost is cosmetic: an icon and two links.
+//   - securitySchemes, security, securityRequirements: the wrapped agent's
+//     authentication schemes, which carry OAuth and OIDC endpoint URLs. Through
+//     this PEP they are not how a caller authenticates -- no client header
+//     reaches the wrapped agent (see forward), and the credential this PEP
+//     checks travels in the message body -- so advertising them would describe
+//     an authentication path that does not work here, at addresses that may
+//     be the agent's. Dropped for honesty as much as for hygiene.
+//
+// skills, defaultInputModes, defaultOutputModes, name, description, version and
+// protocolVersion are relayed as-is: in both dialects' schemas they are free
+// text, identifiers and media types, with no URL-typed member. A future schema
+// that adds one is a reason to revisit this list, not a case it silently
+// handles.
+var droppedCardMembers = []string{
+	"iconUrl", "documentationUrl", "provider",
+	"securitySchemes", "security", "securityRequirements",
+}
+
+// cardKind is the JSON type a relayed card member must have. Name-checking a
+// member and relaying its value untyped is a denylist on shape: an object where
+// a boolean belongs carries whatever it likes, including the upstream address,
+// and "streaming":{"u":"http://agent.internal/"} relayed cleanly under a
+// name-only allowlist. Every member relayed as-is is typed against the schemas
+// of both dialects (@a2a-js/sdk 0.3.0 and 1.0.0 type definitions).
+type cardKind int
+
+const (
+	kindString cardKind = iota
+	kindBool
+	kindStringArray
+	kindObject      // members typed by cardMember.schema; unknown members refused
+	kindObjectArray // array of kindObject
+	kindHandled     // rewritten, stripped or dropped by dedicated code above
+)
+
+type cardMember struct {
+	kind   cardKind
+	schema map[string]cardMember // kindObject and kindObjectArray only
+}
+
+// skillSchema is AgentSkill in both dialects. security (v0.3.0) and
+// securityRequirements (v1.0) reference scheme names defined by the top-level
+// securitySchemes, which is dropped; a reference to a definition that is gone
+// is dropped with it (see droppedSkillMembers) rather than relayed dangling.
+var skillSchema = map[string]cardMember{
+	"id": {kind: kindString}, "name": {kind: kindString}, "description": {kind: kindString},
+	"tags": {kind: kindStringArray}, "examples": {kind: kindStringArray},
+	"inputModes": {kind: kindStringArray}, "outputModes": {kind: kindStringArray},
+	"security": {kind: kindHandled}, "securityRequirements": {kind: kindHandled},
+}
+
+// droppedSkillMembers are removed from every skill and reported once.
+var droppedSkillMembers = []string{"security", "securityRequirements"}
+
+// capabilitiesSchema is AgentCapabilities in both dialects. extensions is
+// recognised and dropped: each entry carries a uri and a free-form params
+// object, and extensions are negotiated through the A2A-Extensions header,
+// which this PEP does not forward, so advertising them describes a negotiation
+// that cannot happen here.
+var capabilitiesSchema = map[string]cardMember{
+	"streaming": {kind: kindBool}, "pushNotifications": {kind: kindBool},
+	"stateTransitionHistory": {kind: kindBool}, "extendedAgentCard": {kind: kindBool},
+	"extensions": {kind: kindHandled},
+}
+
+// cardSchema types every member of allowedCardMembers. The two maps are kept
+// in step by TestCardSchemaCoversEveryAllowedMember; a member allowed but not
+// typed would be relayed untyped, which is the defect this exists to end.
+var cardSchema = map[string]cardMember{
+	// Relayed as typed values.
+	"name":                              {kind: kindString},
+	"description":                       {kind: kindString},
+	"version":                           {kind: kindString},
+	"protocolVersion":                   {kind: kindString},
+	"preferredTransport":                {kind: kindString},
+	"supportsAuthenticatedExtendedCard": {kind: kindBool},
+	"defaultInputModes":                 {kind: kindStringArray},
+	"defaultOutputModes":                {kind: kindStringArray},
+	"capabilities":                      {kind: kindObject, schema: capabilitiesSchema},
+	"skills":                            {kind: kindObjectArray, schema: skillSchema},
+	// Rewritten, stripped or dropped by name below.
+	"url":                  {kind: kindHandled},
+	"additionalInterfaces": {kind: kindHandled},
+	"supportedInterfaces":  {kind: kindHandled},
+	"signatures":           {kind: kindHandled},
+	"iconUrl":              {kind: kindHandled},
+	"documentationUrl":     {kind: kindHandled},
+	"provider":             {kind: kindHandled},
+	"securitySchemes":      {kind: kindHandled},
+	"security":             {kind: kindHandled},
+	"securityRequirements": {kind: kindHandled},
+}
+
+// allowedKeys derives a ScanObject allowlist from a schema.
+func allowedKeys(schema map[string]cardMember) map[string]bool {
+	out := make(map[string]bool, len(schema))
+	for k := range schema {
+		out[k] = true
+	}
+	return out
+}
+
+// checkTyped verifies that raw has the JSON type m demands, recursing into
+// objects. kindHandled members are not checked here; the dedicated code that
+// handles them checks what it needs. null is not any of these types: a member
+// that is present is present with a value, and a null where an object belongs
+// is refused like an array where an object belongs.
+func checkTyped(raw json.RawMessage, m cardMember, path string) error {
+	switch m.kind {
+	case kindHandled:
+		return nil
+	case kindString:
+		var v string
+		if err := json.Unmarshal(raw, &v); err != nil {
+			return fmt.Errorf("a2a-pep: agent card %s is not a string", path)
+		}
+	case kindBool:
+		var v bool
+		if err := json.Unmarshal(raw, &v); err != nil {
+			return fmt.Errorf("a2a-pep: agent card %s is not a boolean", path)
+		}
+	case kindStringArray:
+		var v []string
+		if err := json.Unmarshal(raw, &v); err != nil || !startsWith(raw, '[') {
+			return fmt.Errorf("a2a-pep: agent card %s is not an array of strings", path)
+		}
+	case kindObject:
+		if err := a2apep.ScanObject(raw, allowedKeys(m.schema), "agent card "+path); err != nil {
+			return err
+		}
+		var members map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &members); err != nil {
+			return fmt.Errorf("a2a-pep: agent card %s is not an object", path)
+		}
+		for k, v := range members {
+			if err := checkTyped(v, m.schema[k], path+"."+k); err != nil {
+				return err
+			}
+		}
+	case kindObjectArray:
+		var items []json.RawMessage
+		if err := json.Unmarshal(raw, &items); err != nil || !startsWith(raw, '[') {
+			return fmt.Errorf("a2a-pep: agent card %s is not an array", path)
+		}
+		for i, item := range items {
+			if err := checkTyped(item, cardMember{kind: kindObject, schema: m.schema},
+				fmt.Sprintf("%s[%d]", path, i)); err != nil {
+				return err
+			}
+		}
+	default:
+		return fmt.Errorf("a2a-pep: agent card %s has no schema kind", path)
+	}
+	return nil
+}
+
+// startsWith reports whether the first non-space byte of raw is c. Unmarshal
+// accepts null for a slice; a member that is present must be the array it
+// claims to be.
+func startsWith(raw json.RawMessage, c byte) bool {
+	t := bytes.TrimSpace(raw)
+	return len(t) > 0 && t[0] == c
+}
+
+// knownProtocolVersions are the A2A-Version values this PEP can forward under
+// (a2apep.DialectV03, a2apep.DialectV1). A JSONRPC interface advertising any
+// other version is dropped and counted like a foreign binding: the PEP sets
+// A2A-Version from the method spelling it recognised, so an entry promising a
+// version it does not speak would route every call into a version mismatch at
+// the agent, each one costing the caller a single-use token.
+var knownProtocolVersions = map[string]bool{
+	string(a2apep.DialectV03): true,
+	string(a2apep.DialectV1):  true,
+}
+
+// allowedInterfaceMembers is the A2A v1.0 AgentInterface surface. A JSONRPC
+// entry carrying a member outside it is refused: this function re-advertises
+// an interface by constructing a fresh entry from members it understands, and
+// a member it does not understand may be one more place an address lives.
+var allowedInterfaceMembers = map[string]bool{
+	"url": true, "protocolBinding": true, "protocolVersion": true, "tenant": true,
 }
 
 // rewriteCard makes the relayed agent card point at the PEP.
@@ -352,50 +628,244 @@ func (p *proxy) serveCard(w http.ResponseWriter, r *http.Request) {
 // the agent BEHIND the enforcement point and the first thing any compliant
 // client does with it is take the bypass.
 //
-// `additionalInterfaces` is dropped entirely rather than rewritten. Every entry
-// is a second address on a transport this PEP does not enforce at all -- a gRPC
-// interface cannot be pointed at a JSON-RPC proxy, and keeping it would
-// advertise a bypass that happens to look authorized. An operator who needs
-// those transports guarded needs a PEP for those transports, not a card that
-// implies one exists.
+// The card is held to the same discipline as a request: every top-level member
+// must be on allowedCardMembers (exact case; duplicates refused), every member
+// relayed as-is must have the JSON type both dialects' schemas give it
+// (cardSchema; an object where a boolean belongs is refused, because a value of
+// the wrong type is a container for anything), members that carry URLs or
+// authentication are handled by name, and anything the function does not
+// recognise is an error, never a passthrough. The version of this
+// function that handled only v0.3.0 found nothing to rewrite in a v1.0 card,
+// reported nothing dropped, and relayed `supportedInterfaces` untouched;
+// silence was the defect, and this is the shape that makes silence impossible.
 //
-// It returns how many entries it dropped, because dropping them silently is
-// the same defect facing the other way: a multi-transport agent degraded to
-// JSON-RPC only leaves its other clients unable to discover an endpoint with
-// nothing anywhere saying why. The caller tells the operator.
+// Two card dialects name the endpoint, and both are handled. A2A v0.3.0 names
+// it in `url` (with `preferredTransport` and `additionalInterfaces` beside it);
+// A2A v1.0 removed all three and names every endpoint in one ordered array,
+// `supportedInterfaces`, whose entries carry `url`, `protocolBinding` and
+// `protocolVersion`. A card that carries neither names no endpoint this
+// function can rewrite, and is refused.
 //
-// An additionalInterfaces that is present but is not an array is refused
-// rather than deleted. The count is the whole point; a value that cannot be
-// counted cannot be reported, and dropping it uncounted is the behaviour this
-// return value exists to end.
-func rewriteCard(card []byte, publicURL string) ([]byte, int, error) {
+// v0.3.0: `url` is replaced and `additionalInterfaces` is dropped entirely
+// rather than rewritten. Every entry is a second address on a transport this
+// PEP does not enforce at all -- a gRPC interface cannot be pointed at a
+// JSON-RPC proxy, and keeping it would advertise a bypass that happens to look
+// authorized. An operator who needs those transports guarded needs a PEP for
+// those transports, not a card that implies one exists.
+//
+// v1.0: the same policy, applied per entry. Every entry whose protocolBinding
+// is exactly "JSONRPC" and whose protocolVersion is one this PEP forwards under
+// ("0.3" or "1.0", see knownProtocolVersions) is re-advertised at the PEP, as a
+// fresh entry carrying the PEP's url, the binding, and that protocolVersion
+// unchanged. The version matters beyond honesty: the reference client sets
+// A2A-Version from the protocolVersion of the entry it selected, and this PEP
+// sets A2A-Version on the forwarded request from the method spelling it
+// recognised, so an entry promising a version the PEP does not speak would
+// route every call into a mismatch at the agent -- each one, since the permit
+// is recorded before the forward, costing the caller a single-use token. Every
+// entry on any other binding or version is dropped and counted. A JSONRPC entry that names a `tenant` is refused: v1.0
+// requires clients to echo it in every request and this PEP forwards no such
+// member, so the interface cannot be honestly advertised through it. A card
+// with no JSONRPC entry at all is refused for the same reason -- advertising
+// one would claim an interface the agent did not.
+//
+// `signatures` is stripped, and counted. v1.0 lets a card carry detached JWS
+// signatures (RFC 7515) over its RFC 8785 canonical form, and this function
+// changes that form, so any upstream signature no longer verifies against what
+// is relayed. Three options exist. Leaving the signature is the worst: a client
+// that verifies will reject the card (relay is then simply broken) and a
+// client that only checks for presence will trust a card whose signature is
+// stale -- a card that looks authenticated and is not. Re-signing as the PEP
+// is the right eventual answer, since the PEP IS the authority for the
+// endpoint it advertises, but it requires a PEP signing key, its rotation,
+// and the field-presence canonicalisation the A2A signing profile layers on
+// top of JCS, none of which this binary has. Stripping is the honest middle:
+// the relayed card is unsigned, says so by carrying no signature, and a client
+// that requires signatures refuses it for the true reason.
+//
+// It returns what it removed, because removing silently is the same defect as
+// publishing silently, facing the other way. A value that should be an array
+// but is not (additionalInterfaces, supportedInterfaces, signatures) is refused
+// rather than deleted: the count is the whole point, and a value that cannot be
+// counted cannot be reported.
+func rewriteCard(card []byte, publicURL string) ([]byte, cardRewrite, error) {
+	var rep cardRewrite
+	if err := a2apep.ScanObject(card, allowedCardMembers, "agent card"); err != nil {
+		return nil, rep, err
+	}
 	var obj map[string]json.RawMessage
 	if err := json.Unmarshal(card, &obj); err != nil {
-		return nil, 0, err
+		return nil, rep, err
 	}
 	if obj == nil {
-		return nil, 0, errors.New("a2a-pep: agent card is null")
+		return nil, rep, errors.New("a2a-pep: agent card is null")
+	}
+	for name, raw := range obj {
+		if err := checkTyped(raw, cardSchema[name], name); err != nil {
+			return nil, rep, err
+		}
 	}
 	enc, err := json.Marshal(publicURL)
 	if err != nil {
-		return nil, 0, err
+		return nil, rep, err
 	}
-	dropped := 0
+
+	_, hasURL := obj["url"]
+	rawInterfaces, hasInterfaces := obj["supportedInterfaces"]
+	if !hasURL && !hasInterfaces {
+		return nil, rep, errors.New("a2a-pep: agent card names no endpoint this PEP can rewrite: " +
+			"neither a v0.3.0 url nor a v1.0 supportedInterfaces array is present")
+	}
+
+	// Members recognised and removed by name.
+	for _, name := range droppedCardMembers {
+		if _, ok := obj[name]; ok {
+			rep.DroppedMembers = append(rep.DroppedMembers, name)
+			delete(obj, name)
+		}
+	}
+	if raw, ok := obj["capabilities"]; ok {
+		// Typed and allowlisted by checkTyped above; only the drop remains.
+		var caps map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &caps); err != nil {
+			return nil, rep, err
+		}
+		if _, ok := caps["extensions"]; ok {
+			rep.DroppedMembers = append(rep.DroppedMembers, "capabilities.extensions")
+			delete(caps, "extensions")
+			b, err := json.Marshal(caps)
+			if err != nil {
+				return nil, rep, err
+			}
+			obj["capabilities"] = b
+		}
+	}
+	if raw, ok := obj["skills"]; ok {
+		var skills []map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &skills); err != nil {
+			return nil, rep, err
+		}
+		dropped := map[string]bool{}
+		for _, sk := range skills {
+			for _, name := range droppedSkillMembers {
+				if _, ok := sk[name]; ok {
+					dropped[name] = true
+					delete(sk, name)
+				}
+			}
+		}
+		if len(dropped) > 0 {
+			for _, name := range droppedSkillMembers {
+				if dropped[name] {
+					rep.DroppedMembers = append(rep.DroppedMembers, "skills[]."+name)
+				}
+			}
+			b, err := json.Marshal(skills)
+			if err != nil {
+				return nil, rep, err
+			}
+			obj["skills"] = b
+		}
+	}
+
+	// v0.3.0. additionalInterfaces is handled whether or not url is present:
+	// a card is rewritten member by member, and an address-bearing member left
+	// alone because a sibling was absent is the leak this function exists to
+	// close.
 	if raw, ok := obj["additionalInterfaces"]; ok {
 		var alts []json.RawMessage
 		if err := json.Unmarshal(raw, &alts); err != nil {
-			return nil, 0, fmt.Errorf("a2a-pep: agent card additionalInterfaces is present but is not an array: %w", err)
+			return nil, rep, fmt.Errorf("a2a-pep: agent card additionalInterfaces is present but is not an array: %w", err)
 		}
-		dropped = len(alts)
+		rep.DroppedInterfaces += len(alts)
 	}
-	obj["url"] = enc
-	obj["preferredTransport"] = json.RawMessage(`"JSONRPC"`)
+	if hasURL {
+		obj["url"] = enc
+	}
+	if _, ok := obj["preferredTransport"]; ok || hasURL {
+		// Always JSONRPC when it appears at all: it is not an address, but a
+		// transport name the PEP does not serve would send a v0.3.0 client
+		// looking for one, whether or not a url sits beside it.
+		obj["preferredTransport"] = json.RawMessage(`"JSONRPC"`)
+	}
 	delete(obj, "additionalInterfaces")
+
+	// v1.0.
+	if hasInterfaces {
+		var entries []map[string]json.RawMessage
+		if err := json.Unmarshal(rawInterfaces, &entries); err != nil {
+			return nil, rep, fmt.Errorf("a2a-pep: agent card supportedInterfaces is present but is not an array of objects: %w", err)
+		}
+		kept := make([]json.RawMessage, 0, len(entries))
+		for i, e := range entries {
+			if e == nil {
+				return nil, rep, fmt.Errorf("a2a-pep: agent card supportedInterfaces[%d] is null", i)
+			}
+			var binding string
+			if err := json.Unmarshal(e["protocolBinding"], &binding); err != nil {
+				return nil, rep, fmt.Errorf("a2a-pep: agent card supportedInterfaces[%d] has no string protocolBinding: %w", i, err)
+			}
+			if binding != "JSONRPC" {
+				rep.DroppedInterfaces++
+				continue
+			}
+			for k := range e {
+				if !allowedInterfaceMembers[k] {
+					return nil, rep, fmt.Errorf("a2a-pep: agent card supportedInterfaces[%d] carries unrecognised member %q", i, k)
+				}
+			}
+			if _, ok := e["tenant"]; ok {
+				return nil, rep, fmt.Errorf("a2a-pep: agent card supportedInterfaces[%d] names a tenant, which this PEP does not forward", i)
+			}
+			// Typed, like its sibling: a "fresh entry from members this
+			// function understands" cannot carry an object it never read.
+			// REQUIRED in v1.0, so absent is malformed and refused; present
+			// but a version this PEP does not forward under is a foreign
+			// interface, dropped and counted (see knownProtocolVersions).
+			var version string
+			if err := json.Unmarshal(e["protocolVersion"], &version); err != nil {
+				return nil, rep, fmt.Errorf("a2a-pep: agent card supportedInterfaces[%d] protocolVersion is absent or not a string", i)
+			}
+			if !knownProtocolVersions[version] {
+				rep.DroppedInterfaces++
+				continue
+			}
+			entry := map[string]json.RawMessage{
+				"url":             enc,
+				"protocolBinding": json.RawMessage(`"JSONRPC"`),
+				"protocolVersion": e["protocolVersion"],
+			}
+			b, err := json.Marshal(entry)
+			if err != nil {
+				return nil, rep, err
+			}
+			kept = append(kept, b)
+		}
+		if len(kept) == 0 {
+			return nil, rep, errors.New("a2a-pep: agent card supportedInterfaces has no JSONRPC entry; " +
+				"this PEP will not advertise an interface the agent did not")
+		}
+		b, err := json.Marshal(kept)
+		if err != nil {
+			return nil, rep, err
+		}
+		obj["supportedInterfaces"] = b
+	}
+
+	if raw, ok := obj["signatures"]; ok {
+		var sigs []json.RawMessage
+		if err := json.Unmarshal(raw, &sigs); err != nil {
+			return nil, rep, fmt.Errorf("a2a-pep: agent card signatures is present but is not an array: %w", err)
+		}
+		rep.StrippedSignatures = len(sigs)
+		delete(obj, "signatures")
+	}
+
 	out, err := json.Marshal(obj)
 	if err != nil {
-		return nil, 0, err
+		return nil, rep, err
 	}
-	return out, dropped, nil
+	return out, rep, nil
 }
 
 // newUpstreamClient builds the client used for both the agent and its card.

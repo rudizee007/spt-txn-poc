@@ -10,18 +10,39 @@
 // to do exactly this" is the same question in all three, and is answered in one
 // place.
 //
-// Wire binding (A2A specification v0.3.0):
+// Wire binding (A2A specification v0.3.0, and the v1.0 renaming of it):
 //
-//	method  message/send
-//	params  MessageSendParams { message: Message, ... }
+//	method  message/send            (v0.3.0)   SendMessage (v1.0)
+//	params  MessageSendParams { message: Message, configuration?, ... }
 //	Message { role, parts, messageId, taskId, contextId, metadata }
 //	metadata is "{ [key: string]: any }" for extension data, namespaced by an
 //	extension-specific identifier.
 //
+// A2A v1.0 renamed every JSON-RPC method and re-spelled three members this
+// PEP inspects (role "user" became "ROLE_USER"; configuration.blocking became
+// configuration.returnImmediately; configuration.pushNotificationConfig became
+// configuration.taskPushNotificationConfig). Both dialects are accepted, and
+// each v1.0 spelling is classified exactly as its v0.3.0 counterpart: the
+// authorization question does not change because a method was renamed. Any
+// v1.0 member this PEP has not classified (params.tenant, message.extensions,
+// message.referenceTaskIds) stays refused by the allowlists below.
+//
 // The token therefore travels in params.message.metadata["spt-txn/token"], the
 // direct analogue of MCP's params._meta["spt-txn/token"], and is STRIPPED
-// before the message is forwarded. The wrapped agent never sees the credential
-// (docs/THREAT-MODEL.md §4.6, confused-deputy discipline).
+// before the message is forwarded. That position is the ONLY one accepted: a
+// send whose request carries the token key anywhere else -- inside a part's
+// metadata, inside a data part, inside configuration, at any depth -- is
+// refused (rpc.credential-misplaced), not stripped, because everything outside
+// message.metadata is either bound into the digest (parts) or allowlisted
+// content the agent acts on, and rewriting it would forward something other
+// than what was authorized. On the read-only passthrough (observableMethods)
+// there is no credential to strip, and a request that carries the token key
+// anywhere is refused (rpc.credential-on-passthrough). Under that key, at any
+// position, the wrapped agent never sees the credential (docs/THREAT-MODEL.md
+// §4.6, confused-deputy discipline). A client that ships its secret under some
+// OTHER member name has shipped a string this PEP cannot tell from data; the
+// allowlists keep such a string from riding through as an unrecognised member,
+// but cannot recognise it as a secret. That is the boundary of the claim.
 package a2apep
 
 import (
@@ -38,8 +59,36 @@ import (
 // TokenMetaKey is the message.metadata key carrying the SPT-Txn token.
 const TokenMetaKey = "spt-txn/token"
 
-// SendMethod is the only A2A method this PEP authorizes.
+// SendMethod is the A2A v0.3.0 name of the one operation this PEP authorizes,
+// and the `tool` bound into the intent digest for BOTH dialects.
 const SendMethod = "message/send"
+
+// SendMethodV1 is the A2A v1.0 name of the same operation.
+//
+// The intent binds ONE tool name, SendMethod, whichever spelling arrived. A
+// token is minted for the action "deliver these parts to this agent in this
+// task and context", and the wire spelling of the method is not part of that
+// action. What differs between the two forwarded requests is exactly the method
+// name and whichever role spelling the client chose ("user" or "ROLE_USER",
+// both pinned to the same constant); everything the digest covers -- parts,
+// taskId, contextId, historyLength -- and every other allowlisted member is the
+// same under either spelling, because both are held to the same allowlists
+// below. Binding the spelling would make every minter dialect-aware for no
+// property gained, and would let a mismatch between the minter's guess and the
+// client's SDK version deny a request that is in every other respect
+// authorized.
+const SendMethodV1 = "SendMessage"
+
+// StreamMethodV1 is the A2A v1.0 name of message/stream. It is refused as
+// unmodelled, under the same rule path as its v0.3.0 sibling, for the same
+// reason: a stream is not a discrete message and cannot be matched against a
+// single intent digest. The v0.3.0 sibling is recognised by its "message/"
+// prefix; v1.0 dropped the namespace, so the v1.0 name is matched exactly.
+const StreamMethodV1 = "SendStreamingMessage"
+
+// sendMethods maps each spelling that reaches the authorization path to the
+// dialect it belongs to.
+var sendMethods = map[string]Dialect{SendMethod: DialectV03, SendMethodV1: DialectV1}
 
 // JSON-RPC error codes emitted by the PEP. Same numbering as mcppep so an
 // operator reading two PEPs' logs is not learning two dialects.
@@ -49,8 +98,31 @@ const (
 	CodeUpstream = -32002
 )
 
-// Forward delivers a (token-stripped) request to the wrapped agent.
-type Forward func(ctx context.Context, raw []byte) ([]byte, error)
+// Dialect is the A2A protocol version a request was classified as, by the
+// method name this PEP recognised. It is the value the transport puts in the
+// A2A-Version header of the forwarded request.
+type Dialect string
+
+// The two dialects this PEP models. The values are the Major.Minor strings the
+// A2A specification defines for the A2A-Version header; the reference server
+// routes "0.3" (and an absent header) to its legacy handler and "1.0" to the
+// current one.
+const (
+	DialectV03 Dialect = "0.3"
+	DialectV1  Dialect = "1.0"
+)
+
+// Forward delivers a request to the wrapped agent.
+//
+// raw is the request to send: token-stripped for a send, as received for a
+// read. dialect is the protocol version the middleware classified the request
+// as, from the method name alone. The transport MUST set the A2A-Version
+// header from dialect and from nothing else: a version copied from the caller
+// would let the caller make the wrapped agent parse an authorized body under
+// semantics this PEP did not check it against, which is a parser differential
+// between the enforcement point and the thing it guards. The middleware
+// guarantees dialect is one of the two constants above for every call.
+type Forward func(ctx context.Context, raw []byte, dialect Dialect) ([]byte, error)
 
 // Middleware enforces SPT-Txn on an A2A message stream. Stateless apart from
 // the decision engine it delegates to; holds no keys.
@@ -146,7 +218,8 @@ func (m *Middleware) Handle(ctx context.Context, raw []byte) []byte {
 		return errorResponse(req.ID, CodeParse, "parse error")
 	}
 
-	if req.Method != SendMethod {
+	dialect, isSend := sendMethods[req.Method]
+	if !isSend {
 		// Any OTHER message/* method is refused rather than passed through.
 		// message/stream and any future sibling deliver payloads this PEP does
 		// not model, and forwarding an unmodelled payload is exactly the hole
@@ -155,14 +228,42 @@ func (m *Middleware) Handle(ctx context.Context, raw []byte) []byte {
 			m.Engine.RecordDeny("rpc.unmodelled-message-method", false, "")
 			return errorResponse(req.ID, CodeDenied, "spt-txn: denied")
 		}
+		// The v1.0 spelling of message/stream has no namespace prefix to
+		// match, so it is named. It is the only v1.0 method this branch needs
+		// to know: every other v1.0 name is either on the read-only allowlist
+		// below or denied by it, and this branch exists only to give the
+		// operator a distinct receipt for "a client tried to stream".
+		if req.Method == StreamMethodV1 {
+			m.Engine.RecordDeny("rpc.unmodelled-message-method", false, "")
+			return errorResponse(req.ID, CodeDenied, "spt-txn: denied")
+		}
 		// Everything else must be on the read-only allowlist. See
 		// observableMethods for why that is an allowlist and not a denylist.
-		if !observableMethods[req.Method] {
+		shape, observable := observableMethods[req.Method]
+		if !observable {
 			m.Engine.RecordDeny("rpc.method-not-permitted", false, "")
 			return errorResponse(req.ID, CodeDenied, "spt-txn: denied")
 		}
+		// A read is unauthenticated, so it has no credential to carry. One
+		// that carries the token key anyway -- at any depth -- is refused, not
+		// forwarded and not stripped: stripping would forward a request this
+		// PEP has verified nothing about, and would still hand the wrapped
+		// agent whatever else rode alongside. Checked before the params shape
+		// so the operator gets this signal and not the generic one.
+		if found, err := containsKey(raw, TokenMetaKey); err != nil || found {
+			m.Engine.RecordDeny("rpc.credential-on-passthrough", false, "")
+			return errorResponse(req.ID, CodeDenied, "spt-txn: denied")
+		}
+		// The params of a read are allowlisted like the params of a send: a
+		// member this PEP has not classified is not forwarded, and the member
+		// naming the task must be a non-empty string so that a read is a read
+		// of one task, not a query.
+		if err := shape.validate(req.Params); err != nil {
+			m.Engine.RecordDeny("rpc.passthrough-params-refused", false, "")
+			return errorResponse(req.ID, CodeDenied, "spt-txn: denied")
+		}
 		m.Engine.RecordObserved("observe.passthrough." + req.Method)
-		resp, err := m.Forward(ctx, raw)
+		resp, err := m.Forward(ctx, raw, shape.dialect)
 		if err != nil {
 			return errorResponse(req.ID, CodeUpstream, "upstream error")
 		}
@@ -202,10 +303,12 @@ func (m *Middleware) Handle(ctx context.Context, raw []byte) []byte {
 		return errorResponse(req.ID, CodeDenied, "spt-txn: denied")
 	}
 	// role is not bound (a constant asserts nothing) — so it is PINNED instead.
-	// A client speaking to an agent is "user"; absent is accepted as the
-	// constant; anything else is refused. kind, when present, must be
-	// "message" for the same reason.
-	if msg.Role != "" && msg.Role != "user" {
+	// A client speaking to an agent is "user" (v0.3.0) or "ROLE_USER" (v1.0,
+	// which serialises the enum by its protobuf name); absent is accepted as
+	// the constant; anything else is refused. kind, when present, must be
+	// "message" for the same reason (v1.0 messages carry no kind, which is the
+	// absent case).
+	if msg.Role != "" && msg.Role != "user" && msg.Role != "ROLE_USER" {
 		m.Engine.RecordDeny("rpc.role-not-user", false, "")
 		return errorResponse(req.ID, CodeDenied, "spt-txn: denied")
 	}
@@ -233,6 +336,28 @@ func (m *Middleware) Handle(ctx context.Context, raw []byte) []byte {
 
 	token := extractToken(msg.Metadata)
 
+	// The request is stripped BEFORE the decision, for two reasons. First, the
+	// stripped bytes are what a misplaced credential is looked for in: with
+	// the one legitimate position removed, any remaining occurrence of the key
+	// -- in a part's metadata, in a data part, in configuration, at any depth
+	// -- is a credential where none belongs. It is refused rather than
+	// stripped: parts are bound into the digest and configuration is content
+	// the agent acts on, so rewriting either would forward something other
+	// than what was authorized. Second, neither a strip failure nor a
+	// misplaced credential should be recorded as a permit or consume the jti;
+	// both are refusals of the request's shape, decided before its authority
+	// is examined.
+	stripped, err := stripToken(raw, req)
+	if err != nil {
+		// If we cannot prove the credential is removed, we do not forward.
+		m.Engine.RecordDeny("rpc.strip-failed", true, token)
+		return errorResponse(req.ID, CodeDenied, "spt-txn: denied")
+	}
+	if found, err := containsKey(stripped, TokenMetaKey); err != nil || found {
+		m.Engine.RecordDeny("rpc.credential-misplaced", false, "")
+		return errorResponse(req.ID, CodeDenied, "spt-txn: denied")
+	}
+
 	d := m.Engine.Decide(ctx, decision.Input{
 		Token: token,
 		Intent: intent.Intent{
@@ -244,14 +369,12 @@ func (m *Middleware) Handle(ctx context.Context, raw []byte) []byte {
 	if !d.Permit() {
 		return errorResponse(req.ID, CodeDenied, "spt-txn: denied")
 	}
-
-	stripped, err := stripToken(raw, req)
-	if err != nil {
-		// If we cannot prove the credential is removed, we do not forward.
-		m.Engine.RecordDeny("rpc.strip-failed", true, token)
-		return errorResponse(req.ID, CodeDenied, "spt-txn: denied")
-	}
-	resp, err := m.Forward(ctx, stripped)
+	// The permit is recorded and the jti consumed at Decide, before Forward.
+	// A forward that fails therefore costs the token: the retry is a replay.
+	// That ordering is deliberate at-most-once (a jti released on "upstream
+	// failed" would be released on "upstream executed and the response was
+	// lost" too) and is not this package's to change alone.
+	resp, err := m.Forward(ctx, stripped, dialect)
 	if err != nil {
 		return errorResponse(req.ID, CodeUpstream, "upstream error")
 	}
@@ -341,13 +464,170 @@ func stripToken(raw []byte, req rpcRequest) ([]byte, error) {
 // reasoning that makes allowedSendParams and allowedMessageMembers allowlists.
 //
 // A second consequence: the observe.passthrough.<method> rule path below now
-// only ever concatenates one of these three constants. Under the denylist it
+// only ever concatenates one of these six constants. Under the denylist it
 // concatenated attacker-supplied text, giving the receipt log an unbounded
 // cardinality of rule paths that an adversary chose the contents of.
-var observableMethods = map[string]bool{
-	"tasks/get":                         true,
-	"tasks/pushNotificationConfig/get":  true,
-	"tasks/pushNotificationConfig/list": true,
+//
+// A2A v1.0 renamed the three reads and they are listed under both spellings.
+// It also ADDED a read this map deliberately omits: ListTasks enumerates every
+// task the agent holds, with filters. The v0.3.0 set only ever let a caller read
+// a task whose id it already held, and this passthrough is unauthenticated;
+// widening it to enumeration would hand an anonymous caller the id of every
+// task, and with it the GetTask that reads each one. The new name is a new
+// capability, not a rename, and it is denied.
+//
+// Each entry carries the SHAPE of the params this PEP will forward for it. The
+// passthrough used to forward params raw, which made "a read of one task" a
+// promise the method name made and nothing checked: a params-level metadata
+// (v0.3.0), a tenant (v1.0), or any member added later rode through an
+// unauthenticated path uninspected. Now every read's params are allowlisted
+// exactly as a send's are, and the member that names the task is required to be
+// a non-empty string. That is the property that makes these reads narrower than
+// ListTasks: a caller must already hold the id. The v0.3.0 request shapes are
+// TaskQueryParams, GetTaskPushNotificationConfigParams and
+// ListTaskPushNotificationConfigParams; the v1.0 ones are GetTaskRequest,
+// GetTaskPushNotificationConfigRequest and ListTaskPushNotificationConfigsRequest
+// (task_id REQUIRED, page_size, page_token). None of the six carries a parent
+// or wildcard member in either specification, and none is allowlisted here.
+//
+// Member names are the lowerCamelCase the A2A specification mandates for every
+// JSON serialisation (spec §5.5, "MUST use camelCase"). Proto3's JSON parser
+// also accepts snake_case on input, and a hand-rolled client might send it; it
+// is refused here, deliberately. Accepting both spellings would double every
+// allowlist in this package (the send path is camelCase-only too, and its
+// digest is computed over camelCase members) and would need a rule that the
+// two spellings of one member never both appear. The specification's MUST is
+// the allowlist.
+var observableMethods = map[string]passthroughShape{
+	"tasks/get": {
+		dialect:  DialectV03,
+		allowed:  map[string]bool{"id": true, "historyLength": true},
+		required: []string{"id"},
+	},
+	"tasks/pushNotificationConfig/get": {
+		dialect:  DialectV03,
+		allowed:  map[string]bool{"id": true, "pushNotificationConfigId": true},
+		required: []string{"id"},
+	},
+	"tasks/pushNotificationConfig/list": {
+		dialect:  DialectV03,
+		allowed:  map[string]bool{"id": true},
+		required: []string{"id"},
+	},
+	"GetTask": {
+		dialect:  DialectV1,
+		allowed:  map[string]bool{"id": true, "historyLength": true},
+		required: []string{"id"},
+	},
+	"GetTaskPushNotificationConfig": {
+		dialect:  DialectV1,
+		allowed:  map[string]bool{"taskId": true, "id": true},
+		required: []string{"taskId", "id"},
+	},
+	"ListTaskPushNotificationConfigs": {
+		dialect:  DialectV1,
+		allowed:  map[string]bool{"taskId": true, "pageSize": true, "pageToken": true},
+		required: []string{"taskId"},
+	},
+}
+
+// passthroughShape is the params surface of one read-only method.
+type passthroughShape struct {
+	// dialect is the protocol version the method name belongs to; it is what
+	// the transport puts in A2A-Version.
+	dialect Dialect
+	// allowed is the exact member set forwarded. A v0.3.0 params-level
+	// metadata and a v1.0 tenant are deliberately absent: the first is
+	// extension payload on an unauthenticated path, the second routes the
+	// read to a different agent behind the same endpoint.
+	allowed map[string]bool
+	// required members must each be present as a non-empty JSON string.
+	required []string
+}
+
+// validate applies the shape. Absent params, a non-object, a duplicated or
+// unrecognised member, or a required member that is absent, non-string or empty
+// is an error.
+func (sh passthroughShape) validate(params json.RawMessage) error {
+	if err := scanObject(params, sh.allowed, "params"); err != nil {
+		return err
+	}
+	var members map[string]json.RawMessage
+	if err := json.Unmarshal(params, &members); err != nil {
+		return err
+	}
+	for _, name := range sh.required {
+		var v string
+		if err := json.Unmarshal(members[name], &v); err != nil {
+			return fmt.Errorf("a2apep: params.%s is absent or not a string", name)
+		}
+		if v == "" {
+			return fmt.Errorf("a2apep: params.%s is empty", name)
+		}
+	}
+	return nil
+}
+
+// containsKey reports whether any object anywhere in raw has a member named
+// key. It walks the token stream and looks only at member NAMES, so a string
+// VALUE equal to key does not count: a task id that happens to read
+// "spt-txn/token" is data, and refusing data by its spelling would be a
+// denylist on content.
+func containsKey(raw []byte, key string) (bool, error) {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	found, err := walkForKey(dec, key)
+	if err != nil {
+		return false, err
+	}
+	return found, nil
+}
+
+// walkForKey consumes exactly one JSON value from dec.
+//
+// It recurses one frame per nesting level and has no depth limit of its own.
+// The bound it relies on is encoding/json's: Handle has already run
+// json.Unmarshal over the same bytes, and that parser refuses nesting deeper
+// than 10000 (rpc.malformed), so the deepest input that reaches this walk is a
+// few hundred KiB of stack. Remove or reorder that earlier parse and this
+// function becomes a stack-exhaustion primitive on a body the size cap allows.
+func walkForKey(dec *json.Decoder, key string) (bool, error) {
+	tok, err := dec.Token()
+	if err != nil {
+		return false, err
+	}
+	d, ok := tok.(json.Delim)
+	if !ok {
+		return false, nil
+	}
+	switch d {
+	case '{':
+		for dec.More() {
+			nameTok, err := dec.Token()
+			if err != nil {
+				return false, err
+			}
+			name, ok := nameTok.(string)
+			if !ok {
+				return false, fmt.Errorf("a2apep: object member name is not a string")
+			}
+			if name == key {
+				return true, nil
+			}
+			found, err := walkForKey(dec, key)
+			if err != nil || found {
+				return found, err
+			}
+		}
+	case '[':
+		for dec.More() {
+			found, err := walkForKey(dec, key)
+			if err != nil || found {
+				return found, err
+			}
+		}
+	}
+	_, err = dec.Token() // the closing delimiter
+	return false, err
 }
 
 // allowedSendParams is the exact set of top-level message/send params members
@@ -361,10 +641,11 @@ var observableMethods = map[string]bool{
 // `configuration` IS accepted, member by member, per allowedConfiguration.
 var allowedSendParams = map[string]bool{"message": true, "configuration": true}
 
-// ErrWebhookRefused reports a message/send carrying
-// configuration.pushNotificationConfig.
+// ErrWebhookRefused reports a send carrying configuration.pushNotificationConfig
+// (v0.3.0) or configuration.taskPushNotificationConfig (v1.0's spelling of the
+// same member).
 var ErrWebhookRefused = errors.New("a2apep: configuration.pushNotificationConfig " +
-	"is a capability grant, not a formatting option")
+	"(v1.0: taskPushNotificationConfig) is a capability grant, not a formatting option")
 
 // allowedConfiguration is the MessageSendConfiguration surface this PEP will
 // forward, and it encodes the three tiers of
@@ -391,10 +672,24 @@ var ErrWebhookRefused = errors.New("a2apep: configuration.pushNotificationConfig
 //     sees the result. Refusing them would make this PEP undeployable against
 //     ordinary clients for no security gain, which is a real cost and not a
 //     conservative choice.
+//
+//   - returnImmediately is A2A v1.0's replacement for blocking, with the sense
+//     inverted (v1.0 blocks by default and this flag opts out). It is the same
+//     knob and lands in the same tier for the same reason: it decides whether
+//     the caller waits for the task, not what the task does or who sees it. If
+//     anything it discloses less, since a call that returns before the task
+//     completes returns without the result. A member that is blocking's
+//     complement cannot be in a different tier from blocking.
+//
+// The v1.0 spelling of the tier-1 member, taskPushNotificationConfig, is
+// ABSENT from this map for the reason its v0.3.0 spelling is, and is refused
+// by name in validateSendParams so it gets the webhook rule path rather than
+// falling out as an unrecognised member.
 var allowedConfiguration = map[string]bool{
 	"acceptedOutputModes": true,
 	"blocking":            true,
 	"historyLength":       true,
+	"returnImmediately":   true,
 }
 
 // configHistoryLength extracts the tier-2 member for the intent digest. A
@@ -444,11 +739,26 @@ func validateSendParams(params json.RawMessage) error {
 		if _, present := cfg["pushNotificationConfig"]; present {
 			return ErrWebhookRefused
 		}
+		// A2A v1.0 renamed the member. Same URL, same authentication material,
+		// same webhook, same refusal. Without this line the v1.0 spelling would
+		// still be refused (it is absent from allowedConfiguration) but under
+		// the generic rule path, and the operator would lose the signal that
+		// distinguishes an attack from a client bug.
+		if _, present := cfg["taskPushNotificationConfig"]; present {
+			return ErrWebhookRefused
+		}
 		if err := scanObject(p.Configuration, allowedConfiguration, "configuration"); err != nil {
 			return err
 		}
 	}
 	return scanObject(p.Message, allowedMessageMembers, "message")
+}
+
+// ScanObject is scanObject for callers outside this package. cmd/a2a-pep uses
+// it to hold the relayed agent card to the same discipline as a request: an
+// object is a set of recognised members or it is refused.
+func ScanObject(obj json.RawMessage, allowed map[string]bool, what string) error {
+	return scanObject(obj, allowed, what)
 }
 
 // scanObject rejects a duplicated member name and any member outside allowed.
@@ -480,7 +790,10 @@ func scanObject(obj json.RawMessage, allowed map[string]bool, what string) error
 			return fmt.Errorf("a2apep: duplicate %s member %q", what, key)
 		}
 		if !allowed[key] {
-			return fmt.Errorf("a2apep: unrecognised %s member %q (not covered by intent binding)", what, key)
+			// No "(not covered by intent binding)" suffix: the same scan holds
+			// the relayed agent card and a read's params, where there is no
+			// binding, and an error string must not claim one.
+			return fmt.Errorf("a2apep: unrecognised %s member %q", what, key)
 		}
 		seen[key] = true
 		if err := skipValue(dec); err != nil {

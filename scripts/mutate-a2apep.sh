@@ -30,6 +30,27 @@
 #   A-15 the webhook refusal loses its specific rule path
 #   A-16 the tier-2 configuration member leaves the intent binding
 #   A-17 a tier-3 configuration member stops being accepted
+#   A-18 the v1.0 stream method (SendStreamingMessage) loses its rule path
+#   A-19 the v1.0 webhook spelling (taskPushNotificationConfig) loses its rule path
+#   A-20 the v1.0 role spelling (ROLE_USER) stops being pinned as user
+#   A-21 the v1.0 tier-3 member (returnImmediately) stops being accepted
+#   A-22 ListTasks (v1.0 enumeration) is added to the read-only allowlist
+#   A-23 a credential on the read-only passthrough is forwarded
+#   A-24 the read-only params allowlist is bypassed
+#   A-25 a v1.0 tenant is admitted to a read's params
+#   A-26 the v1.0 method spelling stops reaching the authorization path
+#   A-27 a credential outside message.metadata (inside parts) is forwarded
+#   A-28 a v1.0 send is forwarded under the v0.3.0 dialect (A2A-Version)
+#   A-29 a v1.0 read is forwarded under the v0.3.0 dialect
+#
+# A-2 RE-ANCHORED 2026-09-06. Its anchor had gone stale when the strip code
+# changed from `if len(meta) == 0 { delete }` to refuse-then-delete, so the
+# mutation never applied and the script reported "anchor not found" run after
+# run. That is not a failing check, it is an ABSENT one: the guard it names had
+# no mutation coverage at all while the line stayed red. The mutation now
+# re-marshals the emptied map back onto the message, which is the actual A-2
+# scenario (metadata surviving as {} rather than being removed), compiles, and
+# is killed by the assertion at a2apep_test.go:165.
 #
 # A-3, A-4 and A-5 mutate the json TAG on the `bound` struct rather than the
 # call site. That is deliberate. The test rig mints against the same struct, so
@@ -105,10 +126,10 @@ run_mutation "A-1 credential not stripped before forwarding" \
 
 run_mutation "A-2 emptied metadata left on the wire as {}" \
   "TestAuthorizedSendForwardedWithTokenStripped" \
-  "		if len(meta) == 0 {
-			delete(msg, \"metadata\")" \
-  "		if false && len(meta) == 0 {
-			delete(msg, \"metadata\")" || rc=1
+  "		delete(msg, \"metadata\")" \
+  "		if b, err := json.Marshal(meta); err == nil {
+			msg[\"metadata\"] = b
+		}" || rc=1
 
 run_mutation "A-3 parts leaves the intent binding" \
   "TestMutatedPartsDenied" \
@@ -163,18 +184,19 @@ run_mutation "A-11 empty method proxied" \
 
 run_mutation "A-12 read-only allowlist bypassed" \
   "TestStateChangingAndUnknownMethodsDenied" \
-  "		if !observableMethods[req.Method] {" \
-  "		if false && !observableMethods[req.Method] {" || rc=1
+  "		if !observable {" \
+  "		if !observable && false {" || rc=1
 
 run_mutation "A-13 webhook installer added to the allowlist" \
   "TestStateChangingAndUnknownMethodsDenied" \
-  "	\"tasks/pushNotificationConfig/list\": true," \
-  "	\"tasks/pushNotificationConfig/list\": true, \"tasks/pushNotificationConfig/set\": true," || rc=1
+  "	\"tasks/pushNotificationConfig/list\": {" \
+  "	\"tasks/pushNotificationConfig/set\": {allowed: map[string]bool{\"id\": true, \"pushNotificationConfig\": true}, required: []string{\"id\"}},
+	\"tasks/pushNotificationConfig/list\": {" || rc=1
 
 run_mutation "A-14 a read-only method stops being observable" \
   "TestReadOnlyMethodsPassThrough" \
-  "	\"tasks/pushNotificationConfig/list\": true," \
-  "	\"tasks/pushNotificationConfig/list\": false," || rc=1
+  "	\"tasks/pushNotificationConfig/list\": {" \
+  "	\"tasks/pushNotificationConfig/list-\": {" || rc=1
 
 # A-15/A-16/A-17 are the configuration tiers.
 #
@@ -200,6 +222,85 @@ run_mutation "A-17 a tier-3 member stops being accepted" \
   "TestConfigurationTier3IsAllowedUnbound" \
   "	\"blocking\":            true," \
   "	\"blocking\":            false," || rc=1
+
+# A-18 to A-26 are the A2A v1.0 dialect and the read-only passthrough's own
+# allowlists. A-18 and A-19 are rule-path mutations like A-6 and A-15: with
+# the branch gone the request is still refused, by the method allowlist and the
+# configuration allowlist respectively, so only a test that asserts the RULE
+# can kill them.
+
+run_mutation "A-18 v1.0 stream method loses its rule path" \
+  "TestUnmodelledMessageMethodDenied" \
+  "		if req.Method == StreamMethodV1 {" \
+  "		if false && req.Method == StreamMethodV1 {" || rc=1
+
+run_mutation "A-19 v1.0 webhook spelling loses its rule path" \
+  "TestV1ConfigurationTier1WebhookRefused" \
+  "		if _, present := cfg[\"taskPushNotificationConfig\"]; present {" \
+  "		if _, present := cfg[\"taskPushNotificationConfig\"]; present && false {" || rc=1
+
+run_mutation "A-20 v1.0 role spelling stops being pinned as user" \
+  "TestV1SendMessageAuthorizedAndForwardedWithTokenStripped" \
+  "	if msg.Role != \"\" && msg.Role != \"user\" && msg.Role != \"ROLE_USER\" {" \
+  "	if msg.Role != \"\" && msg.Role != \"user\" {" || rc=1
+
+run_mutation "A-21 v1.0 tier-3 member stops being accepted" \
+  "TestV1ConfigurationTier3ReturnImmediatelyIsAllowedUnbound" \
+  "	\"returnImmediately\":   true," \
+  "	\"returnImmediately\":   false," || rc=1
+
+run_mutation "A-22 ListTasks added to the read-only allowlist" \
+  "TestStateChangingAndUnknownMethodsDenied" \
+  "	\"ListTaskPushNotificationConfigs\": {" \
+  "	\"ListTasks\": {allowed: map[string]bool{\"id\": true}, required: []string{\"id\"}},
+	\"ListTaskPushNotificationConfigs\": {" || rc=1
+
+run_mutation "A-23 credential on the passthrough forwarded" \
+  "TestPassthroughCarryingTheCredentialIsRefused" \
+  "		if found, err := containsKey(raw, TokenMetaKey); err != nil || found {" \
+  "		if found, err := containsKey(raw, TokenMetaKey); err != nil && found {" || rc=1
+
+run_mutation "A-24 read-only params allowlist bypassed" \
+  "TestPassthroughParamsAreAllowlisted" \
+  "		if err := shape.validate(req.Params); err != nil {" \
+  "		if err := shape.validate(req.Params); err != nil && false {" || rc=1
+
+run_mutation "A-25 v1.0 tenant admitted to a read's params" \
+  "TestPassthroughParamsAreAllowlisted" \
+  "	\"GetTask\": {
+		dialect:  DialectV1,
+		allowed:  map[string]bool{\"id\": true, \"historyLength\": true}," \
+  "	\"GetTask\": {
+		dialect:  DialectV1,
+		allowed:  map[string]bool{\"id\": true, \"historyLength\": true, \"tenant\": true}," || rc=1
+
+run_mutation "A-26 v1.0 send spelling stops reaching authorization" \
+  "TestV1MutatedPartsDenied" \
+  "var sendMethods = map[string]Dialect{SendMethod: DialectV03, SendMethodV1: DialectV1}" \
+  "var sendMethods = map[string]Dialect{SendMethod: DialectV03}" || rc=1
+
+# A-27 is the send-path twin of A-23. The credential's one legitimate position
+# is stripped; the same key anywhere else must refuse the request, not ride to
+# the agent inside a part.
+
+run_mutation "A-27 credential inside parts forwarded" \
+  "TestCredentialOutsideMessageMetadataIsRefused" \
+  "	if found, err := containsKey(stripped, TokenMetaKey); err != nil || found {" \
+  "	if found, err := containsKey(stripped, TokenMetaKey); err != nil && found {" || rc=1
+
+# A-28/A-29: the dialect handed to Forward is what the transport puts in
+# A2A-Version. A wrong dialect has the agent parse an authorized body under
+# semantics the PEP did not check it against.
+
+run_mutation "A-28 v1.0 send forwarded as v0.3.0" \
+  "TestV1SendMessageAuthorizedAndForwardedWithTokenStripped" \
+  "var sendMethods = map[string]Dialect{SendMethod: DialectV03, SendMethodV1: DialectV1}" \
+  "var sendMethods = map[string]Dialect{SendMethod: DialectV03, SendMethodV1: DialectV03}" || rc=1
+
+run_mutation "A-29 v1.0 read forwarded as v0.3.0" \
+  "TestReadOnlyMethodsPassThrough" \
+  "		resp, err := m.Forward(ctx, raw, shape.dialect)" \
+  "		resp, err := m.Forward(ctx, raw, DialectV03)" || rc=1
 
 if [ "$rc" -eq 0 ]; then
   echo
