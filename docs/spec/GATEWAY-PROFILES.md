@@ -122,3 +122,33 @@ Deployable in an afternoon by someone else's platform team, or it does not
 count: single static binary per skin, one YAML/env config (core address,
 trust-registry keys, jurisdiction profile), no database, health endpoint,
 structured logs to stdout.
+
+**Where the two shipped skins stand against this.** `cmd/mcp-pep` and
+`cmd/a2a-pep` each build to a single static binary with `CGO_ENABLED=0 go
+build`; without that, `a2a-pep` (which imports `net/http`) links glibc for the
+cgo resolver and will not start in a scratch or distroless image. Neither
+reads a config file:
+each takes its configuration as flags, six of them required with no safe
+default (target identity, audience, issuer public key, log key, policy hash,
+and the wrapped command or upstream).
+`cmd/spt-txn-init` is the configuration half of the bar: it asks the operator
+for the facts only they have (profile, what is guarded, its identity, the
+audience), generates the issuer keypair, the log key, a signed single-issuer
+trust snapshot (`pkg/trustsnapshot.Sign`, re-verified with `Verify` before
+anything is written), the policy bundle and its hash, and writes `run.sh` —
+the complete start command — plus a README that states what a self-issued
+deployment does and does not give you. The "one config" is therefore a
+generated, reviewable shell command rather than a YAML file; the operator
+edits nothing by hand.
+
+Two properties of that generator matter to anyone deploying it. The issuer
+private key is written *beside* the deployment directory rather than inside it
+— nothing in a deployment reads it, since both skins take the public half, and
+the directory is what gets copied into an image or archived. And `-tts-pub`
+takes an issuer public key the operator already has, in which case no issuer
+private key is generated or written at all: an existing TTS, or a PKCS#11
+token, keeps it. Neither of those defends against a process running as the
+operator, which can read any file the operator can read; they bound what
+travels with the artifact.
+
+Health endpoints are not yet provided by either skin.
