@@ -10,9 +10,15 @@
 #   K-C  a dimension is classified execution-asserted that TxnScope does not
 #        project, so the registry asserts something the code does not do
 #   K-D  a numeric dimension keeps its direction but loses its kind
+#   K-E  kindOf answers by naming convention instead of by declaration
+#   K-F  the guard is narrowed to top-level dimensions, so nested leaves seal
+#   K-G  TxnScope projects a dimension registered delegation-only
 #
-# K-C is the one that matters most. A registry whose entries can disagree with
-# TxnScope is worse than no registry, because it carries authority.
+# K-C and K-G are the two that matter most, and they are different directions of the
+# same property. K-C catches a registry entry that claims a projection which does not
+# exist; K-G catches a projection that exists and is not claimed. An earlier version
+# of this script had only K-C, and an adversarial review defeated the guard through
+# the gap: K-E and K-F are the two weakenings it used.
 #
 # Each mutation must turn at least one NAMED test red. A mutation that does not
 # compile, or whose anchor is not found, is a bug in THIS script — never a pass.
@@ -91,11 +97,17 @@ PY
 
 rc=0
 
-run_mutation "K-A guard removed, unclassified dimension seals" \
+run_mutation "K-A guard neutered, unclassified dimension seals" \
   ./internal/tbac/ "TestValidateIssuance_RefusesUnregisteredDimension" \
   internal/tbac/issuance.go \
-  "		if _, declaredKind := kindOf(dim); !declaredKind {" \
-  "		if _, declaredKind := kindOf(dim); false && !declaredKind {" || rc=1
+  "func requireKind(dim, name string) error {
+	if _, declared := kindOf(dim); declared {
+		return nil
+	}" \
+  "func requireKind(dim, name string) error {
+	if true {
+		return nil
+	}" || rc=1
 
 run_mutation "K-B registry acquires a default" \
   ./internal/tbac/ "TestValidateIssuance_RefusesUnregisteredDimension" \
@@ -112,11 +124,48 @@ run_mutation "K-C classified execution-asserted but never projected" \
   "	\"action\": kindDelegationOnly," \
   "	\"action\": kindExecutionAsserted," || rc=1
 
+# "tier" rather than "max": deleting "max" also breaks the accepts-the-vocabulary
+# smoke test via its limits:{max:10} fixture, so the mutation would be killed by
+# something other than the property K-D names.
 run_mutation "K-D numeric dimension loses its kind" \
   ./internal/tbac/ "TestEveryNumericDimensionIsAlsoClassified" \
   internal/tbac/dimensions.go \
-  "	\"max\": kindDelegationOnly," \
+  "	\"tier\": kindDelegationOnly," \
   "" || rc=1
+
+run_mutation "K-E kindOf answers by naming convention" \
+  ./internal/tbac/ "TestKindOfIsALookupNotANamingConvention" \
+  internal/tbac/dimensions.go \
+  "	k, ok := dimensionKind[dim]
+	return k, ok" \
+  "	if len(dim) > 4 && dim[:4] == \"max_\" {
+		return kindExecutionAsserted, true
+	}
+	k, ok := dimensionKind[dim]
+	return k, ok" || rc=1
+
+run_mutation "K-F guard narrowed to top-level dimensions" \
+  ./internal/tbac/ "TestValidateIssuance_RefusesUnregisteredNestedDimension" \
+  internal/tbac/issuance.go \
+  "	if _, declared := kindOf(dim); declared {
+		return nil
+	}" \
+  "	if _, declared := kindOf(dim); declared || name != dim {
+		return nil
+	}" || rc=1
+
+run_mutation "K-G TxnScope projects a delegation-only dimension" \
+  ./internal/tbac/ "TestTxnScopeProjectsOnlyRegisteredExecutionAssertedDimensions" \
+  internal/tbac/scope.go \
+  "	if _, ok := parent[\"currency\"]; ok {
+		out[\"currency\"] = tc.Currency
+	}" \
+  "	if _, ok := parent[\"currency\"]; ok {
+		out[\"currency\"] = tc.Currency
+	}
+	if _, ok := parent[\"jurisdiction\"]; ok {
+		out[\"jurisdiction\"] = \"EU-DORA\"
+	}" || rc=1
 
 echo
 if [ "$rc" -eq 0 ]; then

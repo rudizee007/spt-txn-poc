@@ -110,6 +110,15 @@ func validateIssuance(s Scope, path string) error {
 		}
 		name := qualify(path, dim)
 		if nested, ok := asObject(v); ok {
+			// A dimension carrying an object is still a dimension: Contains
+			// evaluates it, and a child dropping the whole object drops the
+			// constraint. So the container NAME is classified here, before
+			// descending — checking only after the recursion would exempt every
+			// container, and exempt an EMPTY one entirely, since it has no members
+			// to classify in its place.
+			if err := requireKind(dim, name); err != nil {
+				return err
+			}
 			if err := validateIssuance(nested, name); err != nil {
 				return err
 			}
@@ -126,18 +135,27 @@ func validateIssuance(s Scope, path string) error {
 					"declare it in tbac.numericDirection only if a SMALLER value grants strictly LESS authority")
 			}
 		}
-		// Every dimension must also declare WHAT it constrains. Containment narrows
-		// this dimension at every hop whatever its kind, but only a dimension
-		// TxnScope projects is compared against the transaction — and nothing else
-		// in this package asks which of the two a given dimension is, so a scope
-		// could otherwise carry a constraint whose kind nobody had decided. The
-		// registry has no default, so an unknown name fails closed here.
-		if _, declaredKind := kindOf(dim); !declaredKind {
-			return fmt.Errorf("scope dimension %q: %w — %s", name, ErrUnregisteredDimension,
-				"declare it in tbac.dimensionKind as kindExecutionAsserted only if TxnScope projects it today")
+		// Kind comes AFTER direction for a leaf, deliberately. An undeclared numeric
+		// is the more specific diagnosis of the two and the one an operator can act
+		// on; reporting "no declared kind" for it would send them to the wrong
+		// registry. Containers have no direction to check, so they are classified
+		// above instead.
+		if err := requireKind(dim, name); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+// requireKind refuses a dimension whose kind has not been declared. The registry
+// has no default, so an unknown name fails closed. Single implementation, called
+// from both the container and the leaf path, so neither can drift from the other.
+func requireKind(dim, name string) error {
+	if _, declared := kindOf(dim); declared {
+		return nil
+	}
+	return fmt.Errorf("scope dimension %q: %w — %s", name, ErrUnregisteredDimension,
+		"declare it in tbac.dimensionKind as kindExecutionAsserted only if TxnScope projects it today")
 }
 func validateMoneyCeiling(s Scope, name string, v any, path string) error {
 	r, ok := toRat(v)

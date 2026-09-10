@@ -83,11 +83,16 @@ Consumers of a token or a receipt:
 
 `capability_scope` is carried in the **token**, not in the Transaction Receipt. The
 receipt (`docs/spec/RECEIPT-FORMAT.md`) commits to the token it evaluated via
-`token_hash`, so a receipt together with its token does present the scope — but a
-receipt on its own carries only `jurisdiction` from the set in §2's final row.
+`token_hash`, so a receipt together with its token does present the scope. A receipt
+on its own reproduces **no** scope dimension.
 
-`jurisdiction` is therefore the one unasserted dimension a receipt reproduces
-directly, and `RECEIPT-FORMAT.md` states its meaning accordingly.
+**One name collision, stated because it invites exactly the wrong inference.** The
+receipt has a `jurisdiction` field and a `capability_scope` may have a
+`jurisdiction` dimension. **They are unrelated.** The receipt's field is set from
+the enforcement point's own configuration; nothing reads the scope's dimension.
+Consumers MUST NOT read the receipt's `jurisdiction` as a statement about the
+presented token, and MUST NOT expect the two to agree — nothing binds them, so an
+auditor cannot detect a disagreement.
 
 ## 5. Adding a dimension
 
@@ -119,10 +124,13 @@ chose.
 
 Registration rules:
 
-- Object-valued dimensions are **containers**, not constraints. `ValidateIssuance`
-  recurses into them and classifies their members, so a container name is not
-  registered. A nested dimension is registered under its own **leaf** name, because
-  containment and intersection recurse per dimension — `region.tier` is `tier`.
+- **Object-valued dimensions are registered too.** A container is a dimension like
+  any other: containment evaluates it, and a child that drops the whole object drops
+  the constraint. Classifying only its members would exempt the container name, and
+  would exempt an EMPTY container entirely — it has no members to classify in its
+  place. A nested dimension is additionally registered under its own **leaf** name,
+  because containment and intersection recurse per dimension — `region.tier`
+  resolves to `tier`.
 - Adding an entry is a security decision, not bookkeeping. The question is not
   *"what did I mean by this?"* but *"is there a `ledger.TxnContext` field this is
   compared against today?"* If there is not, it is `delegation-only`, whatever the
@@ -131,11 +139,31 @@ Registration rules:
   projection that does not exist yet. That would restore exactly the reading §3
   forbids, with the registry's authority behind it.
 
-### 6.1 Compatibility
+### 6.1 Both directions are asserted
 
-The registry is seeded with the vocabulary in use, classified as it behaves today, so
-enabling the check changes no existing behaviour. The guard bites only on a dimension
-whose kind nobody has decided.
+The registry is a statement about the code, so both halves are tested, not just the
+safe one:
+
+- every dimension registered `execution-asserted` MUST be projected by `TxnScope`;
+- everything `TxnScope` projects MUST be registered `execution-asserted`.
+
+The second is the one with teeth. Without it a projection added later would silently
+make a dimension enforced while this specification still told a second
+implementation it was not — two implementations evaluating the same claim
+differently, which is the bug class this project ranks first.
+
+`kindOf` MUST remain a lookup. A naming convention ("anything beginning `max_` is a
+ceiling") would let it answer for dimensions nobody classified, which is the
+anti-pattern `numericDirection` already forbids for the same reason.
+
+### 6.2 Compatibility
+
+The registry is seeded with the vocabulary the package actually evaluates — obtained
+by instrumenting `Contains`, `Intersect` and both passes of `ValidateIssuance` and
+running the full suite, because reading call sites missed five dimensions the first
+time. Classified as they behave today, so enabling the check changes no existing
+behaviour for that vocabulary. The guard bites only on a dimension whose kind nobody
+has decided.
 
 It is nonetheless a **breaking change for operators**: a service that loads a
 policy-permitted scope ceiling from configuration (`cmd/idp-bridge`,

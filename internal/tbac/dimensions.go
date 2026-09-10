@@ -83,10 +83,27 @@ var dimensionKind = map[string]dimensionKindT{
 	// Delegation-only: a sub-region, nested inside `region`. Registered by its LEAF
 	// name because Contains and Intersect recurse per dimension.
 	"zone": kindDelegationOnly,
-	// Delegation-only: names the jurisdiction profile a capability was issued
-	// under. It is copied into the receipt, which is precisely why its kind has to
-	// be recorded — a reader of the receipt must not take it for an enforcement
-	// result. No jurisdictional profile is evaluated against a transaction.
+	// Delegation-only containers. A name used as an object is still a dimension --
+	// Contains evaluates it and a child dropping the object drops the constraint --
+	// so the container name is classified and its members are classified in turn.
+	"limits": kindDelegationOnly,
+	"route":  kindDelegationOnly,
+	// Delegation-only: a list of permitted payment methods, narrowed by subset.
+	// Structurally identical to "actions".
+	"methods": kindDelegationOnly,
+	// Delegation-only: a boolean permission flag. TxnContext has no counterpart.
+	"refund": kindDelegationOnly,
+	// Delegation-only: this package's canonical FLOOR example -- a minimum
+	// acceptable output. Registered for completeness; numericDirection refuses it
+	// first, because this package cannot yet express a floor and registering one as
+	// a ceiling would authorize accepting an arbitrarily bad output. A kind entry
+	// does NOT make it usable.
+	"min_out": kindDelegationOnly,
+	// Delegation-only: names the jurisdiction profile a capability was issued under.
+	// Nothing in this tree reads it. In particular it is NOT the source of the
+	// receipt's `jurisdiction` field, which decision.go sets from the PEP's own
+	// configuration — the two are independent values that happen to share a name,
+	// and nothing binds them to each other.
 	"jurisdiction": kindDelegationOnly,
 }
 

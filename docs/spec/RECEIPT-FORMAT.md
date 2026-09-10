@@ -25,7 +25,7 @@ proof. The auditor verifies a chain instead of sampling controls.
 | `token_hash` | string | base64url SHA-256 of the presented compact token; `""` if none presented |
 | `policy_hash` | string | base64url SHA-256 of the policy bundle version evaluated |
 | `intent_digest` | string | the bound intent digest, if any |
-| `jurisdiction` | string | the jurisdiction profile **named** by the capability scope (e.g. `EU-DORA`, `US-FED`). A delegation-only dimension: it is carried into the receipt, and it is not asserted against the transaction. See `docs/spec/SCOPE-DIMENSIONS.md` §2 for the dimensions that are. |
+| `jurisdiction` | string | the jurisdiction profile the **PEP was configured with** (e.g. `EU-DORA`, `US-FED`). It is an operator assertion about this enforcement point, NOT a value taken from the presented token: a `capability_scope` may carry a dimension of the same name, and nothing binds the two. An auditor therefore cannot reconcile them, and a reader MUST NOT treat this field as evidence about the token. See `docs/spec/SCOPE-DIMENSIONS.md` §4. |
 | `ts` | int64 | unix time, UTC, at decision |
 | `nonce` | string | 128-bit random, base64url — makes receipts unlinkable across logs holding the same token hash |
 | `sig` | string | Ed25519 signature (see 1.2) |

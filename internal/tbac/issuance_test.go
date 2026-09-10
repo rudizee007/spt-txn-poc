@@ -321,23 +321,26 @@ func TestValidateIssuance_RefusesUndeclaredNumericDimensions(t *testing.T) {
 // intermediate object's key count was unchanged — and the delegation was then
 // refused for a ceiling the inheritance had already qualified.
 func TestInheritMoneyUnit_CarriesTheUnitDownThroughTwoLevels(t *testing.T) {
-	parent := Scope{"a": map[string]any{"b": map[string]any{"max_amount": 10, "currency": "USD"}}}
-	child := Scope{"a": map[string]any{"b": map[string]any{"max_amount": 5}}}
+	// Real container names, not scaffolding: issuance now classifies container
+	// names, and a security registry must not accumulate entries that exist only to
+	// satisfy a fixture.
+	parent := Scope{"region": map[string]any{"limits": map[string]any{"max_amount": 10, "currency": "USD"}}}
+	child := Scope{"region": map[string]any{"limits": map[string]any{"max_amount": 5}}}
 
 	got, err := InheritMoneyUnit(parent, child)
 	if err != nil {
 		t.Fatalf("a two-level narrowing must remain legitimate: %v", err)
 	}
-	a, ok := got["a"].(map[string]any)
+	outer, ok := got["region"].(map[string]any)
 	if !ok {
-		t.Fatalf("level a came back as %T", got["a"])
+		t.Fatalf("outer level came back as %T", got["region"])
 	}
-	b, ok := a["b"].(map[string]any)
+	inner, ok := outer["limits"].(map[string]any)
 	if !ok {
-		t.Fatalf("level b came back as %T", a["b"])
+		t.Fatalf("inner level came back as %T", outer["limits"])
 	}
-	if b["currency"] != "USD" {
-		t.Fatalf("the unit was not carried two levels down: %v", b)
+	if inner["currency"] != "USD" {
+		t.Fatalf("the unit was not carried two levels down: %v", inner)
 	}
 	if err := ValidateIssuance(got); err != nil {
 		t.Fatalf("the result must be issuable: %v", err)
