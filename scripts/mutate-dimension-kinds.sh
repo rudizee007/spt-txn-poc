@@ -34,9 +34,15 @@ set -uo pipefail
 
 cd "$(dirname "$0")/.." || exit 1
 
+# EVERY file any mutation below touches must be listed here. restore() only reverts
+# what it backed up, so a mutation applied to an unlisted file is left behind in the
+# working tree -- and K-G mutates scope.go. That happened once: an injected
+# `jurisdiction` projection survived a run and made TxnScope assert a delegation-only
+# dimension, which is the exact defect K-G exists to catch.
 FILES=(
   internal/tbac/dimensions.go
   internal/tbac/issuance.go
+  internal/tbac/scope.go
 )
 BAKDIR=$(mktemp -d)
 for f in "${FILES[@]}"; do
@@ -47,7 +53,20 @@ restore() {
     cp "$BAKDIR/$(echo "$f" | tr / _)" "$f"
   done
 }
-trap 'restore; rm -rf "$BAKDIR"' EXIT INT TERM
+# Verify the restore actually happened rather than trusting that it did: a silent
+# failure here leaves a mutation in the tree, which is worse than any survived
+# mutation because it looks like working code.
+verify_restored() {
+  local f rc=0
+  for f in "${FILES[@]}"; do
+    if ! cmp -s "$BAKDIR/$(echo "$f" | tr / _)" "$f"; then
+      echo "ERROR: $f was NOT restored -- a mutation is still in your working tree." >&2
+      rc=1
+    fi
+  done
+  return "$rc"
+}
+trap 'restore; verify_restored; rm -rf "$BAKDIR"' EXIT INT TERM
 
 run_mutation() {
   local name="$1" pkg="$2" want_test="$3" file="$4" from="$5" to="$6" want_n="${7:-1}"
