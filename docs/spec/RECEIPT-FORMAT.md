@@ -1,7 +1,7 @@
 # SPT-Txn P2 Specification — Transaction Receipt & Transparency Log
 
 **Status:** v0.1 draft. Normative language per RFC 2119.
-**Companion code:** `internal/receipt`, `internal/audit` (Merkle log), `cmd/receiptverify`.
+**Companion code:** `pkg/receipt`, `pkg/audit` (Merkle log), `pkg/jcs` (canonicalizer), `cmd/receiptverify`.
 **Threat model:** `docs/THREAT-MODEL.md` §3.6.
 
 ---
@@ -25,7 +25,7 @@ proof. The auditor verifies a chain instead of sampling controls.
 | `token_hash` | string | base64url SHA-256 of the presented compact token; `""` if none presented |
 | `policy_hash` | string | base64url SHA-256 of the policy bundle version evaluated |
 | `intent_digest` | string | the bound intent digest, if any |
-| `jurisdiction` | string | jurisdiction profile applied (e.g. `EU-DORA`, `US-FED`) |
+| `jurisdiction` | string | the jurisdiction profile **named** by the capability scope (e.g. `EU-DORA`, `US-FED`). A delegation-only dimension: it is carried into the receipt, and it is not asserted against the transaction. See `docs/spec/SCOPE-DIMENSIONS.md` §2 for the dimensions that are. |
 | `ts` | int64 | unix time, UTC, at decision |
 | `nonce` | string | 128-bit random, base64url — makes receipts unlinkable across logs holding the same token hash |
 | `sig` | string | Ed25519 signature (see 1.2) |
@@ -37,7 +37,7 @@ disclosure to third parties happens via SD-JWT at a different layer.
 
     signing_input = "spt-txn-receipt-v1" || 0x00 || JCS(receipt minus sig)
 
-JCS is the shared canonicalizer (`internal/jcs`) — the same single
+JCS is the shared canonicalizer (`pkg/jcs`) — the same single
 implementation as intent binding, same rejection rules. The receipt signing
 key is the **log/audit key**, separate from the token issuance key, on a
 separate rotation schedule (THREAT-MODEL §3.5).
@@ -53,7 +53,7 @@ separate rotation schedule (THREAT-MODEL §3.5).
 
 ### 2.1 Structure
 
-Receipts append to the existing hash-chained JSONL log (`internal/audit`):
+Receipts append to the existing hash-chained JSONL log (`pkg/audit`):
 each entry carries the previous entry's hash; periodic Merkle roots
 (RFC 6962-style leaf/interior domain separation, unpaired-node promotion)
 are signed and published. Design lineage: Certificate Transparency / Rekor.
@@ -61,7 +61,7 @@ are signed and published. Design lineage: Certificate Transparency / Rekor.
 - **Inclusion proofs:** any single receipt is provable against a published
   signed root without revealing the rest of the log (`audit.MerkleProof` /
   `audit.VerifyInclusion`).
-- **Witness co-signing (implemented — `internal/audit` `Witness` /
+- **Witness co-signing (implemented — `pkg/audit` `Witness` /
   `CosignedRoot`):** signed tree heads are co-signed by one or more external
   witnesses. A witness co-signs a head only after confirming it is an
   **append-only extension** of the last head that witness attested (its prefix
