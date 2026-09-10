@@ -143,6 +143,28 @@ func validateIssuance(s Scope, path string) error {
 		if err := requireKind(dim, name); err != nil {
 			return err
 		}
+		// A list is walked, not skipped. Every issuance invariant in this function --
+		// the money-ceiling pair, numericDirection, and the kind registry -- was
+		// absent for anything inside a JSON array, so a scope could carry an
+		// unqualified or negative ceiling, an undeclared numeric, and an
+		// unclassified dimension as long as they sat one bracket deep.
+		//
+		// That is not a widening today, because list containment compares elements
+		// for equality rather than ordering them. It is a widening the moment list
+		// containment is made structural, which looks like an obvious improvement --
+		// so the invariants are established here rather than left to be remembered
+		// then.
+		if items, ok := v.([]any); ok {
+			for i, item := range items {
+				nested, ok := asObject(item)
+				if !ok {
+					continue // a scalar element is a value, not a dimension
+				}
+				if err := validateIssuance(nested, fmt.Sprintf("%s[%d]", name, i)); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	return nil
 }
@@ -155,7 +177,11 @@ func requireKind(dim, name string) error {
 		return nil
 	}
 	return fmt.Errorf("scope dimension %q: %w — %s", name, ErrUnregisteredDimension,
-		"declare it in tbac.dimensionKind as kindExecutionAsserted only if TxnScope projects it today")
+		"classify it in tbac.dimensionKind (kindExecutionAsserted only if TxnScope projects it today). "+
+			"If this is blocking a re-delegation of an already-issued token, note that dropping the "+
+			"dimension from the child scope is NOT equivalent: the reference verifier re-inherits it "+
+			"from the nearest ancestor that declares it, but the ZK chain path evaluates the leaf's own "+
+			"scope, and either way the leaf stops recording that the chain was constrained on it")
 }
 func validateMoneyCeiling(s Scope, name string, v any, path string) error {
 	r, ok := toRat(v)

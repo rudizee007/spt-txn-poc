@@ -13,6 +13,8 @@
 #   K-E  kindOf answers by naming convention instead of by declaration
 #   K-F  the guard is narrowed to top-level dimensions, so nested leaves seal
 #   K-G  TxnScope projects a dimension registered delegation-only
+#   K-H  a list element escapes validation entirely
+#   K-I  the registry gains an entry nobody acknowledged
 #
 # K-C and K-G are the two that matter most, and they are different directions of the
 # same property. K-C catches a registry entry that claims a projection which does not
@@ -166,6 +168,19 @@ run_mutation "K-G TxnScope projects a delegation-only dimension" \
 	if _, ok := parent[\"jurisdiction\"]; ok {
 		out[\"jurisdiction\"] = \"EU-DORA\"
 	}" || rc=1
+
+run_mutation "K-H list elements are not walked" \
+  ./internal/tbac/ "TestValidateIssuance_WalksListElements" \
+  internal/tbac/issuance.go \
+  "		if items, ok := v.([]any); ok {" \
+  "		if items, ok := v.([]any); ok && false {" || rc=1
+
+run_mutation "K-I an unacknowledged entry is added" \
+  ./internal/tbac/ "TestDimensionKindIsPinnedToAnExplicitSet" \
+  internal/tbac/dimensions.go \
+  "	\"tier\": kindDelegationOnly," \
+  "	\"tier\":   kindDelegationOnly,
+	\"banana\": kindDelegationOnly," || rc=1
 
 echo
 if [ "$rc" -eq 0 ]; then

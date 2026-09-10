@@ -26,6 +26,25 @@ const (
 	// kindDelegationOnly: this dimension constrains the chain and nothing else.
 	// There is nothing in ledger.TxnContext to compare it against.
 	kindDelegationOnly
+	// kindRailAsserted: a RAIL-SPECIFIC projection compares this dimension against
+	// the action, but TxnScope does not project it.
+	//
+	// TxnScope projects a ledger.TxnContext, which is the rail-independent
+	// description of a transaction. A rail profile may define its own projection
+	// over its own call shape and compare the result with Contains; such a
+	// dimension is genuinely asserted at execution on that rail, and is genuinely
+	// not asserted by the ledger projection.
+	//
+	// Neither other kind can describe that without lying. kindExecutionAsserted
+	// would claim TxnScope projects it, which the test below disproves;
+	// kindDelegationOnly would claim nothing compares a transaction against it,
+	// which is false on that rail. A profile registering a dimension here MUST name
+	// the projection that asserts it, in the comment on its entry, so the claim can
+	// be checked against code rather than taken on trust.
+	//
+	// There are no entries yet. The kind exists because the alternative is a
+	// registry that is wrong for the first rail profile that needs it.
+	kindRailAsserted
 )
 
 // dimensionKind declares every scope dimension this package will seal into a

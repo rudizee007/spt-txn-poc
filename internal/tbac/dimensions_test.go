@@ -197,3 +197,116 @@ func TestValidateIssuance_RefusesUnregisteredContainerIncludingEmpty(t *testing.
 		})
 	}
 }
+
+// Every issuance invariant must hold inside a JSON array too. Before lists were
+// walked, a scope could carry an unqualified ceiling, a negative one, an undeclared
+// numeric and an unclassified dimension as long as they sat one bracket deep.
+func TestValidateIssuance_WalksListElements(t *testing.T) {
+	for name, tc := range map[string]struct {
+		s    Scope
+		want error
+	}{
+		"unclassified dimension in a list": {Scope{"actions": []any{map[string]any{"banana": "yes"}}}, ErrUnregisteredDimension},
+		"undeclared numeric in a list":     {Scope{"actions": []any{map[string]any{"velocity": json.Number("10")}}}, ErrUndeclaredNumeric},
+		"unqualified ceiling in a list":    {Scope{"actions": []any{map[string]any{"max_amount": json.Number("100")}}}, ErrCeilingUnqualified},
+		"negative ceiling in a list":       {Scope{"actions": []any{map[string]any{"max_amount": json.Number("-1"), "currency": "USD"}}}, ErrCeilingNegative},
+		// Non-numeric on purpose: a numeric value is diagnosed as an undeclared
+		// numeric first, which is the more specific of the two.
+		"unclassified two brackets deep": {Scope{"actions": []any{map[string]any{"limits": map[string]any{"banana": "yes"}}}}, ErrUnregisteredDimension},
+	} {
+		t.Run(name, func(t *testing.T) {
+			err := ValidateIssuance(tc.s)
+			if !errors.Is(err, tc.want) {
+				t.Errorf("err = %v, want %v", err, tc.want)
+			}
+		})
+	}
+}
+
+// Scalar list elements are values, not dimensions, and must not be mistaken for
+// them — a list of permitted method names stays issuable.
+func TestValidateIssuance_ScalarListElementsAreValues(t *testing.T) {
+	for name, s := range map[string]Scope{
+		"strings":                     {"methods": []any{"ach", "wire"}},
+		"typed strings":               {"methods": []string{"ach", "wire"}},
+		"empty list":                  {"methods": []any{}},
+		"classified object in a list": {"actions": []any{map[string]any{"tier": json.Number("1")}}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := ValidateIssuance(s); err != nil {
+				t.Errorf("must remain issuable: %v", err)
+			}
+		})
+	}
+}
+
+// The registry is pinned to an explicit set, so ADDING an entry is not free.
+//
+// Every other test here constrains what the registry must not claim. None of them
+// constrained a new entry in the delegation-only direction — one line and a
+// dimension seals, which is the direction an author under time pressure takes. This
+// makes an addition fail until it is acknowledged here too, so the reviewer of a
+// scope change sees the classification as a deliberate line rather than a detail
+// buried in a map.
+//
+// If this test fails because you added a dimension: answer the question in the
+// dimensionKind doc comment -- does TxnScope project it TODAY? -- then add it below.
+func TestDimensionKindIsPinnedToAnExplicitSet(t *testing.T) {
+	want := map[string]dimensionKindT{
+		// Projected by TxnScope, so a transaction is compared against them.
+		"max_amount":     kindExecutionAsserted,
+		"max_cumulative": kindExecutionAsserted,
+		"currency":       kindExecutionAsserted,
+		// Delegation-only: nothing in ledger.TxnContext to compare them against.
+		"action":       kindDelegationOnly,
+		"actions":      kindDelegationOnly,
+		"jurisdiction": kindDelegationOnly,
+		"limits":       kindDelegationOnly,
+		"max":          kindDelegationOnly,
+		"methods":      kindDelegationOnly,
+		"min_out":      kindDelegationOnly,
+		"refund":       kindDelegationOnly,
+		"region":       kindDelegationOnly,
+		"route":        kindDelegationOnly,
+		"tier":         kindDelegationOnly,
+		"zone":         kindDelegationOnly,
+	}
+
+	for dim, wantKind := range want {
+		gotKind, ok := dimensionKind[dim]
+		if !ok {
+			t.Errorf("%q was REMOVED from the registry; a scope using it no longer issues", dim)
+			continue
+		}
+		if gotKind != wantKind {
+			t.Errorf("%q is registered %v, pinned as %v — a reclassification is a security decision, not a rename", dim, gotKind, wantKind)
+		}
+	}
+	for dim, gotKind := range dimensionKind {
+		if _, pinned := want[dim]; !pinned {
+			t.Errorf("%q was ADDED to the registry as %v without being acknowledged here; see this test's doc comment", dim, gotKind)
+		}
+	}
+}
+
+// A rail-asserted dimension must NOT be projected by TxnScope. The kind exists to
+// describe a dimension some OTHER projection asserts; if TxnScope projected it, it
+// would be execution-asserted and the distinction would be a second name for the
+// same thing, which is how a registry starts lying.
+func TestRailAssertedDimensionsAreNotProjectedByTxnScope(t *testing.T) {
+	tc := ledger.TxnContext{Chain: "none", Originator: "a", Beneficiary: "b",
+		Amount: "1", Currency: "USD", Timestamp: 1}
+	for dim, k := range dimensionKind {
+		if k != kindRailAsserted {
+			continue
+		}
+		parent := Scope{"currency": "USD", dim: json.Number("100")}
+		got, err := TxnScope(parent, tc)
+		if err != nil {
+			t.Fatalf("TxnScope(%q): %v", dim, err)
+		}
+		if _, projected := got[dim]; projected {
+			t.Errorf("%q is registered rail-asserted but TxnScope projects it; it is execution-asserted", dim)
+		}
+	}
+}

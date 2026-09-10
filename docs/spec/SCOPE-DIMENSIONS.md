@@ -38,7 +38,7 @@ only for dimensions that `tbac.TxnScope` projects from a `ledger.TxnContext`.
 | `max_amount` | `TxnContext.Amount` | **yes** |
 | `max_cumulative` | `TxnContext.Amount`, against the cumulative budget | **yes** |
 | `currency` | `TxnContext.Currency` | **yes** |
-| every other dimension | — | **no** — delegation only |
+| every other dimension | — | **no** — see §2.2 |
 
 Both enforcement points inherit this set: `txntoken.Issue` at issuance and
 `verifier.step7Scope` in the full verification, each of which calls
@@ -61,6 +61,18 @@ This is a deliberate boundary, not an omission. `TxnContext` is canonicalized in
 `spt_txn_context_hash` by every ledger adapter, so adding a field to it changes that
 preimage on every rail — a change that MUST NOT be made casually, and never to give a
 single dimension something to compare against.
+
+### 2.2 A rail profile may define its own projection
+
+`TxnScope` projects a `ledger.TxnContext` — the rail-independent description of a
+transaction. A rail profile MAY define its own projection over its own call shape and
+compare the result with `Contains`. A dimension asserted that way **is** compared
+against the action on that rail, and is **not** asserted by the ledger projection.
+
+Such a dimension MUST be registered `rail-asserted` (§6) and MUST name the projection
+that asserts it. Consumers MUST NOT assume the §2 table is exhaustive for a
+deployment running a rail profile: it is exhaustive for the ledger projection, which
+is what every rail shares.
 
 ## 3. How `capability_scope` MUST be read
 
@@ -110,10 +122,16 @@ it belongs to, and record the answer:
 Every dimension MUST be registered with its kind before it can be sealed into a token.
 `tbac` holds the registry; `ValidateIssuance` enforces it.
 
-- `execution-asserted` — the dimension is projected by `TxnScope` and compared against
-  the transaction. Registering a dimension this way is a claim that such a comparison
+- `execution-asserted` — projected by `TxnScope` and compared against the
+  transaction. Registering a dimension this way is a claim that such a comparison
   exists; it MUST NOT be used to express an intention.
 - `delegation-only` — the dimension constrains the chain and nothing else.
+- `rail-asserted` — a rail-specific projection (§2.2) compares it against the action,
+  and `TxnScope` does not project it. The entry MUST name that projection, so the
+  claim can be checked against code. Neither of the other two kinds can describe such
+  a dimension without asserting something false: `execution-asserted` would claim
+  `TxnScope` projects it, `delegation-only` would claim nothing ever compares a
+  transaction against it.
 
 **There is NO default kind and there MUST never be one.** An unregistered dimension has
 an undecided kind, and a scope carrying one is refused at issuance. This mirrors
@@ -145,7 +163,10 @@ The registry is a statement about the code, so both halves are tested, not just 
 safe one:
 
 - every dimension registered `execution-asserted` MUST be projected by `TxnScope`;
-- everything `TxnScope` projects MUST be registered `execution-asserted`.
+- everything `TxnScope` projects MUST be registered `execution-asserted`;
+- nothing registered `rail-asserted` may be projected by `TxnScope` — otherwise the
+  kind is a second name for `execution-asserted`, which is how a registry starts
+  lying.
 
 The second is the one with teeth. Without it a projection added later would silently
 make a dimension enforced while this specification still told a second
@@ -171,3 +192,21 @@ policy-permitted scope ceiling from configuration (`cmd/idp-bridge`,
 ceiling fails the deploy rather than the first request. A deployment whose configured
 scope carries an unregistered dimension will fail to start. That is the intended
 direction of failure, and it MUST be in the release note.
+
+### 6.3 Re-delegating a token issued before its dimensions were classified
+
+A capability issued earlier may carry a dimension that is not yet registered. It
+still **verifies** — the registry is an issuance check and changes nothing on the
+enforcement path. But re-delegating it requires classifying the dimension, which is a
+source change, and the remedy that appears available mid-incident is to drop the
+dimension from the child scope instead.
+
+**Dropping it is not equivalent, and the difference is not uniform across paths.**
+The reference verifier re-inherits a dropped dimension from the nearest ancestor that
+still declares it (`verifier.step6Chain`), so authority is not widened there. The ZK
+chain path evaluates the leaf's own `capability_scope` and does not re-inherit. And on
+every path the leaf token stops recording that the chain was constrained on that
+dimension, which is the evidence §3 and §4 describe.
+
+So: classify the dimension. Dropping it is a last resort that costs evidence, and on
+the ZK path it costs the constraint.
