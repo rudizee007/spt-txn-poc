@@ -126,6 +126,16 @@ func validateIssuance(s Scope, path string) error {
 					"declare it in tbac.numericDirection only if a SMALLER value grants strictly LESS authority")
 			}
 		}
+		// Every dimension must also declare WHAT it constrains. Containment narrows
+		// this dimension at every hop whatever its kind, but only a dimension
+		// TxnScope projects is compared against the transaction — and nothing else
+		// in this package asks which of the two a given dimension is, so a scope
+		// could otherwise carry a constraint whose kind nobody had decided. The
+		// registry has no default, so an unknown name fails closed here.
+		if _, declaredKind := kindOf(dim); !declaredKind {
+			return fmt.Errorf("scope dimension %q: %w — %s", name, ErrUnregisteredDimension,
+				"declare it in tbac.dimensionKind as kindExecutionAsserted only if TxnScope projects it today")
+		}
 	}
 	return nil
 }

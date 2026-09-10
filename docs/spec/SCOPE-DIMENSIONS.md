@@ -100,7 +100,46 @@ it belongs to, and record the answer:
    `tbac.numericDirection` — there is no default, because guessing whether a number is
    a ceiling or a floor is the error that registry exists to prevent.
 
-At this version the first question is a **review obligation, not a mechanical check**:
-nothing refuses a dimension whose classification has not been decided. Treat it as
-part of the spec-first step for any scope change, and do not rely on tests to surface
-it — a dimension that is never asserted produces no failing test.
+## 6. The classification registry (normative)
+
+Every dimension MUST be registered with its kind before it can be sealed into a token.
+`tbac` holds the registry; `ValidateIssuance` enforces it.
+
+- `execution-asserted` — the dimension is projected by `TxnScope` and compared against
+  the transaction. Registering a dimension this way is a claim that such a comparison
+  exists; it MUST NOT be used to express an intention.
+- `delegation-only` — the dimension constrains the chain and nothing else.
+
+**There is NO default kind and there MUST never be one.** An unregistered dimension has
+an undecided kind, and a scope carrying one is refused at issuance. This mirrors
+`numericDirection`, which refuses an unregistered numeric dimension for the same
+reason: the registry exists so that the answer is decided once, in the open, by
+whoever adds the dimension — and a default would silently supply an answer nobody
+chose.
+
+Registration rules:
+
+- Object-valued dimensions are **containers**, not constraints. `ValidateIssuance`
+  recurses into them and classifies their members, so a container name is not
+  registered. A nested dimension is registered under its own **leaf** name, because
+  containment and intersection recurse per dimension — `region.tier` is `tier`.
+- Adding an entry is a security decision, not bookkeeping. The question is not
+  *"what did I mean by this?"* but *"is there a `ledger.TxnContext` field this is
+  compared against today?"* If there is not, it is `delegation-only`, whatever the
+  name suggests.
+- A dimension MUST NOT be registered `execution-asserted` in anticipation of a
+  projection that does not exist yet. That would restore exactly the reading §3
+  forbids, with the registry's authority behind it.
+
+### 6.1 Compatibility
+
+The registry is seeded with the vocabulary in use, classified as it behaves today, so
+enabling the check changes no existing behaviour. The guard bites only on a dimension
+whose kind nobody has decided.
+
+It is nonetheless a **breaking change for operators**: a service that loads a
+policy-permitted scope ceiling from configuration (`cmd/idp-bridge`,
+`cmd/workload-bridge`) calls `ValidateIssuance` at startup precisely so a malformed
+ceiling fails the deploy rather than the first request. A deployment whose configured
+scope carries an unregistered dimension will fail to start. That is the intended
+direction of failure, and it MUST be in the release note.
