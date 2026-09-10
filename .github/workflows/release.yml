@@ -51,10 +51,77 @@ jobs:
         run: go run ./cmd/conformance -check
 
       # A vulnerable dependency blocks the release. This is a gate, not a report.
-      - name: govulncheck
+      #
+      # EVERY MODULE, not just the root. `./...` does not descend into a directory
+      # that has its own go.mod, and this repository has eleven of them. Until
+      # 2026-09-10 this step ran `govulncheck ./...` from the root: a truthful zero
+      # about one module, and a look at none of the other ten. ci.yml fixed that
+      # for itself and the fix was never carried here, which left the weaker scan
+      # on the gate that guards a PUBLISHED artifact.
+      #
+      # Not hypothetical. Measured 2026-09-10 on this tree: run the loop with a
+      # go1.26.5 toolchain and it exits non-zero, reporting reachable standard
+      # library advisories (GO-2026-6218 net/url, GO-2026-6090 crypto/tls,
+      # GO-2026-6089 net/http, all fixed in go1.26.6) in some modules and
+      # DID NOT SCAN in others. Run it with go1.26.7 and it is clean.
+      #
+      # Note WHICH input decides that, because it is easy to get backwards:
+      # govulncheck grades the standard library against the TOOLCHAIN IT RUNS
+      # WITH, not against the `go` directive in go.mod. Same directive, two
+      # toolchains, opposite results. The directive still matters -- it is a
+      # floor, so `go 1.26.6` stops a consumer building this with a 1.26.5
+      # stdlib -- but it is not what govulncheck reads.
+      #
+      # Pinned to v1.7.0 to match ci.yml. Measured the same day: v1.1.4 and v1.7.0
+      # detect identically here (both exit 3 with 18 findings on the vulnerable
+      # directive), so aligning the pin is one-tool-one-version housekeeping, not
+      # a repair of a detection gap.
+      - name: govulncheck — every module
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
-          "$(go env GOPATH)"/bin/govulncheck ./...
+          go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
+          BIN="$(go env GOPATH)/bin/govulncheck"
+          # Discovered, never hardcoded: a hardcoded list goes stale the first
+          # time someone adds a client, and it goes stale silently.
+          mods=""
+          for m in $(git ls-files '*go.mod'); do
+            mods="$mods $(dirname "$m")"
+          done
+          n=$(printf '%s\n' $mods | grep -c . || true)
+          if [ "$n" -lt 2 ]; then
+            echo "::error::module discovery found $n module(s); this repo has several." >&2
+            echo "The scan is broken, not the repo. Fix discovery; do not narrow the gate." >&2
+            exit 1
+          fi
+          echo "scanning $n modules:$mods"
+          # THREE outcomes. govulncheck exits 0 for "no vulnerabilities", 3 for
+          # "vulnerabilities found", 1 for "could not run". Collapsing the last two
+          # conflates a finding with an outage.
+          fail=0
+          scanned=0
+          for d in $mods; do
+            echo "── $d"
+            rc=0
+            ( cd "$d" || exit 1; "$BIN" ./... ) || rc=$?
+            case "$rc" in
+              0) scanned=$((scanned + 1));;
+              3) scanned=$((scanned + 1))
+                 echo "::error::$d has reachable vulnerabilities" >&2
+                 fail=1;;
+              *) echo "::error::$d DID NOT SCAN (exit $rc) — this is not a clean result" >&2
+                 fail=1;;
+            esac
+          done
+          # Assert the DENOMINATOR, not just the absence of findings. A tool that
+          # cannot load a module reports zero vulnerabilities in it, truthfully and
+          # uselessly. Without this, ten modules failing to load looks exactly like
+          # ten modules being clean.
+          echo "scanned $scanned of $n modules successfully"
+          if [ "$scanned" -ne "$n" ]; then
+            echo "::error::$((n - scanned)) module(s) did not scan. Zero findings from a" >&2
+            echo "module that failed to load is not a clean result." >&2
+            fail=1
+          fi
+          exit $fail
 
       # The trust-critical signing/verification path under the FIPS 140-3 Go
       # module. Scope is the token/auth path only — the ZK packages use
@@ -203,6 +270,7 @@ jobs:
 #     go install github.com/suzuki-shunsuke/pinact/cmd/pinact@latest
 #     pinact run .github/workflows/*.yml
 #
-# ci.yml and gitleaks.yml have the same gap, plus ci.yml installs
-# govulncheck@latest (unpinned). Fix all three together.
+# ci.yml and gitleaks.yml have the same gap. (The note that ci.yml installed
+# govulncheck@latest is stale as of 2026-09-10: it pins v1.7.0, and so does the
+# step above.) Fix the Action pinning in all three together.
 # ---------------------------------------------------------------------------
