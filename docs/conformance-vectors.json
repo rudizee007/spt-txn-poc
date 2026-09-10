@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "note": "Deterministic SPT-Txn conformance vectors: spt_txn_context_hash per chain (canonical preimage, SHA-256) and humanAnchor = zkhash.Commit(secret, blinding) hex. Signatures/timestamps in real tokens are not covered here.",
+  "note": "Deterministic SPT-Txn conformance vectors: spt_txn_context_hash per chain (canonical preimage, SHA-256) and humanAnchor = zkdid.Compute(secret, blinding), the canonical 32-byte big-endian field element, hex-encoded to 64 characters. Signatures/timestamps in real tokens are not covered here.",
   "context_hashes": [
     {
       "chain": "xrpl",
@@ -169,7 +169,7 @@
     {
       "secret": "alice@example.org",
       "blinding": "randomness-0001",
-      "human_anchor": "55cc320d970db0da5c4fda7ffcd95b753990c7778e33d74731ea35a90254403"
+      "human_anchor": "055cc320d970db0da5c4fda7ffcd95b753990c7778e33d74731ea35a90254403"
     },
     {
       "secret": "bob@example.org",
