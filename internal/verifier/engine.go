@@ -261,27 +261,51 @@ func New(reg trustregistry.Registry) *Engine {
 	return &Engine{Registry: reg, replay: newReplayCache()}
 }
 
-// replayCache records DPoP proof jtis that have been accepted, so the same proof
-// cannot be presented twice within its freshness window (review H1).
+// replayCache holds this enforcement point's single-use records: DPoP proofs
+// (review H1), SPT-Txn tokens and sub-band slices.
 type replayCache struct {
 	mu   sync.Mutex
-	seen map[string]time.Time // jti -> expiry
+	seen map[recordKey]time.Time // record -> expiry
 }
 
-func newReplayCache() *replayCache { return &replayCache{seen: make(map[string]time.Time)} }
+func newReplayCache() *replayCache { return &replayCache{seen: make(map[recordKey]time.Time)} }
 
-// checkAndAdd returns false if jti was already recorded and is still within its
-// window (a replay); otherwise it records jti for ttl and returns true. Expired
-// entries are pruned opportunistically.
-func (c *replayCache) checkAndAdd(jti string, ttl time.Duration) bool {
-	return c.consumeAll(consumption{key: jti, ttl: ttl})
+// recordKind says what a single-use record is the use of.
+type recordKind uint8
+
+const (
+	recordNone  recordKind = iota // the zero value; consumeAll refuses it
+	recordProof                   // a DPoP proof
+	recordTxn                     // an SPT-Txn token
+	recordSlice                   // a committed sub-band slice
+)
+
+// recordKey identifies one single-use record: its kind, and the identifiers
+// that kind is keyed on. Build keys only with proofRecord, txnRecord and
+// sliceRecord.
+type recordKey struct {
+	kind  recordKind
+	scope string // proof: the proof key's JWK thumbprint; slice: the committed root
+	id    string // proof and SPT-Txn: the jti
+	leg   int64  // slice: the leg index
 }
 
-// consumption is one single-use record: a namespaced key and how long the
-// record must live. The namespace prefix keeps a DPoP jti, an SPT-Txn jti and a
-// slice identity from ever colliding in the one map.
+// proofRecord identifies a DPoP proof by the key that signed it and its jti.
+func proofRecord(jkt, jti string) recordKey {
+	return recordKey{kind: recordProof, scope: jkt, id: jti}
+}
+
+func txnRecord(jti string) recordKey {
+	return recordKey{kind: recordTxn, id: jti}
+}
+
+func sliceRecord(root string, leg int64) recordKey {
+	return recordKey{kind: recordSlice, scope: root, leg: leg}
+}
+
+// consumption is one single-use record and how long it must live.
 type consumption struct {
-	key string
+	key recordKey
 	ttl time.Duration
 }
 
@@ -289,7 +313,8 @@ type consumption struct {
 // live, nothing is recorded and false is returned. One lock, one check-then-set,
 // so two concurrent presentations of the same slice or the same SPT-Txn cannot
 // both pass — the second is refused inside the same critical section the first
-// recorded in. Expired entries are pruned opportunistically.
+// recorded in. A key with no kind is refused the same way. Expired entries are
+// pruned opportunistically.
 func (c *replayCache) consumeAll(items ...consumption) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -300,6 +325,9 @@ func (c *replayCache) consumeAll(items ...consumption) bool {
 		}
 	}
 	for _, it := range items {
+		if it.key.kind == recordNone {
+			return false
+		}
 		if exp, ok := c.seen[it.key]; ok && now.Before(exp) {
 			return false
 		}
@@ -311,7 +339,9 @@ func (c *replayCache) consumeAll(items ...consumption) bool {
 }
 
 // consumeOnAllow is the single-use step, run LAST, after every other check has
-// passed, so a refused presentation never burns anything.
+// passed, so a presentation refused at any step never consumes the SPT-Txn or
+// its slice. (A presentation refused after step 5 has used its DPoP proof; that
+// record belongs to the proof, not to the token.)
 //
 // Two records are consumed together, atomically:
 //
@@ -339,11 +369,10 @@ func (e *Engine) consumeOnAllow(txClaims, ctClaims map[string]any) error {
 	if !ok {
 		return fmt.Errorf("SPT-Txn has no readable exp")
 	}
-	items = append(items, consumption{key: "txn:" + jti, ttl: ttlUntil(exp, now)})
+	items = append(items, consumption{key: txnRecord(jti), ttl: ttlUntil(exp, now)})
 
 	if sl, ok := ctClaims[leafSliceClaim].(*sliceIdentity); ok && sl != nil {
-		key := fmt.Sprintf("slice:%s:%d", sl.root, sl.legIndex)
-		items = append(items, consumption{key: key, ttl: ttlUntil(sl.expiry, now)})
+		items = append(items, consumption{key: sliceRecord(sl.root, sl.legIndex), ttl: ttlUntil(sl.expiry, now)})
 	}
 	if !e.replay.consumeAll(items...) {
 		if len(items) == 2 {
@@ -756,6 +785,16 @@ func (e *Engine) step4Revocation(ctx context.Context, txClaims map[string]any) e
 	return nil
 }
 
+// proofMaxAge is the freshness window step 5 applies to a DPoP proof.
+// proofRecordTTL is derived from it and never set separately: a proof is
+// acceptable from dpop.MaxFutureSkew before its iat until proofMaxAge after it,
+// so its record must outlive that whole span from the moment it is first
+// accepted. The second covers the boundary instant.
+const (
+	proofMaxAge    = dpop.DefaultMaxAge
+	proofRecordTTL = proofMaxAge + dpop.MaxFutureSkew + time.Second
+)
+
 func (e *Engine) step5DPoP(txClaims map[string]any, token, proof, htm, htu string) error {
 	// Bind the proof to this specific token (ath) and reject replays (jti).
 	ath := dpop.ATH(token)
@@ -766,14 +805,19 @@ func (e *Engine) step5DPoP(txClaims map[string]any, token, proof, htm, htu strin
 	if ath == "" {
 		return fmt.Errorf("cannot bind the DPoP proof to the presented token")
 	}
-	jkt, jti, err := dpop.Verify(proof, htm, htu, ath, 0)
+	jkt, jti, err := dpop.Verify(proof, htm, htu, ath, proofMaxAge)
 	if err != nil {
 		return fmt.Errorf("DPoP proof: %w", err)
 	}
-	if !e.replay.checkAndAdd(jti, dpop.DefaultMaxAge) {
+	// The proof is recorded once the sender constraint holds, so only a proof
+	// signed by the key the token is bound to is ever recorded.
+	if err := txntoken.CheckSenderConstraint(txClaims, jkt); err != nil {
+		return err
+	}
+	if !e.replay.consumeAll(consumption{key: proofRecord(jkt, jti), ttl: proofRecordTTL}) {
 		return fmt.Errorf("DPoP proof replayed (jti already presented)")
 	}
-	return txntoken.CheckSenderConstraint(txClaims, jkt)
+	return nil
 }
 
 // step6Chain verifies the full capability chain CAT -> CT[0] -> … -> CT[n-1] ->
