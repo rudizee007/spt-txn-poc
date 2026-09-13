@@ -274,15 +274,23 @@ func newReplayCache() *replayCache { return &replayCache{seen: make(map[recordKe
 type recordKind uint8
 
 const (
-	recordNone  recordKind = iota // the zero value; consumeAll refuses it
-	recordProof                   // a DPoP proof
-	recordTxn                     // an SPT-Txn token
-	recordSlice                   // a committed sub-band slice
+	recordNone        recordKind = iota // the zero value; consumeAll refuses it
+	recordProof                         // a DPoP proof
+	recordTxn                           // an SPT-Txn token, consumed by the gate
+	recordSlice                         // a committed sub-band slice, consumed by the gate
+	recordSettleTxn                     // an SPT-Txn token, consumed by a settler
+	recordSettleSlice                   // a committed sub-band slice, consumed by a settler
 )
 
 // recordKey identifies one single-use record: its kind, and the identifiers
-// that kind is keyed on. Build keys only with proofRecord, txnRecord and
-// sliceRecord.
+// that kind is keyed on. Build keys only with proofRecord, txnRecord,
+// sliceRecord, settleTxnRecord and settleSliceRecord.
+//
+// The gate and a settler consume the same token under DIFFERENT kinds. They are
+// distinct enforcement points that ask different questions — the gate "has this
+// been authorized here?", a settler "have I settled this here?" — and keep
+// independent records. On one engine serving both roles a token gated once is
+// therefore still settled once.
 type recordKey struct {
 	kind  recordKind
 	scope string // proof: the proof key's JWK thumbprint; slice: the committed root
@@ -303,11 +311,29 @@ func sliceRecord(root string, leg int64) recordKey {
 	return recordKey{kind: recordSlice, scope: root, leg: leg}
 }
 
+func settleTxnRecord(jti string) recordKey {
+	return recordKey{kind: recordSettleTxn, id: jti}
+}
+
+func settleSliceRecord(root string, leg int64) recordKey {
+	return recordKey{kind: recordSettleSlice, scope: root, leg: leg}
+}
+
 // consumption is one single-use record and how long it must live.
 type consumption struct {
 	key recordKey
 	ttl time.Duration
 }
+
+// consumeRole is which enforcement point is recording a use. It selects the
+// record kinds, so the gate and a settler do not share a token's record.
+type consumeRole uint8
+
+const (
+	roleNone   consumeRole = iota // the zero value; consumeOnAllow refuses it
+	roleGate                      // Verify: proof-of-possession established at step 5
+	roleSettle                    // VerifyForSettlement: no possession, by design
+)
 
 // consumeAll records every key or none: if ANY key is already held and still
 // live, nothing is recorded and false is returned. One lock, one check-then-set,
@@ -357,7 +383,11 @@ func (c *replayCache) consumeAll(items ...consumption) bool {
 // verifier processes do not share it, so single-use holds per enforcement point,
 // not globally. Sharing the record across processes is the control plane's job
 // and is not claimed here.
-func (e *Engine) consumeOnAllow(txClaims, ctClaims map[string]any) error {
+//
+// role selects the record kinds, so the gate and a settler never consume under
+// the same key even on one engine. roleNone is refused: a caller that does not
+// say which enforcement point it is cannot record a use.
+func (e *Engine) consumeOnAllow(role consumeRole, txClaims, ctClaims map[string]any) error {
 	now := time.Now().Unix()
 	items := make([]consumption, 0, 2)
 
@@ -369,10 +399,22 @@ func (e *Engine) consumeOnAllow(txClaims, ctClaims map[string]any) error {
 	if !ok {
 		return fmt.Errorf("SPT-Txn has no readable exp")
 	}
-	items = append(items, consumption{key: txnRecord(jti), ttl: ttlUntil(exp, now)})
+
+	var txnKey recordKey
+	var sliceKeyFor func(root string, leg int64) recordKey
+	switch role {
+	case roleGate:
+		txnKey, sliceKeyFor = txnRecord(jti), sliceRecord
+	case roleSettle:
+		txnKey, sliceKeyFor = settleTxnRecord(jti), settleSliceRecord
+	default:
+		return fmt.Errorf("consumeOnAllow: no consuming role given")
+	}
+
+	items = append(items, consumption{key: txnKey, ttl: ttlUntil(exp, now)})
 
 	if sl, ok := ctClaims[leafSliceClaim].(*sliceIdentity); ok && sl != nil {
-		items = append(items, consumption{key: sliceRecord(sl.root, sl.legIndex), ttl: ttlUntil(sl.expiry, now)})
+		items = append(items, consumption{key: sliceKeyFor(sl.root, sl.legIndex), ttl: ttlUntil(sl.expiry, now)})
 	}
 	if !e.replay.consumeAll(items...) {
 		if len(items) == 2 {
@@ -463,7 +505,7 @@ func (e *Engine) Verify(ctx context.Context, in Input) Decision {
 	// Single-use, recorded only once everything above has passed. Reported
 	// under step 8 because it is the same property: one token, this one
 	// transaction, once.
-	if err := e.consumeOnAllow(txClaims, ctClaims); err != nil {
+	if err := e.consumeOnAllow(roleGate, txClaims, ctClaims); err != nil {
 		return deny(8, err)
 	}
 	return Decision{Allow: true}
@@ -547,8 +589,10 @@ func (e *Engine) VerifyForSettlement(ctx context.Context, in Input) (SettlementF
 		return facts, deny(8, err)
 	}
 	// Single-use at the settler too: a settlement IS the use, and this path has
-	// no step 5 to record anything otherwise.
-	if err := e.consumeOnAllow(txClaims, ctClaims); err != nil {
+	// no step 5 to record anything otherwise. Recorded under the settler's own
+	// kinds, so the gate and the settler keep independent records: on one engine
+	// a token gated once is still settled once.
+	if err := e.consumeOnAllow(roleSettle, txClaims, ctClaims); err != nil {
 		return facts, deny(8, err)
 	}
 

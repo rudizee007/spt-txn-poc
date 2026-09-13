@@ -43,11 +43,9 @@ func TestVerifyForSettlement_AgreesWithFullVerify(t *testing.T) {
 	if d := h.eng.Verify(context.Background(), h.in); !d.Allow {
 		t.Fatalf("full verify denied a good chain: %v", d)
 	}
-	// A SECOND engine over the same registry: the gate and the settler are
-	// different processes with separate single-use records. On the SAME engine
-	// the second presentation is correctly refused as already used (see
-	// TestSingleUse_SPTTxnConsumedOnAllow), which is the point of the record,
-	// not a disagreement between the two paths.
+	// A SECOND engine over the same registry, as the gate and a settler are in
+	// the intended deployment. The two paths also record under different kinds,
+	// so on one engine both still allow (TestSingleUse_GateAndSettlerDoNotShareARecord).
 	settler := verifier.New(h.reg)
 	if _, d := settler.VerifyForSettlement(context.Background(), h.in); !d.Allow {
 		t.Fatalf("settle path denied a chain the full verify allowed: %v", d)
