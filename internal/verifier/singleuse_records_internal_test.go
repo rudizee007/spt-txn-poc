@@ -196,9 +196,14 @@ func TestProofRecordOutlivesTheProofsAcceptance(t *testing.T) {
 		if k.kind != recordProof {
 			t.Fatalf("recorded kind %d, want a proof record", k.kind)
 		}
-		if !exp.After(lastAcceptable) {
-			t.Fatalf("the proof record expires at %v, but a proof first accepted at %v can be acceptable until %v",
-				exp, firstAccepted, lastAcceptable)
+		// A proof carries no signed wall expiry, so it is held on the monotonic
+		// budget alone; that budget must outlast the acceptance window.
+		if !exp.wall.IsZero() {
+			t.Fatalf("a proof record has a wall expiry %v; it should be held on the monotonic budget alone", exp.wall)
+		}
+		if !exp.mono.After(lastAcceptable) {
+			t.Fatalf("the proof record's monotonic expiry is %v, but a proof first accepted at %v can be acceptable until %v",
+				exp.mono, firstAccepted, lastAcceptable)
 		}
 	}
 }

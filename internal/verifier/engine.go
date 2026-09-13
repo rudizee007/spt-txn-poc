@@ -265,10 +265,41 @@ func New(reg trustregistry.Registry) *Engine {
 // (review H1), SPT-Txn tokens and sub-band slices.
 type replayCache struct {
 	mu   sync.Mutex
-	seen map[recordKey]time.Time // record -> expiry
+	seen map[recordKey]recordExpiry // record -> when it may be pruned
 }
 
-func newReplayCache() *replayCache { return &replayCache{seen: make(map[recordKey]time.Time)} }
+// recordExpiry is when a single-use record may be pruned. A record is held while
+// EITHER clock still considers it live, so it is pruned only once both have
+// passed.
+//
+//   - mono is a monotonic-clock deadline: a real-elapsed-time budget, bounding
+//     how long the record is kept.
+//   - wall is the artefact's own signed expiry (a token's exp, a slice's exp) on
+//     the wall clock — the same clock and value the acceptance checks use (step 2,
+//     step 6) — or the zero Time for a record with no signed expiry (a DPoP
+//     proof), which is then held on mono alone.
+type recordExpiry struct {
+	mono time.Time
+	wall time.Time
+}
+
+func newReplayCache() *replayCache {
+	return &replayCache{seen: make(map[recordKey]recordExpiry)}
+}
+
+// expired reports whether a record may be pruned: its monotonic budget is spent
+// AND its wall expiry (if it has one) has passed. Held while either is still
+// live, so the record is kept at least as long as the acceptance checks (which
+// bound the artefact by that same wall expiry) may still admit it.
+func (e recordExpiry) expired(now time.Time) bool {
+	if now.Before(e.mono) {
+		return false
+	}
+	if !e.wall.IsZero() && now.Before(e.wall) {
+		return false
+	}
+	return true
+}
 
 // recordKind says what a single-use record is the use of.
 type recordKind uint8
@@ -319,10 +350,14 @@ func settleSliceRecord(root string, leg int64) recordKey {
 	return recordKey{kind: recordSettleSlice, scope: root, leg: leg}
 }
 
-// consumption is one single-use record and how long it must live.
+// consumption is one single-use record: its key, a monotonic real-elapsed budget
+// (ttl), and the artefact's own signed wall-clock expiry (wallExp) where it has
+// one. wallExp is the zero Time for a record with no signed expiry, such as a
+// DPoP proof, which is then held on the monotonic budget alone.
 type consumption struct {
-	key recordKey
-	ttl time.Duration
+	key     recordKey
+	ttl     time.Duration
+	wallExp time.Time
 }
 
 // consumeRole is which enforcement point is recording a use. It selects the
@@ -345,8 +380,8 @@ func (c *replayCache) consumeAll(items ...consumption) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	now := time.Now()
-	for k, exp := range c.seen {
-		if now.After(exp) {
+	for k, e := range c.seen {
+		if e.expired(now) {
 			delete(c.seen, k)
 		}
 	}
@@ -354,12 +389,12 @@ func (c *replayCache) consumeAll(items ...consumption) bool {
 		if it.key.kind == recordNone {
 			return false
 		}
-		if exp, ok := c.seen[it.key]; ok && now.Before(exp) {
+		if e, ok := c.seen[it.key]; ok && !e.expired(now) {
 			return false
 		}
 	}
 	for _, it := range items {
-		c.seen[it.key] = now.Add(it.ttl)
+		c.seen[it.key] = recordExpiry{mono: now.Add(it.ttl), wall: it.wallExp}
 	}
 	return true
 }
@@ -411,10 +446,15 @@ func (e *Engine) consumeOnAllow(role consumeRole, txClaims, ctClaims map[string]
 		return fmt.Errorf("consumeOnAllow: no consuming role given")
 	}
 
-	items = append(items, consumption{key: txnKey, ttl: ttlUntil(exp, now)})
+	// Each record's wall expiry is the artefact's own signed expiry — the same
+	// value step 2 (and step 6, for the slice) bound acceptance by — so the
+	// record is held for exactly as long as what it guards can be presented.
+	items = append(items, consumption{key: txnKey, ttl: ttlUntil(exp, now), wallExp: time.Unix(exp, 0)})
 
 	if sl, ok := ctClaims[leafSliceClaim].(*sliceIdentity); ok && sl != nil {
-		items = append(items, consumption{key: sliceKeyFor(sl.root, sl.legIndex), ttl: ttlUntil(sl.expiry, now)})
+		items = append(items, consumption{
+			key: sliceKeyFor(sl.root, sl.legIndex), ttl: ttlUntil(sl.expiry, now), wallExp: time.Unix(sl.expiry, 0),
+		})
 	}
 	if !e.replay.consumeAll(items...) {
 		if len(items) == 2 {
