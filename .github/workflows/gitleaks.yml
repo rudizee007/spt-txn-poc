@@ -21,6 +21,7 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITLEAKS_CONFIG: .gitleaks.toml
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # gitleaks-action is free for personal + public repos. For a GitHub
           # Organization repo it requires GITLEAKS_LICENSE (free from gitleaks.io);
           # set it as a repo secret and uncomment:
