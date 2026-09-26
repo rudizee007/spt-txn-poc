@@ -179,3 +179,9 @@ docs/CONTROL-PLANE-PLAN.md
 /catsvc
 /a2a-pep
 /spt-txn-init
+
+# editor/session backups — never commit
+*.bak-*
+*.dashbak*
+*.colbak*
+*.prosebak*
