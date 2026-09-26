@@ -261,57 +261,148 @@ func New(reg trustregistry.Registry) *Engine {
 	return &Engine{Registry: reg, replay: newReplayCache()}
 }
 
-// replayCache records DPoP proof jtis that have been accepted, so the same proof
-// cannot be presented twice within its freshness window (review H1).
+// replayCache holds this enforcement point's single-use records: DPoP proofs
+// (review H1), SPT-Txn tokens and sub-band slices.
 type replayCache struct {
 	mu   sync.Mutex
-	seen map[string]time.Time // jti -> expiry
+	seen map[recordKey]recordExpiry // record -> when it may be pruned
 }
 
-func newReplayCache() *replayCache { return &replayCache{seen: make(map[string]time.Time)} }
-
-// checkAndAdd returns false if jti was already recorded and is still within its
-// window (a replay); otherwise it records jti for ttl and returns true. Expired
-// entries are pruned opportunistically.
-func (c *replayCache) checkAndAdd(jti string, ttl time.Duration) bool {
-	return c.consumeAll(consumption{key: jti, ttl: ttl})
+// recordExpiry is when a single-use record may be pruned. A record is held while
+// EITHER clock still considers it live, so it is pruned only once both have
+// passed.
+//
+//   - mono is a monotonic-clock deadline: a real-elapsed-time budget, bounding
+//     how long the record is kept.
+//   - wall is the artefact's own signed expiry (a token's exp, a slice's exp) on
+//     the wall clock — the same clock and value the acceptance checks use (step 2,
+//     step 6) — or the zero Time for a record with no signed expiry (a DPoP
+//     proof), which is then held on mono alone.
+type recordExpiry struct {
+	mono time.Time
+	wall time.Time
 }
 
-// consumption is one single-use record: a namespaced key and how long the
-// record must live. The namespace prefix keeps a DPoP jti, an SPT-Txn jti and a
-// slice identity from ever colliding in the one map.
+func newReplayCache() *replayCache {
+	return &replayCache{seen: make(map[recordKey]recordExpiry)}
+}
+
+// expired reports whether a record may be pruned: its monotonic budget is spent
+// AND its wall expiry (if it has one) has passed. Held while either is still
+// live, so the record is kept at least as long as the acceptance checks (which
+// bound the artefact by that same wall expiry) may still admit it.
+func (e recordExpiry) expired(now time.Time) bool {
+	if now.Before(e.mono) {
+		return false
+	}
+	if !e.wall.IsZero() && now.Before(e.wall) {
+		return false
+	}
+	return true
+}
+
+// recordKind says what a single-use record is the use of.
+type recordKind uint8
+
+const (
+	recordNone        recordKind = iota // the zero value; consumeAll refuses it
+	recordProof                         // a DPoP proof
+	recordTxn                           // an SPT-Txn token, consumed by the gate
+	recordSlice                         // a committed sub-band slice, consumed by the gate
+	recordSettleTxn                     // an SPT-Txn token, consumed by a settler
+	recordSettleSlice                   // a committed sub-band slice, consumed by a settler
+)
+
+// recordKey identifies one single-use record: its kind, and the identifiers
+// that kind is keyed on. Build keys only with proofRecord, txnRecord,
+// sliceRecord, settleTxnRecord and settleSliceRecord.
+//
+// The gate and a settler consume the same token under DIFFERENT kinds. They are
+// distinct enforcement points that ask different questions — the gate "has this
+// been authorized here?", a settler "have I settled this here?" — and keep
+// independent records. On one engine serving both roles a token gated once is
+// therefore still settled once.
+type recordKey struct {
+	kind  recordKind
+	scope string // proof: the proof key's JWK thumbprint; slice: the committed root
+	id    string // proof and SPT-Txn: the jti
+	leg   int64  // slice: the leg index
+}
+
+// proofRecord identifies a DPoP proof by the key that signed it and its jti.
+func proofRecord(jkt, jti string) recordKey {
+	return recordKey{kind: recordProof, scope: jkt, id: jti}
+}
+
+func txnRecord(jti string) recordKey {
+	return recordKey{kind: recordTxn, id: jti}
+}
+
+func sliceRecord(root string, leg int64) recordKey {
+	return recordKey{kind: recordSlice, scope: root, leg: leg}
+}
+
+func settleTxnRecord(jti string) recordKey {
+	return recordKey{kind: recordSettleTxn, id: jti}
+}
+
+func settleSliceRecord(root string, leg int64) recordKey {
+	return recordKey{kind: recordSettleSlice, scope: root, leg: leg}
+}
+
+// consumption is one single-use record: its key, a monotonic real-elapsed budget
+// (ttl), and the artefact's own signed wall-clock expiry (wallExp) where it has
+// one. wallExp is the zero Time for a record with no signed expiry, such as a
+// DPoP proof, which is then held on the monotonic budget alone.
 type consumption struct {
-	key string
-	ttl time.Duration
+	key     recordKey
+	ttl     time.Duration
+	wallExp time.Time
 }
+
+// consumeRole is which enforcement point is recording a use. It selects the
+// record kinds, so the gate and a settler do not share a token's record.
+type consumeRole uint8
+
+const (
+	roleNone   consumeRole = iota // the zero value; consumeOnAllow refuses it
+	roleGate                      // Verify: proof-of-possession established at step 5
+	roleSettle                    // VerifyForSettlement: no possession, by design
+)
 
 // consumeAll records every key or none: if ANY key is already held and still
 // live, nothing is recorded and false is returned. One lock, one check-then-set,
 // so two concurrent presentations of the same slice or the same SPT-Txn cannot
 // both pass — the second is refused inside the same critical section the first
-// recorded in. Expired entries are pruned opportunistically.
+// recorded in. A key with no kind is refused the same way. Expired entries are
+// pruned opportunistically.
 func (c *replayCache) consumeAll(items ...consumption) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	now := time.Now()
-	for k, exp := range c.seen {
-		if now.After(exp) {
+	for k, e := range c.seen {
+		if e.expired(now) {
 			delete(c.seen, k)
 		}
 	}
 	for _, it := range items {
-		if exp, ok := c.seen[it.key]; ok && now.Before(exp) {
+		if it.key.kind == recordNone {
+			return false
+		}
+		if e, ok := c.seen[it.key]; ok && !e.expired(now) {
 			return false
 		}
 	}
 	for _, it := range items {
-		c.seen[it.key] = now.Add(it.ttl)
+		c.seen[it.key] = recordExpiry{mono: now.Add(it.ttl), wall: it.wallExp}
 	}
 	return true
 }
 
 // consumeOnAllow is the single-use step, run LAST, after every other check has
-// passed, so a refused presentation never burns anything.
+// passed, so a presentation refused at any step never consumes the SPT-Txn or
+// its slice. (A presentation refused after step 5 has used its DPoP proof; that
+// record belongs to the proof, not to the token.)
 //
 // Two records are consumed together, atomically:
 //
@@ -327,7 +418,11 @@ func (c *replayCache) consumeAll(items ...consumption) bool {
 // verifier processes do not share it, so single-use holds per enforcement point,
 // not globally. Sharing the record across processes is the control plane's job
 // and is not claimed here.
-func (e *Engine) consumeOnAllow(txClaims, ctClaims map[string]any) error {
+//
+// role selects the record kinds, so the gate and a settler never consume under
+// the same key even on one engine. roleNone is refused: a caller that does not
+// say which enforcement point it is cannot record a use.
+func (e *Engine) consumeOnAllow(role consumeRole, txClaims, ctClaims map[string]any) error {
 	now := time.Now().Unix()
 	items := make([]consumption, 0, 2)
 
@@ -339,11 +434,27 @@ func (e *Engine) consumeOnAllow(txClaims, ctClaims map[string]any) error {
 	if !ok {
 		return fmt.Errorf("SPT-Txn has no readable exp")
 	}
-	items = append(items, consumption{key: "txn:" + jti, ttl: ttlUntil(exp, now)})
+
+	var txnKey recordKey
+	var sliceKeyFor func(root string, leg int64) recordKey
+	switch role {
+	case roleGate:
+		txnKey, sliceKeyFor = txnRecord(jti), sliceRecord
+	case roleSettle:
+		txnKey, sliceKeyFor = settleTxnRecord(jti), settleSliceRecord
+	default:
+		return fmt.Errorf("consumeOnAllow: no consuming role given")
+	}
+
+	// Each record's wall expiry is the artefact's own signed expiry — the same
+	// value step 2 (and step 6, for the slice) bound acceptance by — so the
+	// record is held for exactly as long as what it guards can be presented.
+	items = append(items, consumption{key: txnKey, ttl: ttlUntil(exp, now), wallExp: time.Unix(exp, 0)})
 
 	if sl, ok := ctClaims[leafSliceClaim].(*sliceIdentity); ok && sl != nil {
-		key := fmt.Sprintf("slice:%s:%d", sl.root, sl.legIndex)
-		items = append(items, consumption{key: key, ttl: ttlUntil(sl.expiry, now)})
+		items = append(items, consumption{
+			key: sliceKeyFor(sl.root, sl.legIndex), ttl: ttlUntil(sl.expiry, now), wallExp: time.Unix(sl.expiry, 0),
+		})
 	}
 	if !e.replay.consumeAll(items...) {
 		if len(items) == 2 {
@@ -434,7 +545,7 @@ func (e *Engine) Verify(ctx context.Context, in Input) Decision {
 	// Single-use, recorded only once everything above has passed. Reported
 	// under step 8 because it is the same property: one token, this one
 	// transaction, once.
-	if err := e.consumeOnAllow(txClaims, ctClaims); err != nil {
+	if err := e.consumeOnAllow(roleGate, txClaims, ctClaims); err != nil {
 		return deny(8, err)
 	}
 	return Decision{Allow: true}
@@ -518,8 +629,10 @@ func (e *Engine) VerifyForSettlement(ctx context.Context, in Input) (SettlementF
 		return facts, deny(8, err)
 	}
 	// Single-use at the settler too: a settlement IS the use, and this path has
-	// no step 5 to record anything otherwise.
-	if err := e.consumeOnAllow(txClaims, ctClaims); err != nil {
+	// no step 5 to record anything otherwise. Recorded under the settler's own
+	// kinds, so the gate and the settler keep independent records: on one engine
+	// a token gated once is still settled once.
+	if err := e.consumeOnAllow(roleSettle, txClaims, ctClaims); err != nil {
 		return facts, deny(8, err)
 	}
 
@@ -756,6 +869,16 @@ func (e *Engine) step4Revocation(ctx context.Context, txClaims map[string]any) e
 	return nil
 }
 
+// proofMaxAge is the freshness window step 5 applies to a DPoP proof.
+// proofRecordTTL is derived from it and never set separately: a proof is
+// acceptable from dpop.MaxFutureSkew before its iat until proofMaxAge after it,
+// so its record must outlive that whole span from the moment it is first
+// accepted. The second covers the boundary instant.
+const (
+	proofMaxAge    = dpop.DefaultMaxAge
+	proofRecordTTL = proofMaxAge + dpop.MaxFutureSkew + time.Second
+)
+
 func (e *Engine) step5DPoP(txClaims map[string]any, token, proof, htm, htu string) error {
 	// Bind the proof to this specific token (ath) and reject replays (jti).
 	ath := dpop.ATH(token)
@@ -766,14 +889,19 @@ func (e *Engine) step5DPoP(txClaims map[string]any, token, proof, htm, htu strin
 	if ath == "" {
 		return fmt.Errorf("cannot bind the DPoP proof to the presented token")
 	}
-	jkt, jti, err := dpop.Verify(proof, htm, htu, ath, 0)
+	jkt, jti, err := dpop.Verify(proof, htm, htu, ath, proofMaxAge)
 	if err != nil {
 		return fmt.Errorf("DPoP proof: %w", err)
 	}
-	if !e.replay.checkAndAdd(jti, dpop.DefaultMaxAge) {
+	// The proof is recorded once the sender constraint holds, so only a proof
+	// signed by the key the token is bound to is ever recorded.
+	if err := txntoken.CheckSenderConstraint(txClaims, jkt); err != nil {
+		return err
+	}
+	if !e.replay.consumeAll(consumption{key: proofRecord(jkt, jti), ttl: proofRecordTTL}) {
 		return fmt.Errorf("DPoP proof replayed (jti already presented)")
 	}
-	return txntoken.CheckSenderConstraint(txClaims, jkt)
+	return nil
 }
 
 // step6Chain verifies the full capability chain CAT -> CT[0] -> … -> CT[n-1] ->

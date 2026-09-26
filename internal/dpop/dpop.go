@@ -32,6 +32,12 @@ import (
 // DefaultMaxAge is the freshness window for a DPoP proof's iat.
 const DefaultMaxAge = 60 * time.Second
 
+// MaxFutureSkew is how far ahead of the verifier's clock a proof's iat may be
+// and still be accepted. A proof is therefore acceptable for MaxFutureSkew plus
+// maxAge in all, and a caller that records proofs to refuse a second
+// presentation must keep each record at least that long.
+const MaxFutureSkew = 5 * time.Second
+
 // Thumbprint returns the RFC 7638 JWK SHA-256 Thumbprint of an Ed25519 public
 // key, base64url-encoded. This is the value placed in cnf.jkt and recomputed at
 // verification. The canonical JWK members for an OKP key are crv, kty, x, in
@@ -205,7 +211,7 @@ func Verify(proof, htm, htu, ath string, maxAge time.Duration) (jkt, jti string,
 	// time.Unix(iat,0) is the start of the issuing second; age is therefore a
 	// slight over-estimate, which is the safe direction for an expiry check.
 	age := time.Since(time.Unix(claims.IAT, 0))
-	if age < -5*time.Second { // small forward-skew tolerance
+	if age < -MaxFutureSkew {
 		return "", "", fmt.Errorf("DPoP proof iat is in the future")
 	}
 	if age > maxAge {
