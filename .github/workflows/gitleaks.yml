@@ -24,4 +24,4 @@ jobs:
           # gitleaks-action is free for personal + public repos. For a GitHub
           # Organization repo it requires GITLEAKS_LICENSE (free from gitleaks.io);
           # set it as a repo secret and uncomment:
-           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
