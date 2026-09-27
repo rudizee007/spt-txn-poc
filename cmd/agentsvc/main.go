@@ -2,9 +2,12 @@
 //
 // Verify role (this build): runs the SPT-Txn eight-step enforcement engine on a
 // presented capability chain (CAT -> CT[…] -> SPT-Txn) against a LOCAL,
-// read-only Trust Registry snapshot. It holds NO signing key and never writes to
-// disk (pledge "stdio rpath inet" — no wpath/cpath), so it cannot mint or mutate
-// anything; the worst a bug can do is mis-answer allow/deny.
+// read-only Trust Registry snapshot. It holds NO signing key, so it cannot mint a
+// token or any other signed artefact. It writes one file, and only while starting:
+// the snapshot acceptance record, which the snapshot open records the accepted
+// snapshot in. It then pledges "stdio rpath inet" — no wpath, no cpath — so for
+// the rest of its life it writes nothing; the worst a bug in the decision path can
+// do is mis-answer allow/deny.
 //
 // This is the offline enforcement engine exposed as a network convenience for
 // platforms that do not embed the verifier library. Verification stays
