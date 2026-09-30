@@ -3,7 +3,7 @@ module github.com/rudizee007/spt-txn-poc
 go 1.26.6
 
 require (
-	filippo.io/mldsa v0.0.0-20260711112038-ff3f469cee29
+	filippo.io/mldsa v1.0.0
 	github.com/consensys/gnark v0.16.3
 	github.com/consensys/gnark-crypto v0.21.0
 	github.com/envoyproxy/go-control-plane/envoy v1.39.0
