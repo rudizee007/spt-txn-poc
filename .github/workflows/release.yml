@@ -195,7 +195,7 @@ jobs:
       # steal. Verifiable by anyone:
       #   gh attestation verify <binary> --repo rudizee007/spt-txn-poc
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@v1
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: 'dist/*'
 
