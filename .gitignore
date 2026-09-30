@@ -47,51 +47,14 @@ sui/attestation_anchor/build/
 sui/*/build/
 move/*/build/
 *.out
-docs/XRPL-GRANT-PROPOSAL.md
-docs/XRPL-GRANT-PROPOSAL.md
-docs/XRPL-INTEGRATION-PLAN.md
-docs/SPT-Txn-XRPL-Pitch.pptx
-docs/SPT-Txn-XRPL-Pitch.pdf
 
 # build artifacts / editor locks
 *.openbsd
 docs/.~lock.*#
 docs/*.tmp
-docs/XRPL-GRANT-FORM-ANSWERS.md
-docs/ANTHROPIC-PITCH.md
-docs/PITCH-DECK-SHAPE-C.md
-docs/SPT-Txn-ShapeC-Pitch.pptx
-docs/SPT-Txn-Anthropic-Pitch.pptx
-docs/XRPL-INTAKE-FORM.md
-docs/OUTREACH-RIPPLEX-HFIP.md
-docs/SPT-Txn-Hedera-Pitch.pptx
-docs/HEDERA-GRANT-FORM-ANSWERS.md
-docs/HEDERA-INTEGRATION-PLAN.md
-docs/ETHEREUM-EF-ANGLE.md
-docs/SOLANA-GRANT-FORM-ANSWERS.md
-docs/SOLANA-DEVNET-ANCHORING-RUNBOOK.md
 *-devnet.json
 spt-anchor*.json
 spt-cp*.json
-docs/FUNDING-STATUS.md
-docs/OUTREACH-XDC.md
-docs/STELLAR-GRANT-FORM-ANSWERS.md
-docs/STELLAR-TESTNET-ANCHORING-RUNBOOK.md
-docs/STARKNET-SEED-PLAN.md
-docs/STARKNET-SEED-FORM-ANSWERS.md
-docs/APTOS-GRANT-FORM-ANSWERS.md
-docs/ANTHROPIC-FELLOWSHIP-APPLICATION-PREP.md
-docs/ETHEREUM-ESP-PROPOSAL.md
-docs/ETHEREUM-ESP-PROPOSAL.pdf
-docs/OPENAI-CYBER-GRANT.md
-docs/OPENAI-CYBER-GRANT-SUBMIT.txt
-docs/ARBITRUM-GRANT-FORM-ANSWERS.md
-docs/POLKADOT-GRANT-FORM-ANSWERS.md
-docs/SUI-GRANT-FORM-ANSWERS.md
-docs/BNB-GRANT-FORM-ANSWERS.md
-docs/MORPH-ACCELERATOR-FORM-ANSWERS.md
-docs/XLAYER-GRANT-FORM-ANSWERS.md
-docs/AVALANCHE-GRANT-FORM-ANSWERS.md
 *sepolia*.json
 spt-sepolia-key.json
 spt-sepolia-account.json
@@ -119,20 +82,7 @@ clients/aptos-pay/aptos-pay
 clients/eth-pay/eth-pay
 clients/sol-pay/sol-pay
 clients/near-pay/near-pay
-docs/SPT-Txn-OAuth-Standards-Alignment.md
-docs/SPT-Txn-Agentic-Competitive-Map.md
-docs/SPT-Txn-Positioning-One-Pagers.md
-docs/SPT-Txn-Insurable-Agent-Actions-Thesis.md
-docs/SPT-Txn-Insurer-Outreach.md
 clients/cardano-anchor/cardano-anchor
-docs/SPT-Txn-FinCEN-OFAC-GENIUS-Comment.md
-docs/SPT-Txn-Midnight-Outreach.md
-docs/SPT-Txn-etherfi-Outreach.md
-docs/SPT-Txn-x-etherfi-Deck.pdf
-docs/SPT-Txn-x-etherfi-Deck.pptx
-docs/SPT-Txn-NIST-Agentic-Alignment-OnePager.md
-docs/SPT-Txn-CIMA-Engagement-Note.md
-docs/SPT-Txn-COSAiS-Agentic-Overlay-Contribution.md
 
 # solc / npm build artifacts
 solidity/*.bin
@@ -147,25 +97,9 @@ solidity/package.json
 solidity/package-lock.json
 
 # internal BD/strategy — not for the public repo
-docs/HOW-WE-MAKE-MONEY.md
-docs/FILEDGR-SPT-TXN-BRIEF.md
-docs/CANTON-SPT-TXN-FEELER.*
-docs/SPT-Txn-x-Canton-architect-brief.pptx
 cache/
 out/
 pqbench.txt
-docs/ACQUISITION-READINESS.md
-docs/COMPLEMENTARY-FIT-MAP.md
-docs/MIKE-SCHWARTZ-OUTREACH.md
-docs/DEPIN-PARKING-LOT.md
-docs/PQC-READINESS-EO-2026.md
-docs/PQ-BENCH-RESULTS.md
-docs/GLUU-JANSSEN-PROOF.md
-docs/BRIDGE-STRATEGY-AND-PING.md
-docs/SPT-Txn-ShapeC-Pitch.pdf
-docs/SPT-Txn-x-Hypernative-Partnership.pptx
-docs/COMPETITOR-PAINPOINTS.md
-docs/CONTROL-PLANE-PLAN.md
 
 # FUSE leftovers from in-place edits on a mounted folder
 .fuse_hidden*
