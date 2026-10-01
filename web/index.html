@@ -1324,7 +1324,7 @@
       <div class="arch-layer">
         <div class="arch-label">Escrow Layer</div>
         <div class="arch-content">
-          <strong>Human-anchor escrow (Section 9.6).</strong> Threshold-shared deanonymization under lawful process only. t-of-n custody across distinct legal entities and jurisdictions. The human identity is never in the authorization path; it is only available to lawful process with quorum consent.
+          <strong>Human-anchor escrow (Section 9.6).</strong> Deanonymization only on a signed request that states a lawful basis. The human identity is never in the authorization path. Today one escrow key opens an envelope and the lawful-basis check is structural; threshold (t-of-n) custody across distinct legal entities and jurisdictions is designed, not built.
         </div>
       </div>
       <div class="arch-layer">
@@ -1355,7 +1355,7 @@
         <span class="lg"><i class="sw vs"></i>SPT-Txn open-source (Apache-2.0): you install &amp; run it; no call-home</span>
         <span class="lg"><i class="sw cl"></i>Client-operated: you deploy &amp; control</span>
         <span class="lg"><i class="sw pl"></i>Pluggable: your choice (backend / policy engine)</span>
-        <span class="lg"><i class="sw pk"></i>SPT-Txn licensed pack: optional fallback (only if you lack an engine), runs in your infra</span>
+        <span class="lg"><i class="sw pk"></i>SPT-Txn licensed pack: on the roadmap, not built (intended only if you lack an engine; would run in your infra)</span>
       </div>
 
       <div class="cols" id="cols"></div>
@@ -1373,7 +1373,7 @@
         <span class="lg"><i class="sw vs"></i>SPT-Txn: open-source, you run it</span>
         <span class="lg"><i class="sw cl"></i>Client-operated</span>
         <span class="lg"><i class="sw pl"></i>Pluggable: your engine / IdP</span>
-        <span class="lg"><i class="sw pk"></i>Licensed pack: optional (Travel Rule / jurisdiction)</span>
+        <span class="lg"><i class="sw pk"></i>Licensed pack: roadmap, not built (Travel Rule / jurisdiction)</span>
         <span class="lg"><i class="sw ex"></i>External: you don’t control it</span>
       </div>
       <div class="detail" id="topo-detail">Click any component to see its role and who controls it.</div>
@@ -1417,32 +1417,34 @@
       {id:'log',x:44,y:352,w:414,h:46,name:'Receipt + Merkle log',sub:'tamper-evident audit',own:'vs',detail:'Every decision emits a signed receipt to an append-only Merkle log you host. Evidence as a byproduct of enforcement.'}
     ], ext:[
       {id:'led',x:548,y:150,w:300,h:58,name:'Ledger · L1 / L2',sub:'settlement gate · x402 · escrow',own:'ex',detail:'Settlement happens on-chain through the x402 / escrow gate. No PII ever touches the ledger.'},
-      {id:'anc',x:548,y:340,w:300,h:58,name:'On-chain anchor',sub:'Merkle root · out-of-band',own:'ex',detail:'The receipt-log Merkle root is periodically anchored on-chain, a background write, never in the hot path.'}
+      {id:'anc',x:548,y:340,w:300,h:58,name:'On-chain anchor',sub:'Merkle root · out-of-band',own:'ex',detail:'The receipt-log Merkle root is anchored on-chain as a background write, never in the hot path. Demonstrated on Arc Circle mainnet with a five-entry decision log; continuous anchoring is the next step.'}
     ], flows:[{to:'led',label:'settle · no PII'},{to:'anc',label:'anchor root'}] },
 
     vasp:{ nodes:[
-      {id:'kyc',x:44,y:104,w:414,h:46,name:'KYC · KYB · KYT providers',sub:'customer, business and transaction checks',own:'cl',detail:'Your KYC provider issues the verify-once credential; your KYB and KYT (sanctions / transaction screening) providers stay yours. SPT-Txn does not perform these checks. You operate the registry and keys.'},
+      {id:'kyc',x:44,y:104,w:414,h:46,name:'CAT issuer',sub:'from your KYC / KYB result',own:'cl',detail:'Issues the verify-once credential from the result of your KYC (and, for business customers, KYB) checks. You operate the registry and keys.'},
       {id:'pol',x:44,y:166,w:250,h:46,name:'Your policy engine',sub:'Notabene · Elliptic · OPA',own:'pl',detail:'Keep your existing Travel-Rule / screening engine. SPT-Txn exposes an OPA-compatible decision API today; adapters that call Notabene, Elliptic or your own OPA are planned, not built.'},
-      {id:'pak',x:306,y:166,w:152,h:46,name:'Travel Rule Pack',sub:'optional · if you lack one',own:'pk',detail:'Optional licensed Travel Rule pack (FATF Recommendation 16), only if you have no compliance engine of your own. Runs in your infra; use it alongside your engine in hybrid, or retire the old one later, at your pace.'},
-      {id:'pep',x:44,y:228,w:414,h:46,name:'SPT-Txn PEP + 8-step verifier',sub:'binds intent · offline',own:'vs',hub:true,detail:'The enforcement point. Intercepts the transaction, queries your policy engine, binds the authorization to one payment, and records the receipt. Open-source, runs in your infra.'},
+      {id:'pak',x:306,y:166,w:152,h:46,name:'Travel Rule Pack',sub:'roadmap · if you lack one',own:'pk',detail:'Planned licensed Travel Rule pack (FATF Recommendation 16), not built yet. Intended only for teams with no compliance engine of their own; it would run in your infra.'},
+      {id:'pep',x:44,y:228,w:414,h:46,name:'SPT-Txn PEP + 8-step verifier',sub:'binds intent · offline',own:'vs',hub:true,detail:'The enforcement point. Intercepts the transaction, binds the authorization to one payment, and records a signed, timestamped receipt. Querying your existing engine is planned. Open-source, runs in your infra.'},
       {id:'key',x:44,y:290,w:414,h:46,name:'Key backend',sub:'HSM · KMS · TPM',own:'cl',detail:'Issuer keys held non-extractable in your HSM / KMS / TPM. Client-operated.'},
       {id:'log',x:44,y:352,w:414,h:46,name:'Receipt + Merkle log',sub:'tamper-evident audit',own:'vs',detail:'Signed, tamper-evident receipts to an append-only Merkle log you host.'},
-      {id:'esc',x:44,y:414,w:414,h:46,name:'humanAnchor escrow',sub:'lawful recovery · t-of-n · off-path',own:'vs',detail:'Threshold-shared human-anchor escrow. The human identity is never in the authorization path. Available only to lawful process with quorum consent.'}
+      {id:'esc',x:44,y:414,w:414,h:46,name:'humanAnchor escrow',sub:'lawful recovery · off-path',own:'vs',detail:'Human-anchor escrow. The human identity is never in the authorization path; an envelope opens only on a signed request stating a lawful basis. Single escrow key today; threshold (t-of-n) custody is designed, not built.'}
     ], ext:[
       {id:'ben',x:548,y:150,w:300,h:58,name:'Beneficiary VASP',sub:'TRP / TRISA · counterparty',own:'ex',detail:'The counterparty VASP. Receives a zero-knowledge Travel-Rule payload: the required fields only, no exact amount, nothing on-ledger.'},
+      {id:'prov',x:548,y:245,w:300,h:58,name:'KYC · KYB · KYT providers',sub:'your providers · external',own:'ex',detail:'Your identity, business and transaction-screening providers (for example Sumsub, Chainalysis, Elliptic, TRM). SPT-Txn does not perform these checks; your systems call them and the result feeds the credential and the decision.'},
       {id:'led',x:548,y:340,w:300,h:58,name:'Ledger · L1 / L2',sub:'x402 · escrow · anchor',own:'ex',detail:'On-chain settlement and the periodic Merkle anchor. No PII on the ledger.'}
-    ], flows:[{to:'ben',label:'ZK payload · no PII'},{to:'led',label:'settle + anchor'}] },
+    ], flows:[{to:'ben',label:'ZK payload · no PII'},{to:'prov',label:'screening results'},{to:'led',label:'settle + anchor'}] },
 
     rwa:{ nodes:[
-      {id:'iss',x:44,y:120,w:414,h:46,name:'KYC · KYB · KYT providers',sub:'investor, business and transfer checks',own:'cl',detail:'Investor KYC, KYB for institutional holders and issuers, and KYT screening of transfers are done by your providers; SPT-Txn does not perform them. You (or your trusted issuer) mint the compliance-gated token and hold the keys.'},
+      {id:'iss',x:44,y:120,w:414,h:46,name:'RWA / claim issuer',sub:'mints the token · issues the CAT',own:'cl',detail:'You (or your trusted issuer) mint the compliance-gated token, issue the investor credential from your KYC / KYB results, and hold the keys.'},
       {id:'pol',x:44,y:190,w:250,h:46,name:'Your policy engine',sub:'OPA · custom',own:'pl',detail:'Eligibility policy is pluggable. SPT-Txn exposes an OPA-compatible decision API today; adapters that call your own engine are planned, not built.'},
       {id:'pak',x:306,y:190,w:152,h:46,name:'Jurisdiction Pack',sub:'roadmap · if you lack one',own:'pk',detail:'Planned licensed jurisdiction / eligibility pack (MiCA · VARA), not built yet. Intended only for teams with no engine of their own; it would run in your infra.'},
       {id:'elig',x:44,y:260,w:414,h:46,name:'On-chain ZK eligibility',sub:'proven · no PII',own:'vs',hub:true,detail:'An eligibility condition is proven in zero-knowledge on-chain (demonstrated on Ethereum mainnet as a threshold proof) without exposing the underlying PII. The screening behind it stays with your KYC / KYT providers.'},
       {id:'perm',x:44,y:330,w:414,h:46,name:'Permissioned transfer',sub:'holder-bound · replay-safe',own:'vs',detail:'Transfers are holder-bound and replay-safe. No outside party approves a transfer.'},
       {id:'log',x:44,y:400,w:414,h:46,name:'Receipt + Merkle log',sub:'tamper-evident audit',own:'vs',detail:'Signed receipts to an append-only Merkle log you host.'}
     ], ext:[
+      {id:'prov',x:548,y:150,w:300,h:58,name:'KYC · KYB · KYT providers',sub:'your providers · external',own:'ex',detail:'Investor KYC, KYB for the issuer and institutional investors, and KYT screening of transfers. Done by your providers; SPT-Txn does not perform them.'},
       {id:'tok',x:548,y:255,w:300,h:60,name:'Compliance-gated token',sub:'ERC-3643-aligned · on ledger',own:'ex',detail:'The gated token on the ledger (ERC-3643-aligned). Transfer only permits when the ZK eligibility proof verifies, enforced on-chain, deployed by you.'}
-    ], flows:[{to:'tok',label:'permit transfer'}] },
+    ], flows:[{to:'prov',label:'screening results'},{to:'tok',label:'permit transfer'}] },
 
     ai:{ nodes:[
       {id:'aid',x:44,y:104,w:414,h:46,name:'Agent identity',sub:'who acts',own:'cl',detail:'Your platform owns agent identity: who the agent is and how it was attested.'},
@@ -1457,7 +1459,7 @@
     ], flows:[{to:'tool',label:'enforce action'},{to:'wrk',label:'attenuated + human-anchor'}] },
 
     idp:{ nodes:[
-      {id:'idp',x:44,y:104,w:414,h:46,name:'Your IdP',sub:'Keycloak · PingOne · Auth0 · Entra ID / Google (designed)',own:'pl',detail:'Bring your own identity provider. No rip-and-replace. You keep full control of your identity stack.'},
+      {id:'idp',x:44,y:104,w:414,h:46,name:'Your IdP',sub:'Keycloak · PingOne · Auth0 · Entra ID / Google (designed)',own:'pl',detail:'Bring your own identity provider, self-hosted (Keycloak) or cloud (PingOne, Auth0, Entra ID, Google). No rip-and-replace. You keep full control of your identity stack.'},
       {id:'tox',x:44,y:166,w:414,h:46,name:'OAuth Token Exchange',sub:'RFC 8693',own:'vs',detail:'Standard RFC 8693 token exchange turns an IdP token into a transaction-scoped capability.'},
       {id:'br',x:44,y:228,w:414,h:46,name:'IdP → CAT bridge',sub:'identity → capability',own:'vs',hub:true,detail:'The open-source bridge that converts identity into a human-anchored capability the enforcement point can bind. Runs in your stack, nothing calls home.'},
       {id:'wl',x:44,y:290,w:414,h:46,name:'Workload bridge',sub:'SPIFFE / SVID',own:'vs',detail:'Non-human workloads attest via SPIFFE / SVID and receive scoped capabilities the same way.'},
@@ -1492,7 +1494,7 @@
     map={};
     v.nodes.concat(v.ext).forEach(function(n){map[n.id]=n;});
     s+='<rect x="22" y="72" width="476" height="462" rx="14" fill="none" stroke="rgba(155,78,221,0.5)" stroke-width="1.5" stroke-dasharray="6 5"/>';
-    s+='<text x="38" y="92" font-size="10.5" letter-spacing="1.1" fill="#A09AB8" font-family="Space Mono,monospace">YOUR INFRASTRUCTURE — you deploy · nothing calls home</text>';
+    s+='<text x="38" y="92" font-size="10.5" letter-spacing="1.1" fill="#A09AB8" font-family="Space Mono,monospace">YOUR INFRASTRUCTURE · you deploy · nothing calls home</text>';
     s+='<text x="548" y="118" font-size="10.5" letter-spacing="1.1" fill="#A09AB8" font-family="Space Mono,monospace">EXTERNAL</text>';
     var hx=hub.x+hub.w, hy=hub.y+hub.h/2;
     v.flows.forEach(function(f){
@@ -1604,7 +1606,7 @@ border-radius:0 8px 8px 0;padding:11px 14px;line-height:1.55;}
     ['enforce',['vasp'],2,'Travel Rule payload','TRP / TRISA · IVMS101','vs'],
     ['enforce',['vasp'],2,'ZK selective disclosure','amount hidden, no PII','vs'],
     ['verify',['vasp'],2,'VASP registry','counterparty lookup','pl'],
-    ['enforce',['vasp'],3,'humanAnchor escrow','lawful recovery · t-of-n','vs'],
+    ['enforce',['vasp'],3,'humanAnchor escrow','lawful recovery · threshold designed','vs'],
     ['verify',['vasp'],3,'SPT-Txn jurisdiction pack','FATF · MiCA · VARA · roadmap, not built','pk'],
     ['issue',['rwa'],1,'RWA / claim issuer','trusted issuer','cl'],
     ['issue',['rwa'],1,'KYC provider','investor identity','cl'],
@@ -1642,7 +1644,7 @@ border-radius:0 8px 8px 0;padding:11px 14px;line-height:1.55;}
     ai:'Your platform owns agent identity and can bring its own authorization policy (OPA / custom). SPT-Txn’s intent binding, MCP policy-enforcement point, and attenuating delegation are open-source and run in your stack. A compromised agent can’t exceed its grant, and nothing calls home.',
     idp:'Bring your own IdP. Live with Keycloak and PingOne, tested against Auth0 token formats, with published designs for Microsoft Entra ID and Google that are not built yet; Okta is not yet tested. The open-source SPT-Txn bridge turns IdP tokens into human-anchored capabilities over RFC 8693: no rip-and-replace, nothing calls home, and you keep full control of your identity stack.'
   };
-  var OWN={vs:'SPT-Txn open-source, you install & run it; no call-home',cl:'Client-operated (you deploy & control)',pl:'Pluggable, your choice',pk:'SPT-Txn licensed pack (optional, only if you lack an engine; runs in your infra, you enforce locally)'};
+  var OWN={vs:'SPT-Txn open-source, you install & run it; no call-home',cl:'Client-operated (you deploy & control)',pl:'Pluggable, your choice',pk:'SPT-Txn licensed pack (roadmap, not built; intended only if you lack an engine, would run in your infra)'};
   var view='blockchain',lvl=1;
 
   var root=document.getElementById('sptx');
