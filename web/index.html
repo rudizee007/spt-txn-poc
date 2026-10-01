@@ -673,14 +673,47 @@
     <div style="font-family:'Space Mono', monospace; font-size:0.7rem; letter-spacing:2px; color:var(--violet-m); text-transform:uppercase; margin-bottom:1.3rem;">The one-sentence difference</div>
     <p style="font-size:clamp(1rem, 2vw, 1.25rem); line-height:1.5; color:var(--violet-xl); margin:0 0 1.15rem;">An AI agent or partner system is handed a role, and keeps that authority over every action it takes, with no record of who approved what. When it is manipulated or compromised, the blast radius is everything it could ever touch.</p>
     <p style="font-size:clamp(1.15rem, 2.5vw, 1.62rem); line-height:1.55; font-weight:500; color:var(--white); margin:0;">
-      Everyone else authorizes agents and workloads <span style="color:var(--violet-l);">by role</span>.
+      Most systems authorize agents and workloads <span style="color:var(--violet-l);">by role or by session</span>, deciding online.
       SPT-Txn authorizes <span style="color:var(--violet-l);">the specific transaction the actor declared</span>,
       conditioned on <span style="color:var(--violet-l);">what the actor is</span> and
       <span style="color:var(--violet-l);">how fresh its attestation is</span>,
       and emits a <span style="color:var(--violet-l);">cryptographic receipt</span> proving the decision.
     </p>
-    <p style="font-size:0.98rem; color:var(--muted); font-style:italic; margin:1.4rem 0 0;">As of August 2026, no shipping product completes that sentence.</p>
+    <p style="font-size:0.98rem; color:var(--muted); font-style:italic; margin:1.4rem 0 0;">It works the same whether a person or an AI agent is paying, and this page says plainly which parts are built, which are tested, and which are still designs.</p>
   </blockquote>
+</section>
+
+<div class="divider"></div>
+
+<!-- COMPLIANCE EVIDENCE -->
+<section id="compliance">
+  <div class="section-inner">
+    <div class="section-eyebrow">Compliance evidence</div>
+    <h2 class="section-title">Every decision is enforced, timestamped and provable.</h2>
+    <p class="section-body">Compliance teams do not need another dashboard; they need proof. SPT-Txn produces it as a byproduct of enforcement, at the moment each decision is made.</p>
+    <div class="arch-stack">
+      <div class="arch-layer">
+        <div class="arch-label">Policy decision</div>
+        <div class="arch-content"><strong>An OPA-compatible decision API.</strong> Gateways that already ask Open Policy Agent for a decision can ask SPT-Txn the same way, and the answer is bound to one transaction and enforced fail-closed. <em>Built.</em> Adapters that call your existing engine (OPA, Notabene, Elliptic) are planned, not built.</div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-label">Signed, timestamped receipt</div>
+        <div class="arch-content"><strong>Every decision emits a signed receipt.</strong> It is Ed25519-signed over the exact decision, with the timestamp inside the signature, so neither the decision nor its time can be altered afterwards. The time comes from the verifier&rsquo;s own clock; trusted third-party timestamping (RFC&nbsp;3161) is not yet supported.</div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-label">Tamper-evident log, anchored</div>
+        <div class="arch-content"><strong>Receipts go into an append-only Merkle log</strong> (RFC 6962 style), so history cannot be quietly rewritten, including by us. Log checkpoints have been anchored on <strong>Arc Circle mainnet</strong> (Circle&rsquo;s Arc network). Demonstrated on a five-entry decision log; continuous anchoring is the next step.</div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-label">Control evidence</div>
+        <div class="arch-content"><strong>Receipts export as evidence mapped to controls</strong> in NIST SP 800-53, EU DORA and SOC 2. Mapping evidence to a control is not certification: no auditor has assessed it.</div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-label">What it does not do</div>
+        <div class="arch-content"><strong>SPT-Txn does not perform KYC, KYB or KYT</strong> (identity, business and transaction screening). Your providers do. SPT-Txn binds the authorization that follows to one transaction and records the decision. Jurisdiction policy packs are on the roadmap; today the jurisdiction is recorded in the signed receipt.</div>
+      </div>
+    </div>
+  </div>
 </section>
 
 <div class="divider"></div>
@@ -878,7 +911,7 @@
       <div class="arch-layer">
         <div class="arch-label">1 · Verify Once</div>
         <div class="arch-content">
-          <strong>Attributes proven in zero-knowledge.</strong> A KYC / compliance provider verifies the user: KYC level, jurisdiction, and accredited-investor status (durable), with AML-risk and sanctions kept live via a DID-anchored oracle. Raw values are never disclosed, only zkDID-backed proofs.
+          <strong>Attributes proven in zero-knowledge.</strong> A KYC / compliance provider verifies the user: KYC level, jurisdiction, and accredited-investor status. Sanctions and transaction screening (KYT) stay with your screening provider. Raw values are never disclosed, only zkDID-backed proofs.
         </div>
       </div>
       <div class="arch-layer">
@@ -890,7 +923,7 @@
       <div class="arch-layer">
         <div class="arch-label">3 · Policy Match</div>
         <div class="arch-content">
-          <strong>A representation-agnostic policy object.</strong> A platform's decision point evaluates a zero-knowledge proof of the CAT against composable, jurisdiction-aware policy (e.g. VARA ∧ MiCA ∧ Travel Rule). This is the ABAC → TBAC boundary, where policy is evaluated exactly once.
+          <strong>A representation-agnostic policy object.</strong> A platform's decision point evaluates a zero-knowledge proof of the CAT against composable policy written for your jurisdiction (ready-made jurisdiction packs are on the roadmap). This is the ABAC → TBAC boundary, where policy is evaluated exactly once.
         </div>
       </div>
       <div class="arch-layer">
@@ -1248,7 +1281,7 @@
     </div>
     <div style="margin-top:1.4rem; border:1px solid var(--border); border-radius:10px; padding:1rem 1.2rem;">
       <div class="section-eyebrow" style="color:var(--violet-l);">Live &middot; a PingOne AI-Agent identity, exchanged into a human-anchored capability</div>
-      <p class="tk-body" style="margin-top:0.5rem; margin-bottom:0;">A live <strong>PingOne</strong>-registered <strong>AI Agent</strong> token (machine / M2M identity, no <code>sub</code>, keyed on its verified <code>client_id</code>) was verified against PingOne&rsquo;s live discovery and JWKS and exchanged, over standard <strong>OAuth 2.0 Token Exchange (RFC 8693)</strong>, into an offline-verifiable, holder-bound, <strong>human-anchored capability token</strong> &mdash; the same flow already shown unchanged against <strong>Keycloak</strong> and <strong>Auth0</strong>. SPT-Txn <strong>consumes</strong> the identity provider&rsquo;s agent token and adds what the IdP does not issue: a per-transaction, intent-bound, human-anchored, offline-verifiable authorization the merchant re-checks with no issuer contact.</p>
+      <p class="tk-body" style="margin-top:0.5rem; margin-bottom:0;">A live <strong>PingOne</strong>-registered <strong>AI Agent</strong> token (machine / M2M identity, no <code>sub</code>, keyed on its verified <code>client_id</code>) was verified against PingOne&rsquo;s live discovery and JWKS and exchanged, over standard <strong>OAuth 2.0 Token Exchange (RFC 8693)</strong>, into an offline-verifiable, holder-bound, <strong>human-anchored capability token</strong> &mdash; the same flow already shown live against <strong>Keycloak</strong> and tested against <strong>Auth0</strong>&rsquo;s token formats. SPT-Txn <strong>consumes</strong> the identity provider&rsquo;s agent token and adds what the IdP does not issue: a per-transaction, intent-bound, human-anchored, offline-verifiable authorization the merchant re-checks with no issuer contact.</p>
     </div>
     <div style="margin-top:1.4rem; border:1px solid var(--border); border-radius:10px; padding:1rem 1.2rem;">
       <div class="section-eyebrow" style="color:var(--violet-l);">Live &middot; safe-preview decisions, never fail-open</div>
@@ -1378,7 +1411,7 @@
   var D={
     blockchain:{ nodes:[
       {id:'cat',x:44,y:104,w:414,h:46,name:'CAT issuer',sub:'verify-once compliance credential',own:'cl',detail:'Your KYC / compliance provider issues a reusable, verify-once credential. Client-operated — you hold the keys.'},
-      {id:'pol',x:44,y:166,w:414,h:46,name:'Your policy engine',sub:'OPA · custom — bring your own',own:'pl',detail:'The decision point. Bring your own policy engine; SPT-Txn calls it over a standard OPA-compatible decision API, or runs your rules as an imported bundle.'},
+      {id:'pol',x:44,y:166,w:414,h:46,name:'Your policy engine',sub:'OPA · custom — bring your own',own:'pl',detail:'The decision point. SPT-Txn exposes an OPA-compatible decision API today; adapters that call your own engine are planned, not built.'},
       {id:'ver',x:44,y:228,w:414,h:46,name:'SPT-Txn 8-step verifier',sub:'offline · intent-bound',own:'vs',hub:true,detail:'Open-source verifier. Validates the full token chain offline in sub-millisecond time and binds the authorization to one transaction. Nothing calls home.'},
       {id:'adp',x:44,y:290,w:414,h:46,name:'Ledger adapter',sub:'XRPL · Solana · EVM · …',own:'cl',detail:'You run the adapter for your chain(s). Client-operated and swappable.'},
       {id:'log',x:44,y:352,w:414,h:46,name:'Receipt + Merkle log',sub:'tamper-evident audit',own:'vs',detail:'Every decision emits a signed receipt to an append-only Merkle log you host — evidence as a byproduct of enforcement.'}
@@ -1388,8 +1421,8 @@
     ], flows:[{to:'led',label:'settle · no PII'},{to:'anc',label:'anchor root'}] },
 
     vasp:{ nodes:[
-      {id:'kyc',x:44,y:104,w:414,h:46,name:'KYC / Compliance provider',sub:'issues the compliance credential',own:'cl',detail:'Your KYC provider (e.g. Sumsub) issues the verify-once credential. You operate the registry and keys.'},
-      {id:'pol',x:44,y:166,w:250,h:46,name:'Your policy engine',sub:'Notabene · Elliptic · OPA',own:'pl',detail:'Keep your existing Travel-Rule / screening engine. SPT-Txn calls it over a standard decision API — an adapter for Notabene / Elliptic, your own OPA, or an imported rule bundle.'},
+      {id:'kyc',x:44,y:104,w:414,h:46,name:'KYC · KYB · KYT providers',sub:'customer, business and transaction checks',own:'cl',detail:'Your KYC provider issues the verify-once credential; your KYB and KYT (sanctions / transaction screening) providers stay yours. SPT-Txn does not perform these checks. You operate the registry and keys.'},
+      {id:'pol',x:44,y:166,w:250,h:46,name:'Your policy engine',sub:'Notabene · Elliptic · OPA',own:'pl',detail:'Keep your existing Travel-Rule / screening engine. SPT-Txn exposes an OPA-compatible decision API today; adapters that call Notabene, Elliptic or your own OPA are planned, not built.'},
       {id:'pak',x:306,y:166,w:152,h:46,name:'Travel Rule Pack',sub:'optional — if you lack one',own:'pk',detail:'Optional licensed Travel Rule pack (FATF Recommendation 16) — only if you have no compliance engine of your own. Runs in your infra; use it alongside your engine in hybrid, or retire the old one later, at your pace.'},
       {id:'pep',x:44,y:228,w:414,h:46,name:'SPT-Txn PEP + 8-step verifier',sub:'binds intent · offline',own:'vs',hub:true,detail:'The enforcement point. Intercepts the transaction, queries your policy engine, binds the authorization to one payment, and records the receipt. Open-source, runs in your infra.'},
       {id:'key',x:44,y:290,w:414,h:46,name:'Key backend',sub:'HSM · KMS · TPM',own:'cl',detail:'Issuer keys held non-extractable in your HSM / KMS / TPM. Client-operated.'},
@@ -1401,10 +1434,10 @@
     ], flows:[{to:'ben',label:'ZK payload · no PII'},{to:'led',label:'settle + anchor'}] },
 
     rwa:{ nodes:[
-      {id:'iss',x:44,y:120,w:414,h:46,name:'RWA / claim issuer',sub:'trusted issuer',own:'cl',detail:'You (or your trusted issuer) mint the compliance-gated token and hold the keys.'},
-      {id:'pol',x:44,y:190,w:250,h:46,name:'Your policy engine',sub:'OPA · custom',own:'pl',detail:'Eligibility policy is pluggable — bring your own engine, over a standard decision API.'},
-      {id:'pak',x:306,y:190,w:152,h:46,name:'Jurisdiction Pack',sub:'optional — if you lack one',own:'pk',detail:'Optional licensed jurisdiction / eligibility pack (MiCA · VARA) — only if you have no engine of your own. Runs in your infra; migrate at your pace.'},
-      {id:'elig',x:44,y:260,w:414,h:46,name:'On-chain ZK eligibility',sub:'proven · no PII',own:'vs',hub:true,detail:'Eligibility is proven in zero-knowledge on-chain — accreditation, jurisdiction, sanctions status — without ever exposing the underlying PII.'},
+      {id:'iss',x:44,y:120,w:414,h:46,name:'KYC · KYB · KYT providers',sub:'investor, business and transfer checks',own:'cl',detail:'Investor KYC, KYB for institutional holders and issuers, and KYT screening of transfers are done by your providers; SPT-Txn does not perform them. You (or your trusted issuer) mint the compliance-gated token and hold the keys.'},
+      {id:'pol',x:44,y:190,w:250,h:46,name:'Your policy engine',sub:'OPA · custom',own:'pl',detail:'Eligibility policy is pluggable. SPT-Txn exposes an OPA-compatible decision API today; adapters that call your own engine are planned, not built.'},
+      {id:'pak',x:306,y:190,w:152,h:46,name:'Jurisdiction Pack',sub:'roadmap · if you lack one',own:'pk',detail:'Planned licensed jurisdiction / eligibility pack (MiCA · VARA), not built yet. Intended only for teams with no engine of their own; it would run in your infra.'},
+      {id:'elig',x:44,y:260,w:414,h:46,name:'On-chain ZK eligibility',sub:'proven · no PII',own:'vs',hub:true,detail:'An eligibility condition is proven in zero-knowledge on-chain (demonstrated on Ethereum mainnet as a threshold proof) without exposing the underlying PII. The screening behind it stays with your KYC / KYT providers.'},
       {id:'perm',x:44,y:330,w:414,h:46,name:'Permissioned transfer',sub:'holder-bound · replay-safe',own:'vs',detail:'Transfers are holder-bound and replay-safe. No outside party approves a transfer.'},
       {id:'log',x:44,y:400,w:414,h:46,name:'Receipt + Merkle log',sub:'tamper-evident audit',own:'vs',detail:'Signed receipts to an append-only Merkle log you host.'}
     ], ext:[
@@ -1413,7 +1446,7 @@
 
     ai:{ nodes:[
       {id:'aid',x:44,y:104,w:414,h:46,name:'Agent identity',sub:'who acts',own:'cl',detail:'Your platform owns agent identity — who the agent is and how it was attested.'},
-      {id:'pol',x:44,y:166,w:414,h:46,name:'Your policy engine',sub:'OPA · custom — bring your own',own:'pl',detail:'Bring your own authorization policy; SPT-Txn calls it as the decision point.'},
+      {id:'pol',x:44,y:166,w:414,h:46,name:'Your policy engine',sub:'OPA · custom — bring your own',own:'pl',detail:'Bring your own authorization policy. SPT-Txn exposes an OPA-compatible decision API today; adapters that call your engine are planned.'},
       {id:'int',x:44,y:228,w:414,h:46,name:'Intent binding',sub:'one declared action',own:'vs',detail:'Binds the authorization to one declared action, so a token stolen via prompt injection is useless for anything else.'},
       {id:'pep',x:44,y:290,w:414,h:46,name:'MCP PEP',sub:'policy-enforcement point',own:'vs',hub:true,detail:'The Model Context Protocol enforcement point. Every agent tool-call is checked against the transaction-scoped token before it runs. Open-source, in your stack.'},
       {id:'del',x:44,y:352,w:414,h:46,name:'Delegation attenuation',sub:'narrow-only · bounded depth',own:'vs',detail:'Agent-to-agent delegation can only narrow authority, verifiable offline, with bounded depth — a sub-agent can never exceed its parent grant.'},
@@ -1424,7 +1457,7 @@
     ], flows:[{to:'tool',label:'enforce action'},{to:'wrk',label:'attenuated + human-anchor'}] },
 
     idp:{ nodes:[
-      {id:'idp',x:44,y:104,w:414,h:46,name:'Your IdP',sub:'Keycloak · Auth0 · PingOne',own:'pl',detail:'Bring your own identity provider — no rip-and-replace. You keep full control of your identity stack.'},
+      {id:'idp',x:44,y:104,w:414,h:46,name:'Your IdP',sub:'Keycloak · PingOne · Auth0 · Entra ID / Google (designed)',own:'pl',detail:'Bring your own identity provider — no rip-and-replace. You keep full control of your identity stack.'},
       {id:'tox',x:44,y:166,w:414,h:46,name:'OAuth Token Exchange',sub:'RFC 8693',own:'vs',detail:'Standard RFC 8693 token exchange turns an IdP token into a transaction-scoped capability.'},
       {id:'br',x:44,y:228,w:414,h:46,name:'IdP → CAT bridge',sub:'identity → capability',own:'vs',hub:true,detail:'The open-source bridge that converts identity into a human-anchored capability the enforcement point can bind. Runs in your stack, nothing calls home.'},
       {id:'wl',x:44,y:290,w:414,h:46,name:'Workload bridge',sub:'SPIFFE / SVID',own:'vs',detail:'Non-human workloads attest via SPIFFE / SVID and receive scoped capabilities the same way.'},
@@ -1561,29 +1594,35 @@ border-radius:0 8px 8px 0;padding:11px 14px;line-height:1.55;}
     ['verify',A,3,'PQC hybrid signing','X25519 + ML-KEM-768','vs'],
     ['enforce',['blockchain'],1,'Ledger adapter','XRPL · Solana · EVM · …','cl'],
     ['enforce',['blockchain'],1,'Context-hash binding','bound to one txn','vs'],
-    ['enforce',['blockchain'],2,'On-chain anchor','Merkle root, out-of-band','cl'],
+    ['enforce',['blockchain'],2,'On-chain anchor','Merkle root, out-of-band · Arc Circle mainnet','cl'],
     ['enforce',['blockchain'],3,'Settlement gate','x402 · escrow · Token-2022 hook','vs'],
-    ['issue',['vasp'],1,'KYC / Compliance provider','CAT issuer — e.g. Sumsub','cl'],
-    ['verify',['vasp'],2,'Policy decision point','OPA-compatible · ABAC → TBAC','vs'],
-    ['verify',['vasp'],2,'Your policy engine','Notabene · Elliptic · OPA · custom — bring your own','pl'],
+    ['issue',['vasp'],1,'KYC provider','customer identity · CAT issuer','cl'],
+    ['verify',['vasp'],1,'KYT / sanctions screening','your screening provider','pl'],
+    ['verify',['vasp'],2,'Policy decision point','OPA-compatible decision API · ABAC → TBAC','vs'],
+    ['issue',['vasp'],2,'KYB provider','business customers','cl'],
+    ['verify',['vasp'],2,'Your policy engine','Notabene · Elliptic · OPA · custom (adapters planned)','pl'],
     ['enforce',['vasp'],2,'Travel Rule payload','TRP / TRISA · IVMS101','vs'],
     ['enforce',['vasp'],2,'ZK selective disclosure','amount hidden, no PII','vs'],
     ['verify',['vasp'],2,'VASP registry','counterparty lookup','pl'],
     ['enforce',['vasp'],3,'humanAnchor escrow','lawful recovery · t-of-n','vs'],
-    ['verify',['vasp'],3,'SPT-Txn jurisdiction pack','FATF · MiCA · VARA — optional, only if you lack an engine','pk'],
+    ['verify',['vasp'],3,'SPT-Txn jurisdiction pack','FATF · MiCA · VARA · roadmap, not built','pk'],
     ['issue',['rwa'],1,'RWA / claim issuer','trusted issuer','cl'],
+    ['issue',['rwa'],1,'KYC provider','investor identity','cl'],
+    ['issue',['rwa'],1,'KYB provider','issuer and institutional investors','cl'],
+    ['verify',['rwa'],2,'KYT / sanctions screening','transfer screening','pl'],
     ['enforce',['rwa'],1,'Compliance-gated token','ERC-3643-aligned','cl'],
     ['verify',['rwa'],2,'On-chain ZK eligibility','proven, no PII','vs'],
-    ['verify',['rwa'],2,'Your policy engine','OPA · custom · Sumsub — bring your own','pl'],
+    ['verify',['rwa'],2,'Your policy engine','OPA · custom (adapters planned)','pl'],
     ['enforce',['rwa'],2,'Permissioned transfer','holder-bound, replay-safe','vs'],
-    ['verify',['rwa'],3,'SPT-Txn jurisdiction pack','per-jurisdiction — optional, only if you lack an engine','pk'],
+    ['verify',['rwa'],3,'SPT-Txn jurisdiction pack','per-jurisdiction · roadmap, not built','pk'],
     ['issue',['ai'],1,'Agent identity','who acts','cl'],
     ['verify',['ai'],1,'Intent binding','one declared action','vs'],
     ['verify',['ai'],2,'Your policy engine','OPA · custom — bring your own','pl'],
     ['enforce',['ai'],2,'MCP PEP','policy-enforcement point','vs'],
     ['verify',['ai'],2,'Delegation attenuation','narrow-only, bounded depth','vs'],
     ['enforce',['ai'],3,'A2A + humanAnchor propagation','human-origin across hops','vs'],
-    ['issue',['idp'],1,'IdP','Keycloak · Auth0 · PingOne','pl'],
+    ['issue',['idp'],1,'IdP','Keycloak · PingOne (live) · Auth0 (tested)','pl'],
+    ['issue',['idp'],2,'Entra ID · Google','design published, not built','pl'],
     ['issue',['idp'],1,'OAuth Token Exchange','RFC 8693','vs'],
     ['issue',['idp'],2,'IdP → CAT bridge','identity → capability','vs'],
     ['issue',['idp'],2,'Workload-bridge','SPIFFE / SVID','vs'],
@@ -1598,10 +1637,10 @@ border-radius:0 8px 8px 0;padding:11px 14px;line-height:1.55;}
   };
   var CAP={
     blockchain:'You run the ledger adapter and hold your keys. The SPT-Txn verifier and receipt format are open-source (Apache-2.0) and run entirely inside your infrastructure — nothing calls home. The on-chain anchor is a periodic write, never in the hot path, and no PII touches the ledger.',
-    vasp:'Your KYC provider (e.g. Sumsub) issues the CAT; you operate the registry and keys. Policy is evaluated at one pluggable decision point: SPT-Txn calls your existing engine over a standard OPA-compatible decision API — an adapter for a Travel-Rule engine such as Notabene or Elliptic, your own OPA policies, or an imported rules bundle run in-process — then binds and records the decision. Adoption is your call: run entirely on your own engine; run an SPT-Txn jurisdiction pack alongside it in hybrid; or license a pack only if you have none — and retire the old engine later, at your pace. Either way it runs in your infra; SPT-Txn adds the per-transaction binding, a zero-knowledge Travel-Rule payload, and a signed receipt. PII stays off-chain and off the wire.',
-    rwa:'You (or your trusted issuer) mint the compliance-gated token and hold the keys. Eligibility policy is pluggable at one decision point: SPT-Txn calls your own engine over a standard decision API (OPA, an adapter to a screening provider such as Chainalysis, or custom) or runs your rules as an imported bundle — or you license an SPT-Txn pack only if you lack one, and can migrate at your pace. SPT-Txn’s on-chain ZK eligibility verifier and replay-safe permissioning are open-source and deployed by you — eligibility proven without exposing PII, and no outside party approves a transfer.',
+    vasp:'Basic: your KYC provider issues the CAT and your KYT provider screens transactions; you operate the registry and keys. Standard adds KYB for business customers, the Travel-Rule payload and one policy decision point: SPT-Txn exposes an OPA-compatible decision API today, and adapters that call Notabene, Elliptic or your own OPA are planned, not built. Comprehensive adds lawful-recovery escrow and, on the roadmap, a jurisdiction pack. SPT-Txn does not perform KYC, KYB or KYT; it adds the per-transaction binding, a zero-knowledge Travel-Rule payload and a signed, timestamped receipt. Everything runs in your infra; PII stays off-chain and off the wire.',
+    rwa:'An RWA issuer needs all three checks: KYC for investors, KYB for the issuer and institutional investors, and KYT screening of transfers. Your providers perform them; SPT-Txn does not. You (or your trusted issuer) mint the compliance-gated token and hold the keys. SPT-Txn exposes an OPA-compatible decision API; adapters to your own engine are planned. Its on-chain ZK eligibility verifier and replay-safe permissioning are open-source and deployed by you: eligibility proven without exposing PII, a signed receipt for every decision, and no outside party approves a transfer.',
     ai:'Your platform owns agent identity and can bring its own authorization policy (OPA / custom). SPT-Txn’s intent binding, MCP policy-enforcement point, and attenuating delegation are open-source and run in your stack — a compromised agent can’t exceed its grant, and nothing calls home.',
-    idp:'Bring your own IdP (Keycloak / Auth0 / PingOne). The open-source SPT-Txn bridge turns its tokens into human-anchored capabilities over RFC 8693 — no rip-and-replace, nothing calls home, and you keep full control of your identity stack.'
+    idp:'Bring your own IdP. Live with Keycloak and PingOne, tested against Auth0 token formats, with published designs for Microsoft Entra ID and Google that are not built yet; Okta is not yet tested. The open-source SPT-Txn bridge turns IdP tokens into human-anchored capabilities over RFC 8693: no rip-and-replace, nothing calls home, and you keep full control of your identity stack.'
   };
   var OWN={vs:'SPT-Txn open-source — you install & run it; no call-home',cl:'Client-operated (you deploy & control)',pl:'Pluggable — your choice',pk:'SPT-Txn licensed pack (optional — only if you lack an engine; runs in your infra, you enforce locally)'};
   var view='blockchain',lvl=1;
@@ -1850,13 +1889,14 @@ border-radius:0 8px 8px 0;padding:11px 14px;line-height:1.55;}
 </div>
 <div style="margin-top:3rem; border-top:1px solid var(--border); padding-top:2rem;">
   <div class="section-eyebrow">Ledger-agnostic · demonstrated across chains</div>
-  <p class="section-body" style="margin-top:1rem; max-width:760px;">SPT-Txn binds an authorization to a specific transaction without depending on any chain. The binding is implemented and tested behind one Go adapter interface for twenty ledgers (a single EVM adapter serves the EVM chains), and the attestation-anchor footprint is live across seven chains (Ethereum through mainnet; Arbitrum, Starknet, Aptos, Sui, Hedera, and Solana on their test networks). <strong>Two footprints reach mainnet, and they do different things:</strong> Ethereum carries on-chain ZK verification and anchoring, and XRPL carries the complete x402 loop &mdash; authorize &rarr; settle &rarr; verify. <strong>Every other footprint is a test network.</strong> That split is deliberate rather than incidental: chains are integration targets, never dependencies, and the authorization verifies offline with no chain at all.</p>
+  <p class="section-body" style="margin-top:1rem; max-width:760px;">SPT-Txn binds an authorization to a specific transaction without depending on any chain. The binding is implemented and tested behind one Go adapter interface for twenty ledgers (a single EVM adapter serves the EVM chains), and the attestation-anchor footprint is live across eight chains (Ethereum and Arc Circle on mainnet; Arbitrum, Starknet, Aptos, Sui, Hedera, and Solana on their test networks). <strong>Four footprints reach mainnet, and they do different things:</strong> Ethereum carries on-chain ZK verification and anchoring; XRPL carries the complete x402 loop &mdash; authorize &rarr; settle &rarr; verify; <strong>Arc Circle</strong> (Circle&rsquo;s Arc network) carries a guarded USDC payment, checked against its authorization before it is signed, plus checkpoints of the signed decision log; and <strong>Algorand</strong> carries a paid x402 verification service at <code>foss.violetskysecurity.com/x402</code>, where a caller pays $0.02 USDC per verification and receives a signed receipt (first mainnet payment 30 September 2026, transaction <code>645VFSLG&hellip;ONXQ7A</code>). <strong>Every other footprint is a test network.</strong> That split is deliberate rather than incidental: chains are integration targets, never dependencies, and the authorization verifies offline with no chain at all.</p>
   <p id="anchorLive" style="margin-top:0.9rem; font-family:'Space Mono',monospace; font-size:0.8rem; color:var(--muted);">Reading the live on-chain anchor…</p>
   <div style="margin-top:1.4rem; max-width:920px;">
     <div style="font-family:'Space Mono',monospace; font-size:0.68rem; letter-spacing:1.5px; color:var(--muted); margin-bottom:0.5rem;">LAYER 1</div>
     <div class="hero-tags" style="justify-content:flex-start;">
       <span class="hero-tag">Ethereum</span>
       <span class="hero-tag">XRPL</span>
+      <span class="hero-tag">Arc Circle</span>
       <span class="hero-tag">Hedera</span>
       <span class="hero-tag">Solana</span>
       <span class="hero-tag">Stellar</span>
@@ -2022,7 +2062,7 @@ border-radius:0 8px 8px 0;padding:11px 14px;line-height:1.55;}
 
     <div style="margin-top:2.4rem; border:1px solid var(--violet-m); border-radius:10px; background:rgba(123,47,190,0.08); padding:1.1rem 1.3rem; max-width:920px;">
       <div class="section-eyebrow" style="color:var(--violet-l);">Live · identity-provider &amp; AI-agent integration</div>
-      <p class="section-body" style="margin-top:0.5rem; margin-bottom:0;">Reuse is not theoretical. An existing identity provider issues SPT-Txn credentials over standard <strong>OAuth 2.0 Token Exchange (RFC 8693)</strong>, with no rip-and-replace. Demonstrated end-to-end against <strong>Keycloak</strong> (open-source), <strong>Auth0</strong> (commercial), and <strong>PingOne</strong>, including a <strong>PingOne AI Agent</strong> registered in Ping&rsquo;s Agent IAM Core (run end-to-end in a Ping test environment): an IdP-authenticated identity (a human, or a machine / M2M agent that carries no <code>sub</code> and is keyed on its verified <code>client_id</code>) is exchanged into a human-anchored capability that then <strong>verifies offline</strong> (with no identity-provider contact) and delegates to a sub-agent with attenuating, revocable authority. Where PingOne&rsquo;s own agent model enforces by <strong>online token introspection</strong> at a gateway, SPT-Txn verifies the same delegation <strong>offline, at the edge</strong>, emitting a tamper-evident receipt. The same flow targets Okta unchanged. A reference integration (<code>internal/oidc</code>, <code>cmd/idp-bridge</code>), not a proprietary connector.</p>
+      <p class="section-body" style="margin-top:0.5rem; margin-bottom:0;">Reuse is not theoretical. An existing identity provider issues SPT-Txn credentials over standard <strong>OAuth 2.0 Token Exchange (RFC 8693)</strong>, with no rip-and-replace. Demonstrated end-to-end against <strong>Keycloak</strong> (open-source) and <strong>PingOne</strong>, and tested in CI against <strong>Auth0</strong>&rsquo;s token formats (no live Auth0 tenant), including, on PingOne, a <strong>PingOne AI Agent</strong> registered in Ping&rsquo;s Agent IAM Core (run end-to-end in a Ping test environment): an IdP-authenticated identity (a human, or a machine / M2M agent that carries no <code>sub</code> and is keyed on its verified <code>client_id</code>) is exchanged into a human-anchored capability that then <strong>verifies offline</strong> (with no identity-provider contact) and delegates to a sub-agent with attenuating, revocable authority. Where PingOne&rsquo;s own agent model enforces by <strong>online token introspection</strong> at a gateway, SPT-Txn verifies the same delegation <strong>offline, at the edge</strong>, emitting a tamper-evident receipt. Designs for <strong>Microsoft Entra ID</strong> and <strong>Google</strong> are published (not built yet). Okta uses the same standards but has not been tested. A reference integration (<code>internal/oidc</code>, <code>cmd/idp-bridge</code>), not a proprietary connector.</p>
     </div>
 
     <p class="section-body" style="max-width:820px; margin-top:2.4rem;">SPT-Txn extends the Transaction Tokens line (Tulshibagwale et al., 2023) and is contemporaneous with the 2025–26 agent-context drafts, but is the first to add zero-knowledge selective disclosure, offline capability attenuation, a human anchor, and cross-ledger binding to that line. It does not claim to have originated transaction tokens, agent context, or selective disclosure: it <strong>extends an established line of work and contributes a specific new layer back as open source.</strong> That is the honest position, and it is security-by-design in practice: peer-reviewed primitives, verifiable claims, no proprietary black boxes.</p>
@@ -2081,7 +2121,7 @@ border-radius:0 8px 8px 0;padding:11px 14px;line-height:1.55;}
       beside them. We would rather you knew that before you read the rest than after.
       <br><br>
       Rudolf J. Coetzee · Violet Sky Security SEZC · Cayman Islands Special Economic Zone ·
-      draft-coetzee-oauth-spt-txn-tokens is an individual IETF Internet-Draft, not endorsed by the IETF. ·
+      draft-coetzee-oauth-spt-txn-tokens is an individual IETF Internet-Draft, not endorsed by the IETF. · Circle, Arc, Microsoft Entra, Google, Okta, Ping Identity, Auth0 and Keycloak are names of their respective owners; naming them describes interoperability we have run, tested or designed, not a partnership or endorsement. ·
       SPT-Txn is independently developed. Integration with .zkdid™ and .zkdns™ is proposed and not yet implemented or endorsed. .zkdid™ and .zkdns™ are trademarks associated with Toby Bolton&rsquo;s public-interest protocol initiative. Where this site uses the generic terms &ldquo;zkDID&rdquo; and &ldquo;zkDNS&rdquo; (for example &ldquo;zkDID commitment&rdquo;), they denote the generic zero-knowledge decentralized-identifier and naming primitives and are distinct from the .zkdid™ and .zkdns™ protocol and marks. ·
       © 2026 Violet Sky Security SEZC
     </div>

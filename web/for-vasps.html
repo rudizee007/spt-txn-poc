@@ -96,7 +96,10 @@
   <p>Accountability that only works by making everyone visible is not accountability, it is exposure. Identity material sits in an escrow envelope using a hybrid X25519 + ML&#8209;KEM&#8209;768 key encapsulation &mdash; hybrid so that a transcript captured today is not decryptable by a future quantum adversary &mdash; recoverable under lawful process rather than by anyone who happens to be on the path.</p>
 
   <h2>Evidence you can produce later</h2>
-  <p>Every decision emits a signed receipt. Receipts are hash&#8209;chained and committed to an RFC&nbsp;6962 Merkle log, so a supervisor can be shown that a specific decision was made, when, and that the record has not been altered since &mdash; without that record containing personal data.</p>
+  <p>Every decision emits a signed receipt, with the time of the decision inside the signature. Receipts are hash&#8209;chained and committed to an RFC&nbsp;6962 Merkle log, so a supervisor can be shown that a specific decision was made, when, and that the record has not been altered since &mdash; without that record containing personal data.</p>
+
+  <h2>KYC, KYB and KYT stay with your providers</h2>
+  <p>SPT&#8209;Txn does not perform know&#8209;your&#8209;customer, know&#8209;your&#8209;business or know&#8209;your&#8209;transaction (sanctions and transaction screening) checks. Your providers do. SPT&#8209;Txn binds the authorization that follows to one transaction and records the decision. Adapters that call an existing engine such as Notabene or Elliptic are planned, not built.</p>
 
   <h2>Interoperability</h2>
   <p>The working transport today is <strong>OpenVASP TRP</strong>. A published note sets out how the same payload maps onto TRISA, so the choice of transport does not decide the choice of privacy model.</p>
