@@ -13,7 +13,7 @@
 
 - Token authorization chain: Compliance Attestation Token (CAT) then Capability Token (CT) then SPT-Txn Token, with monotonic scope attenuation ("scope can only narrow") verified by an eight-step offline engine.
 - humanAnchor: a zero-knowledge commitment to the accountable person, carried on-ledger (transaction Memo / SourceTag) with no personally identifiable information on the wire.
-- Escrow and lawful deanonymization: the real identity is sealed to an escrow authority and recoverable only via a signed, lawful-basis request under threshold custody.
+- Escrow and lawful deanonymization: the real identity is sealed to an escrow authority and recoverable only via a signed request stating a lawful basis. Today a single escrow key opens an envelope and the lawful-basis check is structural; threshold (t-of-n) custody is designed, not built.
 - Zero-knowledge proofs: Groth16 over BN254, ZK-friendly Poseidon2 hashing, and Baby Jubjub in-circuit signatures for agentic delegation chains.
 - Post-quantum hybrid cryptography: X25519 + ML-KEM-768 (FIPS 203) for both TLS transport and escrow encapsulation, resistant to harvest-now-decrypt-later attacks; signatures are on a defined ML-DSA migration path.
 - Trust Registry: issuer keys, roles, and algorithm assignments as a signed, locally-cached snapshot; algorithm selection is registry-governed, giving downgrade resistance.
