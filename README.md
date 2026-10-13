@@ -1,7 +1,7 @@
 # SPT-Txn — Privacy-Preserving Compliance & Travel Rule Authorization (Reference POC)
 
 [![CI](https://github.com/rudizee007/spt-txn-poc/actions/workflows/ci.yml/badge.svg)](https://github.com/rudizee007/spt-txn-poc/actions/workflows/ci.yml)
-&nbsp;Apache-2.0 · Go 1.25 / gnark v0.15 · OpenBSD · live demo: <https://foss.violetskysecurity.com>
+&nbsp;Apache-2.0 · Go 1.26.6+ / gnark v0.16.3 · OpenBSD · live demo: <https://foss.violetskysecurity.com>
 
 SPT-Txn verifies compliance **once** and proves it **everywhere**, in zero
 knowledge — so regulated institutions and VASPs can transact, tokenise, and settle
@@ -140,10 +140,25 @@ Preprints: Zenodo `10.5281/zenodo.20870193` (framework paper v2), `10.5281/zenod
 
 ## Build & test
 
-Go 1.25+, gnark v0.15. The reference deployment runs on OpenBSD; the Go code is
-OS-portable (the pledge/unveil layer is behind build tags, with a no-op for
-non-OpenBSD). `go build ./...`; `go test ./internal/...`. ZK setup writes circuit
-keys via `cmd/zk-setup`.
+Use Go 1.26.6 or newer, as declared in `go.mod`. Go downloads the pinned
+dependencies, including gnark v0.16.3; a separate gnark installation is not
+required. The reference deployment runs on OpenBSD; the Go code is OS-portable
+(the pledge/unveil layer is behind build tags, with a no-op for non-OpenBSD).
+
+From the repository root:
+
+```sh
+GOWORK=off go build -mod=readonly ./...
+GOWORK=off go test -mod=readonly -count=1 ./...
+GOWORK=off go vet -mod=readonly ./...
+GOWORK=off go run -mod=readonly ./cmd/agentdemo
+```
+
+The offline demo shows scope enforcement and delegation revocation without
+wallet credentials or settlement. See [`docs/DEMO.md`](docs/DEMO.md) for expected
+results. These checks cover the root Go module; nested client modules and optional
+build tags require separate checks. Tests use local HTTP listeners. ZK setup
+writes circuit keys via `cmd/zk-setup`.
 
 ## Roadmap (honest)
 

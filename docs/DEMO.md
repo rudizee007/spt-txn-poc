@@ -1,16 +1,44 @@
 # SPT-Txn — reproduce it in minutes
 
-A reviewer walkthrough. Local steps need Go 1.25 + gnark v0.15; the on-chain and
-live-endpoint checks need nothing but `curl` (and a browser). Nothing here moves
-funds or requires keys.
+A reviewer walkthrough. Local steps require Go 1.26.6 or newer, as declared in
+`go.mod`. Go downloads the pinned dependencies, including gnark v0.16.3. Run the
+commands below from the repository root. The offline authorization examples
+need no wallet credentials and do not submit payments. Dependency downloads
+require network access on the first run; tests use local HTTP listeners.
+
+### Recorded verification
+
+On 13 October 2026, public revision
+`149b57f9a3ce1eee786de7be8af4bbfecd15a3a1` passed root-module build, test
+(`-count=1`), and vet on macOS arm64 using Go 1.26.6 and Go 1.27.1.
+The offline delegation demo and both x402 gate examples below also passed on
+both versions. Tests covered 55 packages; another 32 packages had no test files.
+
+To reproduce that source baseline in a new checkout:
+
+```sh
+git clone --no-recurse-submodules https://github.com/rudizee007/spt-txn-poc.git spt-txn-review
+cd spt-txn-review
+git checkout --detach 149b57f9a3ce1eee786de7be8af4bbfecd15a3a1
+export GOWORK=off
+export GOTOOLCHAIN=go1.26.6
+```
+
+Then run the checks and offline examples below. This record covers the public
+root module and those examples. Nested payment clients, optional HSM builds,
+other platforms, live services, and settlement were not verified in this run.
+It does not establish production readiness or independent security certification.
 
 ## 1. The whole suite is green
 
-```
-go test ./...
+```sh
+GOWORK=off go build -mod=readonly ./...
+GOWORK=off go test -mod=readonly -count=1 ./...
+GOWORK=off go vet -mod=readonly ./...
 ```
 Token chain, eight-step verifier, all ZK circuits, the two-party Travel Rule, the
-disclosure SDK, and 15 ledger adapters — all pass.
+disclosure SDK, and root-module ledger adapters are covered. Nested Go modules
+(such as payment clients) and optional build tags require separate checks.
 
 ## 2. Real zero-knowledge (measured, not claimed)
 
@@ -24,12 +52,24 @@ the proof is a constant 164 B.
 
 ## 3. Agentic delegation + revocation (offline)
 
-```
-go run ./cmd/agentdemo
+```sh
+GOWORK=off go run -mod=readonly ./cmd/agentdemo
 ```
 Shows multi-hop CT→CT delegation (scope can only narrow), the offline N-hop
 verifier, and a granular revocation cascade (revoking a delegator denies its
 sub-agents while the delegator's own authority stands).
+
+Expected decisions:
+
+| Scenario | Result |
+|---|---|
+| Sub-agent B pays $4000 within its $5000 ceiling | ALLOW |
+| Sub-agent B tries $6000 | DENY at mint because the scope is exceeded |
+| Sub-agent B pays $4000 after A's delegation authority is revoked | DENY |
+| Agent A pays $7000 under its retained $8000 capability | ALLOW |
+
+Generated anchors vary between runs; compare the decisions rather than the hash
+values. This example demonstrates the public authorization implementation.
 
 ## 4. Bind a real token to a transaction (any of 15 chains)
 
@@ -42,12 +82,14 @@ anchor calldata for that chain.
 
 ## 5. Authorize-before-pay for x402 (agentic payments)
 
-```
-go run ./cmd/x402gate -price 1000 -ceiling 5000     # ALLOW + humanAnchor Memo to stamp
-go run ./cmd/x402gate -price 9000 -ceiling 5000     # DENY — payment exceeds the agent's scope
+```sh
+GOWORK=off go run -mod=readonly ./cmd/x402gate -price 1000 -ceiling 5000     # ALLOW + humanAnchor Memo to stamp
+GOWORK=off go run -mod=readonly ./cmd/x402gate -price 9000 -ceiling 5000     # DENY — payment exceeds the agent's scope
 ```
 The SPT-Txn gate that decides whether an agent may make an x402 XRPL payment, and
 emits the humanAnchor Memo for on-ledger accountability with no PII.
+These are local XRPL authorization examples. They do not settle a payment or
+demonstrate Arc/Circle integration.
 
 ## 6. Live services (no install — `curl`)
 
