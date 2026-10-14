@@ -11,7 +11,7 @@ module github.com/rudizee007/spt-txn-poc/clients/sol-pay
 
 go 1.26.6
 
-require github.com/gagliardetto/solana-go v1.24.0
+require github.com/gagliardetto/solana-go v1.25.0
 
 require (
 	github.com/benbjohnson/clock v1.3.5 // indirect
