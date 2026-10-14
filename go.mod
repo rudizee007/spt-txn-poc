@@ -1,11 +1,11 @@
 module github.com/rudizee007/spt-txn-poc
 
-go 1.26.6
+go 1.26.8
 
 require (
 	filippo.io/mldsa v0.0.0-20260711112038-ff3f469cee29
-	github.com/consensys/gnark v0.16.3
-	github.com/consensys/gnark-crypto v0.21.0
+	github.com/consensys/gnark v0.16.4
+	github.com/consensys/gnark-crypto v0.21.1-0.20260913224755-1409fe592052
 	github.com/envoyproxy/go-control-plane/envoy v1.39.0
 	github.com/miekg/pkcs11 v1.1.2
 	github.com/rs/zerolog v1.35.1
