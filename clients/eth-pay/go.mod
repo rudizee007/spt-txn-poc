@@ -10,7 +10,7 @@ module github.com/rudizee007/spt-txn-poc/clients/eth-pay
 
 go 1.26.6
 
-require github.com/ethereum/go-ethereum v1.17.7
+require github.com/ethereum/go-ethereum v1.17.8
 
 require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
