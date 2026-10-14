@@ -9,7 +9,7 @@ go 1.26.6
 
 require (
 	github.com/rudizee007/spt-txn-poc v0.0.0
-	github.com/spiffe/go-spiffe/v2 v2.8.2
+	github.com/spiffe/go-spiffe/v2 v2.9.0
 )
 
 require (
