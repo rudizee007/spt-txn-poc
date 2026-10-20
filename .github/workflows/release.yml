@@ -34,7 +34,7 @@ jobs:
     name: gate · vet · test · conformance · govulncheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0   # buildvcs + git describe need full history
 
@@ -148,7 +148,7 @@ jobs:
       id-token: write       # keyless signing via OIDC (Sigstore)
       attestations: write   # SLSA build provenance
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
