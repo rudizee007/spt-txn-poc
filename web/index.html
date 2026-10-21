@@ -99,6 +99,15 @@
     overflow-x: hidden;
   }
 
+
+  /* Local provider marks; text carries identity and validation scope. */
+  .idp-status-grid { list-style:none; display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr)); gap:0.75rem; margin-top:1.4rem; }
+  .idp-status-card { display:flex; align-items:flex-start; gap:0.8rem; padding:1rem; border:1px solid var(--border); border-radius:6px; background:var(--bg2); }
+  .idp-icon { width:2rem; height:2rem; flex:none; color:var(--violet-xl); }
+  .idp-status-card strong { display:block; font-family:'Space Grotesk',sans-serif; font-size:0.92rem; color:var(--white); }
+  .idp-status-card p { font-size:0.8rem; color:var(--muted); line-height:1.6; margin-top:0.25rem; }
+  .idp-status-card .idp-state { color:var(--violet-xl); }
+
   /* ── NAV ── */
   nav {
     position: fixed; top: 0; left: 0; right: 0; z-index: 100;
@@ -1280,8 +1289,8 @@
       <p class="tk-body" style="margin-top:0.5rem; margin-bottom:0;"><strong>x402</strong> is the HTTP-native agent-payment standard (Coinbase, and Google’s AP2, build on it). x402 settles the payment; <strong>SPT-Txn gates it</strong>: before the agent pays, the gate checks it holds a human-anchored capability whose scope covers the spend, stamps a privacy-preserving <strong>humanAnchor</strong> into the on-ledger transaction, and the merchant re-runs the full eight-step verifier <em>offline</em> before delivering, trusting the authorization, not just that money arrived. No PII on-ledger; for regulated transfers it carries a FATF R.16 (Travel Rule) attestation. The complete loop (authorize → settle → verify → deliver, with an over-scope payment cryptographically <strong>DENied</strong> before anything is signed) is <strong>demonstrated end-to-end on XRPL</strong> <em>(through mainnet)</em>, and <strong>designed to run unchanged</strong> on the other supported chains (Hedera, Aptos, Ethereum, Base, Solana, NEAR) behind the same gate, verifier, and attestation; only a ~200-line ledger submitter differs per chain.</p>
     </div>
     <div style="margin-top:1.4rem; border:1px solid var(--border); border-radius:10px; padding:1rem 1.2rem;">
-      <div class="section-eyebrow" style="color:var(--violet-l);">Live &middot; a PingOne AI-Agent identity, exchanged into a human-anchored capability</div>
-      <p class="tk-body" style="margin-top:0.5rem; margin-bottom:0;">A live <strong>PingOne</strong>-registered <strong>AI Agent</strong> token (machine / M2M identity, no <code>sub</code>, keyed on its verified <code>client_id</code>) was verified against PingOne&rsquo;s live discovery and JWKS and exchanged, over standard <strong>OAuth 2.0 Token Exchange (RFC 8693)</strong>, into an offline-verifiable, holder-bound, <strong>human-anchored capability token</strong>: the same flow already shown live against <strong>Keycloak</strong> and tested against <strong>Auth0</strong>&rsquo;s token formats. SPT-Txn <strong>consumes</strong> the identity provider&rsquo;s agent token and adds what the IdP does not issue: a per-transaction, intent-bound, human-anchored, offline-verifiable authorization the merchant re-checks with no issuer contact.</p>
+      <div class="section-eyebrow" style="color:var(--violet-l);">Demonstrated &middot; a PingOne AI-Agent identity, exchanged into a human-anchored capability</div>
+      <p class="tk-body" style="margin-top:0.5rem; margin-bottom:0;">A live <strong>PingOne</strong>-registered <strong>AI Agent</strong> token (machine / M2M identity, no <code>sub</code>, keyed on its verified <code>client_id</code>) was verified against PingOne&rsquo;s live discovery and JWKS and exchanged, over standard <strong>OAuth 2.0 Token Exchange (RFC 8693)</strong>, into an offline-verifiable, holder-bound, <strong>human-anchored capability token</strong>: the same flow demonstrated end-to-end against <strong>Keycloak</strong> and token-format tested only against <strong>Auth0</strong> (no live Auth0 tenant). <strong>Microsoft Entra ID</strong> is locally validated for global-cloud single tenant only (not live production); <strong>Google</strong>: design published; implementation built, reviewed and hermetically tested locally, unmerged and unpushed pending owner approval and maintainer line-by-line review. Live validation on hold; M2M not built; <strong>Okta</strong>: live human SSO demonstrated end-to-end; M2M license-blocked and unproven. Public artifacts not yet committed. SPT-Txn <strong>consumes</strong> the identity provider&rsquo;s agent token and adds what the IdP does not issue: a per-transaction, intent-bound, human-anchored, offline-verifiable authorization the merchant re-checks with no issuer contact.</p>
     </div>
     <div style="margin-top:1.4rem; border:1px solid var(--border); border-radius:10px; padding:1rem 1.2rem;">
       <div class="section-eyebrow" style="color:var(--violet-l);">Live &middot; safe-preview decisions, never fail-open</div>
@@ -1349,7 +1358,7 @@
       <div class="tabs" id="tabs"></div>
       <div class="levels" id="levels"></div>
 
-      <div class="flow" id="flow"></div>
+      <div class="flow" id="sptx-flow"></div>
 
       <div class="legend">
         <span class="lg"><i class="sw vs"></i>SPT-Txn open-source (Apache-2.0): you install &amp; run it; no call-home</span>
@@ -1459,7 +1468,7 @@
     ], flows:[{to:'tool',label:'enforce action'},{to:'wrk',label:'attenuated + human-anchor'}] },
 
     idp:{ nodes:[
-      {id:'idp',x:44,y:104,w:414,h:46,name:'Your IdP',sub:'Keycloak · PingOne · Auth0 · Entra ID / Google (designed)',own:'pl',detail:'Bring your own identity provider, self-hosted (Keycloak) or cloud (PingOne, Auth0, Entra ID, Google). No rip-and-replace. You keep full control of your identity stack.'},
+      {id:'idp',x:44,y:104,w:414,h:46,name:'Your IdP',sub:'Provider validation scope: see Standards Alignment',own:'pl',detail:'Keycloak and PingOne: end-to-end demonstrated. Microsoft Entra ID: locally validated for global-cloud single tenant only, not live production. Auth0: token-format tested only, no live tenant. Google: design published; implementation built, reviewed and hermetically tested locally; unmerged/unpushed pending owner approval and maintainer review. Live validation on hold; M2M not built. Okta: live human SSO demonstrated end-to-end; M2M license-blocked and unproven. Public artifacts not yet committed. No rip-and-replace. You keep full control of your identity stack.'},
       {id:'tox',x:44,y:166,w:414,h:46,name:'OAuth Token Exchange',sub:'RFC 8693',own:'vs',detail:'Standard RFC 8693 token exchange turns an IdP token into a transaction-scoped capability.'},
       {id:'br',x:44,y:228,w:414,h:46,name:'IdP → CAT bridge',sub:'identity → capability',own:'vs',hub:true,detail:'The open-source bridge that converts identity into a human-anchored capability the enforcement point can bind. Runs in your stack, nothing calls home.'},
       {id:'wl',x:44,y:290,w:414,h:46,name:'Workload bridge',sub:'SPIFFE / SVID',own:'vs',detail:'Non-human workloads attest via SPIFFE / SVID and receive scoped capabilities the same way.'},
@@ -1623,8 +1632,11 @@ border-radius:0 8px 8px 0;padding:11px 14px;line-height:1.55;}
     ['enforce',['ai'],2,'MCP PEP','policy-enforcement point','vs'],
     ['verify',['ai'],2,'Delegation attenuation','narrow-only, bounded depth','vs'],
     ['enforce',['ai'],3,'A2A + humanAnchor propagation','human-origin across hops','vs'],
-    ['issue',['idp'],1,'IdP','Keycloak · PingOne (live) · Auth0 (tested)','pl'],
-    ['issue',['idp'],2,'Entra ID · Google','design published, not built','pl'],
+    ['issue',['idp'],1,'Keycloak · PingOne','End-to-end demonstrated','pl'],
+    ['issue',['idp'],1,'Okta','Live human SSO demonstrated · M2M license-blocked, unproven · public artifacts not yet committed','pl'],
+    ['issue',['idp'],1,'Microsoft Entra ID','Locally validated · global-cloud single tenant only · not live production','pl'],
+    ['issue',['idp'],1,'Google','Built and hermetically tested locally · unmerged/unpushed, review pending · live validation on hold · M2M not built','pl'],
+    ['issue',['idp'],1,'Auth0','Token-format tested only · no live tenant','pl'],
     ['issue',['idp'],1,'OAuth Token Exchange','RFC 8693','vs'],
     ['issue',['idp'],2,'IdP → CAT bridge','identity → capability','vs'],
     ['issue',['idp'],2,'Workload-bridge','SPIFFE / SVID','vs'],
@@ -1642,14 +1654,14 @@ border-radius:0 8px 8px 0;padding:11px 14px;line-height:1.55;}
     vasp:'Basic: your KYC provider issues the CAT and your KYT provider screens transactions; you operate the registry and keys. Standard adds KYB for business customers, the Travel-Rule payload and one policy decision point: SPT-Txn exposes an OPA-compatible decision API today, and adapters that call Notabene, Elliptic or your own OPA are planned, not built. Comprehensive adds lawful-recovery escrow and, on the roadmap, a jurisdiction pack. SPT-Txn does not perform KYC, KYB or KYT; it adds the per-transaction binding, a zero-knowledge Travel-Rule payload and a signed, timestamped receipt. Everything runs in your infra; PII stays off-chain and off the wire.',
     rwa:'An RWA issuer needs all three checks: KYC for investors, KYB for the issuer and institutional investors, and KYT screening of transfers. Your providers perform them; SPT-Txn does not. You (or your trusted issuer) mint the compliance-gated token and hold the keys. SPT-Txn exposes an OPA-compatible decision API; adapters to your own engine are planned. Its on-chain ZK eligibility verifier and replay-safe permissioning are open-source and deployed by you: eligibility proven without exposing PII, a signed receipt for every decision, and no outside party approves a transfer.',
     ai:'Your platform owns agent identity and can bring its own authorization policy (OPA / custom). SPT-Txn’s intent binding, MCP policy-enforcement point, and attenuating delegation are open-source and run in your stack. A compromised agent can’t exceed its grant, and nothing calls home.',
-    idp:'Bring your own IdP. Live with Keycloak and PingOne, tested against Auth0 token formats, with published designs for Microsoft Entra ID and Google that are not built yet; Okta is not yet tested. The open-source SPT-Txn bridge turns IdP tokens into human-anchored capabilities over RFC 8693: no rip-and-replace, nothing calls home, and you keep full control of your identity stack.'
+    idp:'Bring your own IdP. Keycloak and PingOne: end-to-end demonstrated. Microsoft Entra ID: locally validated for global-cloud single tenant only, not live production. Auth0: token-format tested only, no live tenant. Google: design published; implementation built, reviewed and hermetically tested locally; unmerged/unpushed pending owner approval and maintainer review. Live validation on hold; M2M not built. Okta: live human SSO demonstrated end-to-end; M2M license-blocked and unproven. Public artifacts not yet committed. The open-source SPT-Txn bridge turns IdP tokens into human-anchored capabilities over RFC 8693: no rip-and-replace, nothing calls home, and you keep full control of your identity stack.'
   };
   var OWN={vs:'SPT-Txn open-source, you install & run it; no call-home',cl:'Client-operated (you deploy & control)',pl:'Pluggable, your choice',pk:'SPT-Txn licensed pack (roadmap, not built; intended only if you lack an engine, would run in your infra)'};
   var view='blockchain',lvl=1;
 
   var root=document.getElementById('sptx');
   if(!root) return;
-  var tabsEl=root.querySelector('#tabs'),lvlEl=root.querySelector('#levels'),flowEl=root.querySelector('#flow'),
+  var tabsEl=root.querySelector('#tabs'),lvlEl=root.querySelector('#levels'),flowEl=root.querySelector('#sptx-flow'),
       colsEl=root.querySelector('#cols'),capEl=root.querySelector('#cap'),detEl=root.querySelector('#detail');
 
   VIEWS.forEach(function(v){var b=document.createElement('button');b.textContent=v[1];b.dataset.v=v[0];
@@ -2063,8 +2075,20 @@ border-radius:0 8px 8px 0;padding:11px 14px;line-height:1.55;}
     </div>
 
     <div style="margin-top:2.4rem; border:1px solid var(--violet-m); border-radius:10px; background:rgba(123,47,190,0.08); padding:1.1rem 1.3rem; max-width:920px;">
-      <div class="section-eyebrow" style="color:var(--violet-l);">Live · identity-provider &amp; AI-agent integration</div>
-      <p class="section-body" style="margin-top:0.5rem; margin-bottom:0;">Reuse is not theoretical. An existing identity provider issues SPT-Txn credentials over standard <strong>OAuth 2.0 Token Exchange (RFC 8693)</strong>, with no rip-and-replace. Demonstrated end-to-end against <strong>Keycloak</strong> (open-source) and <strong>PingOne</strong>, and tested in CI against <strong>Auth0</strong>&rsquo;s token formats (no live Auth0 tenant), including, on PingOne, a <strong>PingOne AI Agent</strong> registered in Ping&rsquo;s Agent IAM Core (run end-to-end in a Ping test environment): an IdP-authenticated identity (a human, or a machine / M2M agent that carries no <code>sub</code> and is keyed on its verified <code>client_id</code>) is exchanged into a human-anchored capability that then <strong>verifies offline</strong> (with no identity-provider contact) and delegates to a sub-agent with attenuating, revocable authority. Where PingOne&rsquo;s own agent model enforces by <strong>online token introspection</strong> at a gateway, SPT-Txn verifies the same delegation <strong>offline, at the edge</strong>, emitting a tamper-evident receipt. Designs for <strong>Microsoft Entra ID</strong> and <strong>Google</strong> are published (not built yet). Okta uses the same standards but has not been tested. A reference integration (<code>internal/oidc</code>, <code>cmd/idp-bridge</code>), not a proprietary connector.</p>
+      <div class="section-eyebrow" style="color:var(--violet-l);">Identity-provider &amp; AI-agent integration · validation scope</div>
+      <p class="section-body" style="margin-top:0.5rem; margin-bottom:0;">Reuse is not theoretical. The SPT-Txn bridge exchanges an existing identity provider&rsquo;s token for SPT-Txn credentials over standard <strong>OAuth 2.0 Token Exchange (RFC 8693)</strong>, with no rip-and-replace. Demonstrated end-to-end against <strong>Keycloak</strong> (open-source) and <strong>PingOne</strong>, and token-format tested only in CI against <strong>Auth0</strong> (no live Auth0 tenant), including, on PingOne, a <strong>PingOne AI Agent</strong> registered in Ping&rsquo;s Agent IAM Core (run end-to-end in a Ping test environment): an IdP-authenticated identity (a human, or a machine / M2M agent that carries no <code>sub</code> and is keyed on its verified <code>client_id</code>) is exchanged into a human-anchored capability that then <strong>verifies offline</strong> (with no identity-provider contact) and delegates to a sub-agent with attenuating, revocable authority. Where PingOne&rsquo;s own agent model enforces by <strong>online token introspection</strong> at a gateway, SPT-Txn verifies the same delegation <strong>offline, at the edge</strong>, emitting a tamper-evident receipt. <strong>Microsoft Entra ID</strong> is locally validated for global-cloud single tenant only, not live production. <strong>Google</strong>: design published; implementation built, reviewed and hermetically tested locally, unmerged and unpushed pending owner approval and maintainer line-by-line review. Live validation on hold; M2M not built. <strong>Okta</strong>: live human SSO demonstrated end-to-end; M2M license-blocked and unproven. Public artifacts not yet committed. A reference integration (<code>internal/oidc</code>, <code>cmd/idp-bridge</code>), not a proprietary connector.</p>
+      <div id="idp-validation" aria-labelledby="idp-validation-heading">
+        <h3 id="idp-validation-heading" style="font-family:'Space Grotesk',sans-serif;font-size:1rem;margin-top:1.5rem;">Provider validation status</h3>
+        <ul class="idp-status-grid">
+          <li class="idp-status-card"><svg class="idp-icon" viewBox="0 0 32 32" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg"><path d="m8 4 8 5 8-5 5 12-5 12-8-5-8 5-5-12Z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="13" cy="16" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M17 16h9m-4 0v4" stroke="currentColor" stroke-width="2"/></svg><div><strong>Keycloak</strong><p><span class="idp-state">End-to-end demonstrated</span><br>Reference integration demonstration.</p></div></li>
+          <li class="idp-status-card"><svg class="idp-icon" viewBox="0 0 32 32" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="3" width="26" height="26" rx="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 25V8h5a5 5 0 0 1 0 10h-5" fill="none" stroke="currentColor" stroke-width="3"/></svg><div><strong>PingOne</strong><p><span class="idp-state">End-to-end demonstrated</span><br>Includes an AI Agent in a Ping test environment.</p></div></li>
+          <li class="idp-status-card"><svg class="idp-icon" viewBox="0 0 32 32" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="11" fill="none" stroke="currentColor" stroke-width="4"/></svg><div><strong>Okta</strong><p><span class="idp-state">Human SSO demonstrated end-to-end</span><br>Live human SSO, including offline verification. M2M license-blocked and unproven; public artifacts not yet committed.</p></div></li>
+          <li class="idp-status-card"><svg class="idp-icon" viewBox="0 0 32 32" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg"><path d="M3 18 16 3l13 15-13 11Z" fill="none" stroke="currentColor" stroke-width="2"/><path d="m3 18 13 4 13-4M16 3v19" fill="none" stroke="currentColor" stroke-width="2"/></svg><div><strong>Microsoft Entra ID</strong><p><span class="idp-state">Locally validated</span><br>Global-cloud single tenant only; not live production.</p></div></li>
+          <li class="idp-status-card"><svg class="idp-icon" viewBox="0 0 32 32" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg"><path d="M26 10a12 12 0 1 0 1 11v-6H16" fill="none" stroke="currentColor" stroke-width="4"/></svg><div><strong>Google</strong><p><span class="idp-state">Built &amp; hermetically tested locally</span><br>Design published. Implementation reviewed locally; unmerged and unpushed pending owner approval and maintainer review. Live validation on hold; M2M not built.</p></div></li>
+          <li class="idp-status-card"><svg class="idp-icon" viewBox="0 0 32 32" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg"><path d="m16 3 12 5-2 14-10 7L6 22 4 8Z" fill="none" stroke="currentColor" stroke-width="2"/><path d="m16 9 2 5 5 1-4 4 1 5-4-3-4 3 1-5-4-4 5-1Z" fill="currentColor"/></svg><div><strong>Auth0</strong><p><span class="idp-state">Token-format tested only</span><br>CI format tests; no live Auth0 tenant.</p></div></li>
+        </ul>
+      </div>
+
     </div>
 
     <p class="section-body" style="max-width:820px; margin-top:2.4rem;">SPT-Txn extends the Transaction Tokens line (Tulshibagwale et al., 2023) and is contemporaneous with the 2025–26 agent-context drafts, but is the first to add zero-knowledge selective disclosure, offline capability attenuation, a human anchor, and cross-ledger binding to that line. It does not claim to have originated transaction tokens, agent context, or selective disclosure: it <strong>extends an established line of work and contributes a specific new layer back as open source.</strong> That is the honest position, and it is security-by-design in practice: peer-reviewed primitives, verifiable claims, no proprietary black boxes.</p>
