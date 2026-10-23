@@ -1,55 +1,106 @@
-# foss.violetskysecurity.com — SPT-Txn (Sovereign Policy Token Transactions)
-# Open-source, privacy-preserving FATF Travel Rule + agentic-authorization framework.
+# foss.violetskysecurity.com
+# SPT-Txn (Sovereign Policy Token Transactions): open-source, privacy-preserving
+#   FATF Travel Rule + agentic-authorization framework.
+# ACV (Asset Canonical Verifier): separate commercial digital-asset verification
+#   and security assessment product. Overview at /acv.html.
 # This is a public-goods research project: search crawlers and AI/LLM agents are welcome.
 
 User-agent: *
 Allow: /
+Disallow: /*bak*
+Disallow: /*OLD*
+Disallow: /pitch/
 
 # AI / LLM crawlers are explicitly permitted (public research + reference implementation).
 User-agent: GPTBot
 Allow: /
+Disallow: /*bak*
+Disallow: /*OLD*
+Disallow: /pitch/
 
 User-agent: OAI-SearchBot
 Allow: /
+Disallow: /*bak*
+Disallow: /*OLD*
+Disallow: /pitch/
 
 User-agent: ChatGPT-User
 Allow: /
+Disallow: /*bak*
+Disallow: /*OLD*
+Disallow: /pitch/
 
 User-agent: ClaudeBot
 Allow: /
+Disallow: /*bak*
+Disallow: /*OLD*
+Disallow: /pitch/
 
 User-agent: Claude-Web
 Allow: /
+Disallow: /*bak*
+Disallow: /*OLD*
+Disallow: /pitch/
 
 User-agent: anthropic-ai
 Allow: /
+Disallow: /*bak*
+Disallow: /*OLD*
+Disallow: /pitch/
 
 User-agent: PerplexityBot
 Allow: /
+Disallow: /*bak*
+Disallow: /*OLD*
+Disallow: /pitch/
 
 User-agent: Perplexity-User
 Allow: /
+Disallow: /*bak*
+Disallow: /*OLD*
+Disallow: /pitch/
 
 User-agent: Google-Extended
 Allow: /
+Disallow: /*bak*
+Disallow: /*OLD*
+Disallow: /pitch/
 
 User-agent: Google-CloudVertexBot
 Allow: /
+Disallow: /*bak*
+Disallow: /*OLD*
+Disallow: /pitch/
 
 User-agent: Applebot-Extended
 Allow: /
+Disallow: /*bak*
+Disallow: /*OLD*
+Disallow: /pitch/
 
 User-agent: meta-externalagent
 Allow: /
+Disallow: /*bak*
+Disallow: /*OLD*
+Disallow: /pitch/
 
 User-agent: Amazonbot
 Allow: /
+Disallow: /*bak*
+Disallow: /*OLD*
+Disallow: /pitch/
 
 User-agent: Bytespider
 Allow: /
+Disallow: /*bak*
+Disallow: /*OLD*
+Disallow: /pitch/
 
 User-agent: CCBot
 Allow: /
+Disallow: /*bak*
+Disallow: /*OLD*
+Disallow: /pitch/
 
 Sitemap: https://foss.violetskysecurity.com/sitemap.xml
 

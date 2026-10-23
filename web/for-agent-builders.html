@@ -24,10 +24,9 @@
     backdrop-filter: blur(12px); border-bottom:1px solid var(--border);
   }
   .nav-brand { /* nav-brand-flex */
-    display: inline-flex; align-items: center; gap: 0.6rem;
-    white-space: nowrap; flex: none; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:1rem; color:var(--violet-l); letter-spacing:0.04em; }
+    display: inline-flex; align-items: center; white-space: nowrap; flex: none; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:1rem; color:var(--violet-l); letter-spacing:0.04em; }
   .nav-brand span { color: var(--white); }
-  .nav-links { display: flex; flex-wrap: wrap; gap:2rem; list-style:none; }
+  .nav-links { display:flex; flex-wrap: wrap; gap:2rem; list-style:none; }
   .nav-links a { font-family:'Space Grotesk',sans-serif; font-size:0.82rem; font-weight:500; color:var(--muted); letter-spacing:0.06em; text-transform:uppercase; transition:color .2s; }
   .nav-links a:hover { color: var(--violet-l); }
 
@@ -61,6 +60,22 @@
   .legal td.no { color:#e5a3a3; } .legal td.yes { color:#a8dcc0; }
   .legal .tblwrap { overflow-x:auto; }
   @media (max-width:680px){ nav{padding:1rem 1.2rem;} .nav-links{display:none;} main.legal{padding-top:6.5rem;} }
+
+  /* Delegation narrowing — real decoded claims, not an illustration. */
+  .legal code { font-family:'Space Mono',monospace; font-size:0.86em; color:var(--violet-xl); }
+  .narrow { margin:1.5rem 0 1.2rem; }
+  .narrow-row {
+    border:1px solid var(--border); border-left:3px solid var(--violet);
+    background:var(--bg3); border-radius:6px; padding:0.85rem 1rem; margin-bottom:0.7rem;
+  }
+  .narrow-head { display:flex; justify-content:space-between; align-items:baseline; gap:1rem; flex-wrap:wrap; margin-bottom:0.55rem; }
+  .narrow-who { font-family:'Space Grotesk',sans-serif; font-size:0.9rem; font-weight:600; color:var(--white); }
+  .narrow-depth { font-family:'Space Mono',monospace; font-size:0.72rem; letter-spacing:0.04em; color:var(--violet-l); }
+  .narrow-bar { height:6px; border-radius:3px; background:rgba(155,78,221,0.14); overflow:hidden; margin-bottom:0.6rem; }
+  .narrow-bar span { display:block; height:100%; background:linear-gradient(90deg,var(--violet),var(--violet-l)); }
+  .narrow-scope { display:block; font-family:'Space Mono',monospace; font-size:0.78rem; color:#d9d6e6; word-break:break-word; }
+  .narrow-foot { font-size:0.9rem; color:var(--muted); margin-bottom:1rem; }
+  .nav-brand img { margin-right: 0.6rem; }
 </style>
 <link rel="icon" href="/favicon-transparent.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-transparent-32.png">
@@ -99,7 +114,47 @@
   <h2>Sub-agents, without handing over the keys</h2>
   <p>An agent can delegate to another agent, and the delegation can only narrow &mdash; a smaller ceiling, a shorter window, a subset of counterparties, never more than the parent held. Delegation depth is bounded, and revoking a delegator&rsquo;s key denies its sub&#8209;agents while leaving the delegator&rsquo;s own authority intact.</p>
 
-  <h2>Verification without a phone-home</h2>
+  <h2>What &ldquo;can only narrow&rdquo; looks like</h2>
+<p>Three real tokens, minted by the reference implementation while this page was written. The chain is
+human &rarr; agent &rarr; sub&#8209;agent, and these are the decoded <code>capability_scope</code> claims
+exactly as they appear in each token. Nothing below is illustrative.
+<code>go run ./cmd/agentdemo</code> reproduces it offline, with no network and no keys of ours.</p>
+
+<div class="narrow">
+  <div class="narrow-row">
+    <div class="narrow-head">
+      <span class="narrow-who">CAT: the human&rsquo;s mandate</span>
+      <span class="narrow-depth">delegation_depth_max 3</span>
+    </div>
+    <div class="narrow-bar"><span style="width:100%"></span></div>
+    <code class="narrow-scope">{"action":"payment","currency":"USD","max_amount":10000}</code>
+  </div>
+  <div class="narrow-row">
+    <div class="narrow-head">
+      <span class="narrow-who">CT: agent A, issued by the organisation</span>
+      <span class="narrow-depth">delegation_depth_remaining 2</span>
+    </div>
+    <div class="narrow-bar"><span style="width:80%"></span></div>
+    <code class="narrow-scope">{"currency":"USD","max_amount":8000}</code>
+  </div>
+  <div class="narrow-row">
+    <div class="narrow-head">
+      <span class="narrow-who">CT: sub&#8209;agent B, delegated <em>by agent A</em></span>
+      <span class="narrow-depth">delegation_depth_remaining 1</span>
+    </div>
+    <div class="narrow-bar"><span style="width:50%"></span></div>
+    <code class="narrow-scope">{"currency":"USD","max_amount":5000}</code>
+  </div>
+</div>
+
+<p class="narrow-foot">The ceiling falls at every hop, the depth counter falls with it, and the
+<code>human_anchor</code> claim is byte&#8209;identical in all three: the same accountable person,
+carried unchanged to the last delegate. Widening is not rejected at spend time; it is refused at
+<em>mint</em>, so a token granting more than its parent never exists. In the same demo, sub&#8209;agent B
+asking for 6,000 against its 5,000 ceiling is refused before any token is issued, and revoking agent A&rsquo;s
+delegation key kills B&rsquo;s authority while leaving A&rsquo;s own capability working.</p>
+
+<h2>Verification without a phone-home</h2>
   <p>Verification is offline: the verifier needs the token and a locally cached snapshot of the trust registry, and contacts no issuer, no registry service and no chain to reach a decision. Nothing about your users&rsquo; activity reaches us, because nothing reaches us at all.</p>
 
   <h2>And a receipt for every decision</h2>

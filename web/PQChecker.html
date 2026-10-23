@@ -42,6 +42,31 @@ body{
 }
 .wrap{max-width:1080px;margin:0 auto;padding:0 20px 80px}
 
+/* ---------- top nav: this page had no way back to the rest of the site ---------- */
+.topnav{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  padding:16px 0 14px;border-bottom:1px solid var(--rule)}
+.topnav .brand{font-family:var(--mono);font-size:12px;letter-spacing:.16em;color:var(--pq);text-decoration:none}
+.topnav .brand b{color:var(--txt);font-weight:600}
+.topnav ul{display:flex;gap:20px;list-style:none;margin:0;padding:0;flex-wrap:wrap}
+.topnav a{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);text-decoration:none}
+.topnav a:hover{color:var(--pq)}
+
+/* ---------- grid behind the masthead, in this page's own palette ---------- */
+header{position:relative}
+header::before{
+  content:"";position:absolute;inset:0 -20px;pointer-events:none;z-index:0;
+  background-image:
+    linear-gradient(rgba(167,139,250,0.20) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(167,139,250,0.20) 1px, transparent 1px),
+    linear-gradient(rgba(124,92,224,0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(124,92,224,0.09) 1px, transparent 1px);
+  background-size:60px 60px, 60px 60px, 15px 15px, 15px 15px;
+  -webkit-mask-image:radial-gradient(ellipse 90% 78% at 50% 42%, black 40%, transparent 100%);
+  mask-image:radial-gradient(ellipse 90% 78% at 50% 42%, black 40%, transparent 100%);
+}
+header > *{position:relative;z-index:1}
+
 /* ---------- micro-typography: the personality lives here ---------- */
 .eyebrow{
   font-family:var(--mono);font-size:10.5px;letter-spacing:.22em;
@@ -254,6 +279,18 @@ a{color:var(--pq)}
 </head>
 <body>
 <div class="wrap">
+
+<nav class="topnav" aria-label="Main">
+  <a class="brand" href="/">SPT<b>-Txn</b> / PQChecker</a>
+  <ul>
+    <li><a href="/">Home</a></li>
+    <li><a href="/acv.html">ACV</a></li>
+    <li><a href="/demo.html">Demo</a></li>
+    <li><a href="/#architecture">Architecture</a></li>
+    <li><a href="/#publications">Research</a></li>
+    <li><a href="https://www.violetskysecurity.com" target="_blank" rel="noopener">Violet Sky &#8599;</a></li>
+  </ul>
+</nav>
 
 <header>
   <div class="eyebrow">foss.violetskysecurity.com / tools</div>

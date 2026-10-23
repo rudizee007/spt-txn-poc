@@ -24,10 +24,9 @@
     backdrop-filter: blur(12px); border-bottom:1px solid var(--border);
   }
   .nav-brand { /* nav-brand-flex */
-    display: inline-flex; align-items: center; gap: 0.6rem;
-    white-space: nowrap; flex: none; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:1rem; color:var(--violet-l); letter-spacing:0.04em; }
+    display: inline-flex; align-items: center; white-space: nowrap; flex: none; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:1rem; color:var(--violet-l); letter-spacing:0.04em; }
   .nav-brand span { color: var(--white); }
-  .nav-links { display: flex; flex-wrap: wrap; gap:2rem; list-style:none; }
+  .nav-links { display:flex; flex-wrap: wrap; gap:2rem; list-style:none; }
   .nav-links a { font-family:'Space Grotesk',sans-serif; font-size:0.82rem; font-weight:500; color:var(--muted); letter-spacing:0.06em; text-transform:uppercase; transition:color .2s; }
   .nav-links a:hover { color: var(--violet-l); }
 
@@ -61,6 +60,22 @@
   .legal td.no { color:#e5a3a3; } .legal td.yes { color:#a8dcc0; }
   .legal .tblwrap { overflow-x:auto; }
   @media (max-width:680px){ nav{padding:1rem 1.2rem;} .nav-links{display:none;} main.legal{padding-top:6.5rem;} }
+
+  /* Delegation narrowing — real decoded claims, not an illustration. */
+  .legal code { font-family:'Space Mono',monospace; font-size:0.86em; color:var(--violet-xl); }
+  .narrow { margin:1.5rem 0 1.2rem; }
+  .narrow-row {
+    border:1px solid var(--border); border-left:3px solid var(--violet);
+    background:var(--bg3); border-radius:6px; padding:0.85rem 1rem; margin-bottom:0.7rem;
+  }
+  .narrow-head { display:flex; justify-content:space-between; align-items:baseline; gap:1rem; flex-wrap:wrap; margin-bottom:0.55rem; }
+  .narrow-who { font-family:'Space Grotesk',sans-serif; font-size:0.9rem; font-weight:600; color:var(--white); }
+  .narrow-depth { font-family:'Space Mono',monospace; font-size:0.72rem; letter-spacing:0.04em; color:var(--violet-l); }
+  .narrow-bar { height:6px; border-radius:3px; background:rgba(155,78,221,0.14); overflow:hidden; margin-bottom:0.6rem; }
+  .narrow-bar span { display:block; height:100%; background:linear-gradient(90deg,var(--violet),var(--violet-l)); }
+  .narrow-scope { display:block; font-family:'Space Mono',monospace; font-size:0.78rem; color:#d9d6e6; word-break:break-word; }
+  .narrow-foot { font-size:0.9rem; color:var(--muted); margin-bottom:1rem; }
+  .nav-brand img { margin-right: 0.6rem; }
 </style>
 <link rel="icon" href="/favicon-transparent.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-transparent-32.png">
@@ -96,7 +111,47 @@
   </ul>
   <p>The anchor to the human is carried unchanged through every hop, so a decision three delegations deep still traces to the person who authorized it &mdash; without that person&rsquo;s identity appearing anywhere on the wire.</p>
 
-  <h2>One decision engine, wherever the agent acts</h2>
+  <h2>What &ldquo;can only narrow&rdquo; looks like</h2>
+<p>Three real tokens, minted by the reference implementation while this page was written. The chain is
+human &rarr; agent &rarr; sub&#8209;agent, and these are the decoded <code>capability_scope</code> claims
+exactly as they appear in each token. Nothing below is illustrative.
+<code>go run ./cmd/agentdemo</code> reproduces it offline, with no network and no keys of ours.</p>
+
+<div class="narrow">
+  <div class="narrow-row">
+    <div class="narrow-head">
+      <span class="narrow-who">CAT: the human&rsquo;s mandate</span>
+      <span class="narrow-depth">delegation_depth_max 3</span>
+    </div>
+    <div class="narrow-bar"><span style="width:100%"></span></div>
+    <code class="narrow-scope">{"action":"payment","currency":"USD","max_amount":10000}</code>
+  </div>
+  <div class="narrow-row">
+    <div class="narrow-head">
+      <span class="narrow-who">CT: agent A, issued by the organisation</span>
+      <span class="narrow-depth">delegation_depth_remaining 2</span>
+    </div>
+    <div class="narrow-bar"><span style="width:80%"></span></div>
+    <code class="narrow-scope">{"currency":"USD","max_amount":8000}</code>
+  </div>
+  <div class="narrow-row">
+    <div class="narrow-head">
+      <span class="narrow-who">CT: sub&#8209;agent B, delegated <em>by agent A</em></span>
+      <span class="narrow-depth">delegation_depth_remaining 1</span>
+    </div>
+    <div class="narrow-bar"><span style="width:50%"></span></div>
+    <code class="narrow-scope">{"currency":"USD","max_amount":5000}</code>
+  </div>
+</div>
+
+<p class="narrow-foot">The ceiling falls at every hop, the depth counter falls with it, and the
+<code>human_anchor</code> claim is byte&#8209;identical in all three: the same accountable person,
+carried unchanged to the last delegate. Widening is not rejected at spend time; it is refused at
+<em>mint</em>, so a token granting more than its parent never exists. In the same demo, sub&#8209;agent B
+asking for 6,000 against its 5,000 ceiling is refused before any token is issued, and revoking agent A&rsquo;s
+delegation key kills B&rsquo;s authority while leaving A&rsquo;s own capability working.</p>
+
+<h2>One decision engine, wherever the agent acts</h2>
   <p>The same enforcement point sits in front of an HTTP payment endpoint or an agent tool call. It computes a fixed&#8209;width binding over the exact action being requested and returns one of three outcomes &mdash; <strong>ALLOW</strong>, <strong>DENY&nbsp;(violation)</strong>, or <strong>DENY&nbsp;(unavailable)</strong> &mdash; so an attack and an outage are never confused for one another, and neither is ever silently permitted.</p>
   <p>A compromised or prompt&#8209;injected agent cannot exceed or re&#8209;widen what it was granted. That is containment at the point of action, not detection afterwards.</p>
 
@@ -108,7 +163,7 @@
 
   <h2>Honest boundaries</h2>
   <div class="callout">
-    SPT&#8209;Txn is a proof of concept and a specification effort. <strong>Nothing in it has been externally audited or certified, and it is not in production use.</strong> Our security reviews are our own. On&#8209;chain footprints are on public testnets except where stated otherwise. An independent review of the zero&#8209;knowledge circuits and the protocol is wanted and has not happened. We say this plainly rather than implying assurances we have not earned.
+    SPT&#8209;Txn is a proof of concept and a specification effort. <strong>Nothing in it has been externally audited or certified, and it is not in production use.</strong> Our security reviews are our own. On&#8209;chain footprints are on public testnets except where stated otherwise. An independent review of the zero&#8209;knowledge circuits and the protocol is wanted and has not happened. We say this plainly rather than implying assurances we have not earned. One more, since an institution will ask it first: <strong>key reconstitution is designed but not settled.</strong> If an issuer loses its signing key, the revocation cascade and a cross&#8209;organisation quorum are specified, but the ceremony shape is an open decision. Who holds what, and what it takes to stand an issuer back up without invalidating the delegations beneath it, is not a runbook we can hand you today.
   </div>
 
   <h2>If this is useful to you</h2>

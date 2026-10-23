@@ -13,9 +13,7 @@
 <meta property="og:title" content="SPT-Txn × x402 — Live Demo">
 <meta property="og:description" content="x402 moves the money. SPT-Txn proves the agent was allowed to. Live demo, repos, and on-chain proof on Solana devnet.">
 <meta property="og:url" content="https://foss.violetskysecurity.com/demo.html">
-<meta property="og:image" content="https://foss.violetskysecurity.com/link-preview-black-1200x630.png">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
+<meta property="og:image" content="https://foss.violetskysecurity.com/logo_lion.png">
 
 <!-- Self-hosted fonts (no third-party requests) -->
 <link rel="stylesheet" href="/fonts.css">
@@ -47,20 +45,19 @@
   /* ── NAV ── */
   nav {
     position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-    display: flex; align-items: center; justify-content: space-between; gap: 3.25rem; gap: 2rem;
+    display: flex; align-items: center; justify-content: space-between; gap: 3.25rem;
     padding: 1rem 2.5rem;
     background: rgba(10,6,18,0.85);
     backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border);
   }
   .nav-brand { /* nav-brand-flex */
-    display: inline-flex; align-items: center; gap: 0.6rem;
-    white-space: nowrap; flex: none;
+    display: inline-flex; align-items: center; white-space: nowrap; flex: none;
     font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 1rem;
     color: var(--violet-l); text-decoration: none; letter-spacing: 0.04em;
   }
   .nav-brand span { color: var(--white); }
-  .nav-links { display: flex; flex-wrap: wrap; gap: 1.6rem; list-style: none; }
+  .nav-links { display: flex; flex-wrap: wrap; gap: 2rem; list-style: none; }
   .nav-links a {
     font-family: 'Space Grotesk', sans-serif; font-size: 0.82rem; font-weight: 500;
     color: var(--muted); text-decoration: none; letter-spacing: 0.06em;
@@ -111,6 +108,22 @@
     background: #000; box-shadow: 0 0 60px rgba(123,47,190,0.14);
   }
   .video-frame video { display: block; width: 100%; height: auto; }
+
+  /* Grid behind the video frames. :has() needs no markup change; browsers
+     without it simply render the section as before. */
+  section:has(.video-frame) { position: relative; overflow: hidden; }
+  section:has(.video-frame)::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+    background-image:
+      linear-gradient(rgba(175,100,240,0.18) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(175,100,240,0.18) 1px, transparent 1px),
+      linear-gradient(rgba(155,78,221,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(155,78,221,0.05) 1px, transparent 1px);
+    background-size: 60px 60px, 60px 60px, 30px 30px, 30px 30px;
+    -webkit-mask-image: radial-gradient(ellipse 95% 80% at 50% 50%, black 35%, transparent 100%);
+    mask-image: radial-gradient(ellipse 95% 80% at 50% 50%, black 35%, transparent 100%);
+  }
+  section:has(.video-frame) > * { position: relative; z-index: 1; }
   .video-cap { font-size: 0.85rem; color: var(--muted); margin-top: 0.8rem; text-align: center; }
 
   /* ── LINK CARDS ── */
@@ -140,6 +153,7 @@
   }
 
   @media (max-width: 640px) { nav { padding: 1rem 1.2rem; } .nav-links { gap: 1.1rem; } header { padding-top: 7.5rem; } }
+  .nav-brand img { margin-right: 0.6rem; }
 </style>
 <link rel="icon" href="/favicon-transparent.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-transparent-32.png">
