@@ -19,13 +19,15 @@
 
   nav {
     position: fixed; top:0; left:0; right:0; z-index:100;
-    display:flex; align-items:center; justify-content:space-between;
+    display:flex; align-items:center; justify-content:space-between; gap: 3.25rem;
     padding:1rem 2.5rem; background:rgba(10,6,18,0.85);
     backdrop-filter: blur(12px); border-bottom:1px solid var(--border);
   }
-  .nav-brand { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:1rem; color:var(--violet-l); letter-spacing:0.04em; }
+  .nav-brand { /* nav-brand-flex */
+    display: inline-flex; align-items: center; gap: 0.6rem;
+    white-space: nowrap; flex: none; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:1rem; color:var(--violet-l); letter-spacing:0.04em; }
   .nav-brand span { color: var(--white); }
-  .nav-links { display:flex; gap:2rem; list-style:none; }
+  .nav-links { display: flex; flex-wrap: wrap; gap:2rem; list-style:none; }
   .nav-links a { font-family:'Space Grotesk',sans-serif; font-size:0.82rem; font-weight:500; color:var(--muted); letter-spacing:0.06em; text-transform:uppercase; transition:color .2s; }
   .nav-links a:hover { color: var(--violet-l); }
 
@@ -60,11 +62,14 @@
   .legal .tblwrap { overflow-x:auto; }
   @media (max-width:680px){ nav{padding:1rem 1.2rem;} .nav-links{display:none;} main.legal{padding-top:6.5rem;} }
 </style>
+<link rel="icon" href="/favicon-transparent.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-transparent-32.png">
+<link rel="icon" type="image/png" sizes="48x48" href="/favicon-transparent-48.png">
 </head>
 <body>
 
 <nav>
-  <a class="nav-brand" href="/">SPT&#8209;Txn <span>· foss.violetskysecurity.com</span></a>
+  <a class="nav-brand" href="/"><img src="/nav-transparent-36.png" srcset="/nav-transparent-72.png 2x, /nav-transparent-108.png 3x" width="36" height="36" alt="" aria-hidden="true">SPT&#8209;Txn</a>
   <ul class="nav-links">
     <li><a href="/">Home</a></li>
     <li><a href="/#tokens">Tokens</a></li>

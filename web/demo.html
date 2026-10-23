@@ -13,7 +13,9 @@
 <meta property="og:title" content="SPT-Txn × x402 — Live Demo">
 <meta property="og:description" content="x402 moves the money. SPT-Txn proves the agent was allowed to. Live demo, repos, and on-chain proof on Solana devnet.">
 <meta property="og:url" content="https://foss.violetskysecurity.com/demo.html">
-<meta property="og:image" content="https://foss.violetskysecurity.com/logo_lion.png">
+<meta property="og:image" content="https://foss.violetskysecurity.com/link-preview-black-1200x630.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
 
 <!-- Self-hosted fonts (no third-party requests) -->
 <link rel="stylesheet" href="/fonts.css">
@@ -45,18 +47,20 @@
   /* ── NAV ── */
   nav {
     position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-    display: flex; align-items: center; justify-content: space-between;
+    display: flex; align-items: center; justify-content: space-between; gap: 3.25rem; gap: 2rem;
     padding: 1rem 2.5rem;
     background: rgba(10,6,18,0.85);
     backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border);
   }
-  .nav-brand {
+  .nav-brand { /* nav-brand-flex */
+    display: inline-flex; align-items: center; gap: 0.6rem;
+    white-space: nowrap; flex: none;
     font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 1rem;
     color: var(--violet-l); text-decoration: none; letter-spacing: 0.04em;
   }
   .nav-brand span { color: var(--white); }
-  .nav-links { display: flex; gap: 2rem; list-style: none; }
+  .nav-links { display: flex; flex-wrap: wrap; gap: 1.6rem; list-style: none; }
   .nav-links a {
     font-family: 'Space Grotesk', sans-serif; font-size: 0.82rem; font-weight: 500;
     color: var(--muted); text-decoration: none; letter-spacing: 0.06em;
@@ -137,11 +141,14 @@
 
   @media (max-width: 640px) { nav { padding: 1rem 1.2rem; } .nav-links { gap: 1.1rem; } header { padding-top: 7.5rem; } }
 </style>
+<link rel="icon" href="/favicon-transparent.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-transparent-32.png">
+<link rel="icon" type="image/png" sizes="48x48" href="/favicon-transparent-48.png">
 </head>
 <body>
 
 <nav>
-  <a class="nav-brand" href="/">SPT<span>-Txn</span></a>
+  <a class="nav-brand" href="/"><img src="/nav-transparent-36.png" srcset="/nav-transparent-72.png 2x, /nav-transparent-108.png 3x" width="36" height="36" alt="" aria-hidden="true">SPT<span>-Txn</span></a>
   <ul class="nav-links">
     <li><a href="/">Home</a></li>
     <li><a href="/#architecture">Architecture</a></li>
