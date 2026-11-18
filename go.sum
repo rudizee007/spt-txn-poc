@@ -6,10 +6,10 @@ github.com/blang/semver/v4 v4.0.0 h1:1PFHFE6yCCTv8C1TeyNNarDzntLi7wMI5i/pzqYIsAM
 github.com/blang/semver/v4 v4.0.0/go.mod h1:IbckMUScFkM3pff0VJDNKRiT6TG/YpiHIM2yvyW5YoQ=
 github.com/cncf/xds/go v0.0.0-20260202195803-dba9d589def2 h1:aBangftG7EVZoUb69Os8IaYg++6uMOdKK83QtkkvJik=
 github.com/cncf/xds/go v0.0.0-20260202195803-dba9d589def2/go.mod h1:qwXFYgsP6T7XnJtbKlf1HP8AjxZZyzxMmc+Lq5GjlU4=
-github.com/consensys/gnark v0.16.4 h1:CFhjc70ns/ChmwDOUeCp8edHj6t6HO+8S9ny0kFrG9Q=
-github.com/consensys/gnark v0.16.4/go.mod h1:yYeERwGH1N5izgk6EH/hNIvCxGri29oohtjOqpK20pU=
-github.com/consensys/gnark-crypto v0.22.0 h1:RYH7FX1/zkmNrSiABo70HAqew41SRUsoluKundObo3o=
-github.com/consensys/gnark-crypto v0.22.0/go.mod h1:HL8XflRG4cvau1PEG3CWBTD2kkzUzdlqZF6BBgy57F8=
+github.com/consensys/gnark v0.16.5 h1:5usqHH6/rjb9nYvm5/97ht2F2cpC0kZXJBn7VtanyGo=
+github.com/consensys/gnark v0.16.5/go.mod h1:5KZCuhq5kKyn5s4R0nAzFxlRnGyVDoS2+0nEE6/EoPk=
+github.com/consensys/gnark-crypto v0.22.1-0.20261109214502-1b28c4e97311 h1:eympL7IUowMYVW5CoILUCusfJHBM7tyW4kQURieeXtI=
+github.com/consensys/gnark-crypto v0.22.1-0.20261109214502-1b28c4e97311/go.mod h1:+GBvEPnGIwDMfw6RJdxtImW8wHcBDaveR3s8URlDAc0=
 github.com/envoyproxy/go-control-plane/envoy v1.40.0 h1:G4dcl8KE/HVPnZ25BBdvGZWi8JjyeBfQSvm95U5P1Qc=
 github.com/envoyproxy/go-control-plane/envoy v1.40.0/go.mod h1:UZVGjwWu2QV8PkGSlXmqWiSgqCGZe16TgIu4jDl3T5w=
 github.com/envoyproxy/protoc-gen-validate v1.3.3 h1:MVQghNeW+LZcmXe7SY1V36Z+WFMDjpqGAGacLe2T0ds=

@@ -4,8 +4,8 @@ go 1.26.8
 
 require (
 	filippo.io/mldsa v1.0.0
-	github.com/consensys/gnark v0.16.4
-	github.com/consensys/gnark-crypto v0.22.0
+	github.com/consensys/gnark v0.16.5
+	github.com/consensys/gnark-crypto v0.22.1-0.20261109214502-1b28c4e97311
 	github.com/envoyproxy/go-control-plane/envoy v1.40.0
 	github.com/miekg/pkcs11 v1.1.2
 	github.com/rs/zerolog v1.35.1
